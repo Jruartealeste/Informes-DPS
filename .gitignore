@@ -1,0 +1,9 @@
+.env
+advertys.db
+informe_dinamico.xlsx
+sample_data/
+exports_pendientes/
+exploracion/
+__pycache__/
+*.pyc
+informe_*.html
