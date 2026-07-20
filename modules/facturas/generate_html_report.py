@@ -48,6 +48,7 @@ def main():
         ],
         "charts": [
             {"mount": "chart-mes", "type": "bar", "groupBy": "_periodo", "agg": "sum", "field": "total_ml", "fmt": "money"},
+            {"mount": "chart-comparacion", "type": "period_compare", "field": "total_ml", "fmt": "money", "granularity": "month"},
             {"mount": "chart-clientes", "type": "hbar", "groupBy": "cliente", "agg": "sum", "field": "total_ml", "fmt": "money", "topN": 10},
             {"mount": "chart-anunciantes", "type": "hbar", "groupBy": "anunciante", "agg": "sum", "field": "total_ml", "fmt": "money", "topN": 10},
         ],
@@ -63,26 +64,6 @@ def main():
                 "numericCols": ["subtotal_ml", "total_ml"],
                 "sort": {"key": "total_ml", "dir": "desc"},
             },
-            {
-                "mount": "tabla-producto", "groupBy": "producto",
-                "aggs": [
-                    {"key": "facturas", "op": "count"},
-                    {"key": "total_ml", "op": "sum", "field": "total_ml"},
-                ],
-                "columns": [["producto", "Producto"], ["facturas", "Facturas"], ["total_ml", "Total ML"]],
-                "numericCols": ["total_ml"],
-                "sort": {"key": "total_ml", "dir": "desc"},
-            },
-            {
-                "mount": "tabla-detalle",
-                "columns": [
-                    ["fecha", "Fecha"], ["numero_referencia", "Nro Referencia"], ["anunciante", "Anunciante"],
-                    ["cliente", "Cliente"], ["cuit", "Cuit"], ["producto", "Producto"], ["moneda", "Moneda"],
-                    ["subtotal_ml", "Subtotal ML"], ["impuestos_ml", "Impuestos ML"], ["total_ml", "Total ML"], ["estado", "Estado"],
-                ],
-                "numericCols": ["subtotal_ml", "impuestos_ml", "total_ml"],
-                "sort": {"key": "fecha", "dir": "desc"},
-            },
         ],
     }
 
@@ -90,11 +71,10 @@ def main():
         hr.filter_bar_html(),
         hr.stat_tiles_mount(),
         hr.section("Total ML facturado por mes", hr.mount("chart-mes")),
+        hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion")),
         hr.section("Top 10 clientes por total ML", hr.mount("chart-clientes")),
         hr.section("Top 10 anunciantes por total ML", hr.mount("chart-anunciantes")),
         hr.section("Facturacion por cliente (todos)", hr.mount("tabla-clientes")),
-        hr.section("Facturacion por producto", hr.mount("tabla-producto")),
-        hr.section("Detalle completo de facturas", hr.mount("tabla-detalle")),
         hr.dashboard_bundle(records, spec),
     ])
 

@@ -57,6 +57,7 @@ def main():
         ],
         "charts": [
             {"mount": "chart-mes", "type": "bar", "groupBy": "_periodo", "agg": "sum", "field": "renta_real", "fmt": "money"},
+            {"mount": "chart-comparacion", "type": "period_compare", "field": "renta_real", "fmt": "money", "granularity": "month"},
             {"mount": "chart-estado", "type": "bar", "groupBy": "estado", "agg": "count", "fmt": "int", "colors": ESTADO_COLOR, "order": ESTADO_ORDEN},
             {"mount": "chart-anunciante", "type": "hbar", "groupBy": "anunciante", "agg": "sum", "field": "renta_real", "fmt": "money", "topN": 10},
         ],
@@ -72,16 +73,6 @@ def main():
                 "numericCols": ["renta_teorica", "renta_real"],
                 "sort": {"key": "renta_real", "dir": "desc"},
             },
-            {
-                "mount": "tabla-detalle",
-                "columns": [
-                    ["numero_ot", "Nro OT"], ["anunciante", "Anunciante"], ["marca", "Marca"], ["negocio", "Negocio"],
-                    ["fecha_abierta", "F.Abierta"], ["fecha_cerrada", "F.Cerrada"], ["responsable", "Responsable"],
-                    ["equipo", "Equipo"], ["estado", "Estado"], ["renta_teorica", "Renta teorica"], ["renta_real", "Renta real"],
-                ],
-                "numericCols": ["renta_teorica", "renta_real"],
-                "sort": {"key": "fecha_abierta", "dir": "desc"},
-            },
         ],
     }
 
@@ -89,10 +80,10 @@ def main():
         hr.filter_bar_html(),
         hr.stat_tiles_mount(),
         hr.section("Renta real por mes", hr.mount("chart-mes")),
+        hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion")),
         hr.section("Ordenes por estado", hr.mount("chart-estado")),
         hr.section("Top 10 anunciantes por renta real", hr.mount("chart-anunciante")),
         hr.section("Rentabilidad por anunciante (todos)", hr.mount("tabla-anunciante")),
-        hr.section("Detalle completo de ordenes de trabajo", hr.mount("tabla-detalle")),
         hr.dashboard_bundle(records, spec),
     ])
 

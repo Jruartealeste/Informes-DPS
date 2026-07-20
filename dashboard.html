@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dashboard ALESTE ADS</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-1:      #fcfcfb;
+  --page-plane:     #f1f0eb;
+  --text-primary:   #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted:     #898781;
+  --gridline:       #e1e0d9;
+  --baseline:       #c3c2b7;
+  --border:         rgba(11,11,11,0.10);
+  --brand:          #f63200;
+  --brand-tint:     rgba(246,50,0,0.08);
+  --series-1:       #f63200;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --brand-tint:     rgba(255,122,69,0.14);
+    --series-1:       #ff7a45;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--page-plane);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+header.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--text-primary);
+}
+header.report-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+header.report-header .brand-logo {
+  width: 46px;
+  height: auto;
+  flex-shrink: 0;
+  color: var(--brand);
+}
+header.report-header .brand-logo svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+header.report-header .eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+header.report-header h1 {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+}
+header.report-header .meta {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+button.print-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+button.print-btn:hover { background: var(--page-plane); border-color: var(--brand); color: var(--brand); }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.stat-tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+.stat-tile .label {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.stat-tile .value {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-tile .sublabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+section.report-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+section.report-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0 0 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { fill: var(--text-muted); font-size: 11px; }
+svg.chart .gridline { stroke: var(--gridline); stroke-width: 1; }
+svg.chart .baseline { stroke: var(--baseline); stroke-width: 1; }
+svg.chart .hit { fill: transparent; cursor: pointer; }
+
+table.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.report-table th, table.report-table td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--gridline);
+}
+table.report-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--baseline);
+}
+table.report-table td.num, table.report-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+table.report-table tr { break-inside: avoid; }
+table.report-table tbody tr:hover { background: var(--page-plane); }
+table.report-table th.sortable { cursor: pointer; user-select: none; }
+table.report-table th.sortable:hover { color: var(--text-primary); }
+table.report-table tr.row-hidden { display: none; }
+
+#viz-tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transform: translate(-50%, calc(-100% - 10px));
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.08s ease;
+  z-index: 10;
+}
+#viz-tooltip.visible { opacity: 1; }
+
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+.legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+footer.report-footer {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 24px;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --surface-1: #ffffff;
+    --page-plane: #ffffff;
+    --text-primary: #0b0b0b;
+    --text-secondary: #3a3936;
+    --text-muted: #6a6963;
+    --gridline: #d8d7d0;
+    --baseline: #9a988f;
+    --border: rgba(11,11,11,0.15);
+    --series-1: #f63200;
+  }
+  .no-print { display: none !important; }
+  .page { max-width: none; padding: 0; }
+  section.report-section { break-inside: avoid; border: 1px solid #ddd; box-shadow: none; }
+  .stat-tile { box-shadow: none; }
+  table.report-table tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+  /* El tope de TABLE_LIMIT filas (ver DASHBOARD_JS) es una limitacion de
+     pantalla: al imprimir/guardar PDF siempre va el detalle completo. */
+  table.report-table tr.row-hidden { display: table-row; }
+}
+
+.shell-body { margin: 0; height: 100vh; overflow: hidden; }
+.shell-layout { display: flex; height: 100vh; }
+.shell-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px;
+  overflow-y: auto;
+}
+.shell-sidebar .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 20px; }
+.shell-sidebar .brand-logo { width: 34px; flex-shrink: 0; color: var(--brand); }
+.shell-sidebar .brand-logo svg { display: block; width: 100%; height: auto; }
+.shell-sidebar .brand-title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+.shell-sidebar .brand-subtitle { font-size: 11px; color: var(--text-muted); }
+.shell-nav { display: flex; flex-direction: column; gap: 2px; }
+.shell-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: none;
+  border-right: 2px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.shell-nav-item:hover { background: var(--page-plane); }
+.shell-nav-item.active {
+  background: var(--brand-tint);
+  border-right-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+}
+.shell-nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; flex-shrink: 0; }
+.shell-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.shell-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.shell-topbar h1 { font-size: 15px; font-weight: 600; margin: 0; }
+.shell-frame-wrap { flex: 1; min-height: 0; }
+.shell-frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; background: var(--page-plane); }
+
+@media print {
+  .shell-sidebar, .shell-topbar { display: none !important; }
+  .shell-layout, .shell-main, .shell-frame-wrap { height: auto; display: block; }
+  .shell-frame-wrap iframe { height: 100vh; }
+}
+</style>
+</head>
+<body class="shell-body">
+<div class="shell-layout">
+  <nav class="shell-sidebar no-print">
+    <div class="brand">
+      <div class="brand-logo"><svg viewBox="66 48 176 131" width="176" height="131" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ALESTE">
+  <path d="M120.184,87.073l-3.576-6.358h-30.943l-3.377,6.358h-12.119l19.172-34.817h23.344l20.314,34.817h-12.814ZM105.135,60.302h-8.444l-6.755,12.566h22.301l-7.103-12.566Z" fill="currentColor"/>
+  <path d="M135.829,52.405h11.871v26.075h26.324v8.642h-38.195v-34.718Z" fill="currentColor"/>
+  <path d="M73.198,96.203h112.448v7.897h-100.727v5.165h100.081v7.947h-100.081v5.712h101.223v8.096h-112.944v-34.817Z" fill="currentColor"/>
+  <path d="M212.268,131.666c-3.775-.034-7.07-.331-9.884-.894-2.815-.596-4.984-1.316-6.507-2.16-1.523-.845-2.74-1.863-3.651-3.055s-1.482-2.285-1.713-3.278c-.265-.96-.398-1.987-.398-3.08v-.496h12.367c.199,2.55,1.705,4.205,4.52,4.967,1.49.365,3.378.546,5.662.546h2.732c1.788,0,3.443-.099,4.967-.298,1.556-.199,2.698-.48,3.427-.844.696-.397,1.158-.795,1.391-1.192.231-.397.364-.845.398-1.341,0-.761-.216-1.358-.646-1.788-.43-.43-1.374-.811-2.831-1.142-1.523-.331-3.675-.529-6.457-.596l-3.725-.05-2.831-.099c-12.317-.298-18.476-3.692-18.476-10.182v-.397c.033-1.125.182-2.168.447-3.129.331-.927.951-1.87,1.863-2.831.91-.96,2.111-1.755,3.601-2.384,1.49-.662,3.477-1.208,5.96-1.639,2.516-.43,5.447-.646,8.792-.646h3.477c3.477,0,6.539.224,9.189.67,2.649.447,4.76,1.01,6.333,1.689,1.572.679,2.855,1.515,3.849,2.508,1.026,1.027,1.722,2.02,2.086,2.98.364.993.546,2.037.546,3.129v.497h-12.318c-.066-.397-.166-.712-.298-.944-.099-.265-.372-.621-.819-1.068-.447-.447-1.018-.803-1.713-1.068-.762-.298-1.821-.547-3.179-.745-1.458-.231-2.914-.348-4.371-.348h-1.788c-2.582,0-4.636.166-6.159.497-1.523.331-2.451.679-2.782,1.043-.331.331-.496.812-.496,1.44.033.596.215,1.076.546,1.44.364.397,1.216.754,2.557,1.068,1.341.315,3.236.472,5.687.472l2.781.05,3.576.05c7.053.133,12.152,1.018,15.298,2.657,3.145,1.639,4.719,4.197,4.719,7.674v.645c0,1.291-.149,2.451-.447,3.477-.331.993-.968,2.02-1.912,3.079-.944,1.06-2.203,1.946-3.775,2.657-1.573.712-3.734,1.3-6.482,1.763-2.749.463-5.944.695-9.586.695h-3.527Z" fill="currentColor"/>
+  <path d="M87.006,174.918v-26.523h-16.291v-8.195h44.602v8.195h-16.341v26.523h-11.97Z" fill="currentColor"/>
+  <path d="M118.843,140.051h40.032v7.897h-28.311v5.165h27.616v7.947h-27.616v5.712h28.807v8.096h-40.529v-34.817Z" fill="currentColor"/>
+</svg></div>
+      <div>
+        <div class="brand-title">ALESTE ADS</div>
+        <div class="brand-subtitle">Dashboard Advertys</div>
+      </div>
+    </div>
+    <div class="shell-nav"><button type="button" class="shell-nav-item" data-id="pendientes" data-src="informe_pendientes.html" data-label="Pendientes"><span class="dot"></span>Pendientes</button><button type="button" class="shell-nav-item" data-id="ordenes_trabajo" data-src="informe_dinamico.html" data-label="Ordenes de Trabajo"><span class="dot"></span>Ordenes de Trabajo</button><button type="button" class="shell-nav-item" data-id="compras" data-src="informe_compras.html" data-label="Compras"><span class="dot"></span>Compras</button><button type="button" class="shell-nav-item" data-id="facturas" data-src="informe_facturas.html" data-label="Facturas"><span class="dot"></span>Facturas</button></div>
+  </nav>
+  <div class="shell-main">
+    <div class="shell-topbar no-print">
+      <h1 id="shell-title">Dashboard</h1>
+      <button type="button" class="print-btn" id="shell-print">Imprimir / Guardar PDF</button>
+    </div>
+    <div class="shell-frame-wrap">
+      <iframe id="shell-frame" title="Informe"></iframe>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.shell-nav-item'));
+  var frame = document.getElementById('shell-frame');
+  var titleEl = document.getElementById('shell-title');
+  var STORAGE_KEY = 'aleste-dashboard-modulo';
+
+  function activate(id) {
+    var item = items.filter(function (it) { return it.dataset.id === id; })[0];
+    if (!item || !frame) return;
+    items.forEach(function (it) { it.classList.toggle('active', it === item); });
+    frame.src = item.dataset.src;
+    if (titleEl) titleEl.textContent = item.dataset.label;
+    try { localStorage.setItem(STORAGE_KEY, id); } catch (e) {}
+  }
+
+  items.forEach(function (it) {
+    it.addEventListener('click', function () { activate(it.dataset.id); });
+  });
+
+  var stored = null;
+  try { stored = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+  var initial = (stored && items.some(function (it) { return it.dataset.id === stored; }))
+    ? stored
+    : (items[0] && items[0].dataset.id);
+  if (initial) activate(initial);
+
+  var printBtn = document.getElementById('shell-print');
+  if (printBtn) printBtn.addEventListener('click', function () {
+    // iframes de otro archivo local (file://) a veces bloquean el acceso a
+    // contentWindow segun el navegador -- si tira SecurityError, se cae a
+    // imprimir el shell (mejor eso que un boton roto).
+    try {
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        return;
+      }
+    } catch (e) {}
+    window.print();
+  });
+})();
+</script>
+</body>
+</html>

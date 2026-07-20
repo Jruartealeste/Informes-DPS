@@ -38,8 +38,10 @@ asumió).
   vivo contra Advertys).
 - Compartidas (raíz): `db.py` (conexión SQLite), `common.py`
   (`normalizar_fecha`/`normalizar_numero`), `html_report.py` (page shell,
-  CSS claro/oscuro/print, charts SVG, motor JS del dashboard dinámico),
-  `api.py` (API local de solo lectura).
+  CSS claro/oscuro/print, charts SVG, motor JS del dashboard dinámico,
+  `dashboard_shell()` para el sidebar+iframe), `generate_dashboard.py`
+  (genera `dashboard.html`, el entrypoint que agrupa todos los
+  `informe_*.html`), `api.py` (API local de solo lectura).
 - Genéricas (`tools/`): utilidades que no son de un módulo puntual.
   Hoy: `tools/screenshot.py` (captura con Playwright para verificación
   visual — ver Screenshot Workflow más abajo).
@@ -127,6 +129,52 @@ solos.
 **Todo lo de `exploracion/` es descartable/regenerable** — capturas de
 relevamiento, HTML crudo de Advertys, exports intermedios. No es un
 entregable, es evidencia de proceso.
+
+## Salvaguarda: Advertys es de solo lectura
+
+Este pipeline **nunca** debe escribir, editar ni borrar datos dentro de
+Advertys. Los `explore.py` y cualquier automatización con Playwright
+contra Advertys real solo pueden hacer: login, navegación entre vistas,
+cambio de filtros de visualización, y exportación/descarga (XLSX/Excel).
+
+**Regla dura:** si un script (nuevo o existente) va a hacer click sobre
+cualquier elemento cuyo texto, título o `id` sugiera una acción de alta,
+edición o borrado — por ejemplo "Nuevo", "Agregar", "Editar", "Modificar",
+"Eliminar", "Borrar", "Guardar" fuera de un simple filtro de vista — **hay
+que parar y pedir aprobación explícita a Javier antes de ejecutar ese
+click**, aunque sea en un script de exploración. No se asume, no se
+ejecuta "para probar". Login, navegación y exportación sí están
+permitidos sin pedir autorización caso por caso.
+
+Esto aplica tanto a código nuevo que yo escriba como a los `explore.py`
+ya existentes: si en algún momento agrego o modifico un flujo contra
+Advertys real, reviso primero que ningún click apunte a un botón de
+esa naturaleza antes de correrlo.
+
+## Skills disponibles
+
+Wrappers delgados sobre los workflows de arriba — viven en
+`.claude/skills/` y se invocan por `/nombre` o por lenguaje natural (Javier
+pidiendo lo mismo que ya describen los workflows). Cada skill apunta al
+workflow correspondiente como fuente de verdad, no lo duplica:
+
+- `/actualizar-informe [modulo] [xlsx]` — carga un export nuevo en un
+  módulo existente y regenera su informe. Envuelve
+  `workflows/actualizar_informe.md`.
+- `/relevar-modulo [nombre]` — arma el pipeline completo para una sección
+  de Advertys sin módulo todavía. Envuelve
+  `workflows/relevar_modulo_nuevo.md`, con la salvaguarda de solo-lectura
+  repetida inline porque hace Playwright en vivo.
+- `/verificar-visual [informe.html] [label]` — captura claro/oscuro/print
+  con Playwright antes de dar un cambio de layout por terminado. Envuelve
+  `workflows/verificar_informe_visual.md`.
+- `/refresh-dashboard` — regenera todos los `informe_*.html` más
+  `dashboard.html` en una sola pasada. No tiene workflow propio, combina
+  `actualizar_informe.md` con `generate_dashboard.py`.
+
+Si un workflow cambia, el skill correspondiente puede necesitar un ajuste
+menor — no debería duplicar la prosa completa del workflow, solo los
+comandos concretos.
 
 ## Quirks conocidos del entorno
 

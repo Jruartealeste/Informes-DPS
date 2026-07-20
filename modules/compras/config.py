@@ -56,3 +56,4 @@ NUMERIC_COLUMNS = ["importe_sin_iva", "total_impositivo", COLUMNA_IMPORTE_SIGNAD
 DB_TABLE = "compras"
 REPORT_OUTPUT_PATH = "informe_compras.xlsx"
 REPORT_HTML_OUTPUT_PATH = "informe_compras.html"
+REPORT_SLIDES_OUTPUT_PATH = "informe_compras_slides.html"

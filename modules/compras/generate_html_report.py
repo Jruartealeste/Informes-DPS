@@ -56,6 +56,7 @@ def main():
         ],
         "charts": [
             {"mount": "chart-mes", "type": "bar", "groupBy": "_periodo", "agg": "sum", "field": "total_impositivo", "fmt": "money"},
+            {"mount": "chart-comparacion", "type": "period_compare", "field": "total_impositivo", "fmt": "money", "granularity": "month"},
             {"mount": "chart-estado", "type": "bar", "groupBy": "estado", "agg": "count", "fmt": "int", "colors": ESTADO_COLOR, "order": ESTADO_ORDEN},
             {"mount": "chart-tipo", "type": "bar", "groupBy": "tipo_compra", "agg": "sum", "field": "total_impositivo", "fmt": "money"},
             {"mount": "chart-proveedores", "type": "hbar", "groupBy": "proveedor", "agg": "sum", "field": "total_impositivo", "fmt": "money", "topN": 10},
@@ -72,16 +73,6 @@ def main():
                 "numericCols": ["importe_sin_iva", "total_impositivo"],
                 "sort": {"key": "total_impositivo", "dir": "desc"},
             },
-            {
-                "mount": "tabla-detalle",
-                "columns": [
-                    ["proveedor", "Proveedor"], ["tipo_compra", "Tipo"], ["tipo_proveedor", "Tipo Proveedor"],
-                    ["numero_referencia", "Nro Referencia"], ["fecha_factura", "Fecha"], ["moneda", "Moneda"],
-                    ["importe_sin_iva_signado", "Importe s/IVA"], ["total_impositivo", "Total impositivo"], ["estado", "Estado"],
-                ],
-                "numericCols": ["importe_sin_iva_signado", "total_impositivo"],
-                "sort": {"key": "fecha_factura", "dir": "desc"},
-            },
         ],
     }
 
@@ -89,11 +80,11 @@ def main():
         hr.filter_bar_html(),
         hr.stat_tiles_mount(),
         hr.section("Total impositivo por mes", hr.mount("chart-mes")),
+        hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion")),
         hr.section("Compras por estado", hr.mount("chart-estado")),
         hr.section("Compras por tipo (Gastos / Medios / Produccion)", hr.mount("chart-tipo")),
         hr.section("Top 10 proveedores por total impositivo", hr.mount("chart-proveedores")),
         hr.section("Compras por proveedor (todos)", hr.mount("tabla-proveedores")),
-        hr.section("Detalle completo de compras", hr.mount("tabla-detalle")),
         hr.dashboard_bundle(records, spec),
     ])
 

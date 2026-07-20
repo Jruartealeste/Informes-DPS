@@ -7,9 +7,16 @@ dejar el informe HTML actualizado con los datos más recientes.
 o "regenerá el informe de Facturas".
 
 **Inputs requeridos:**
-- Módulo destino (`ordenes_trabajo` | `compras` | `facturas` | el que
-  corresponda — ver tabla de módulos en el README)
+- Módulo destino (`ordenes_trabajo` | `compras` | `facturas` |
+  `estimados_costos` | `ordenes_compra` | el que corresponda — ver tabla de
+  módulos en el README)
 - Ruta al archivo `.xlsx` exportado de Advertys
+
+**Caso especial — Pendientes (`modules/pendientes/`):** no tiene
+`ingest.py` propio, cruza `ordenes_trabajo` + `estimados_costos` +
+`ordenes_compra_produccion`. Para que quede al día hace falta correr el
+`ingest.py` de esos tres módulos primero y recién después
+`python -m modules.pendientes.generate_html_report` (sin paso 1 propio).
 
 **Tools a usar (en este orden, siempre parado en la raíz del proyecto):**
 

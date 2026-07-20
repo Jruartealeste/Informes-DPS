@@ -5,13 +5,14 @@ pensado para que el agente verifique visualmente un informe HTML antes de
 darlo por bueno (ver workflows/verificar_informe_visual.md).
 
 Uso:
-    python tools/screenshot.py <path-o-url> [label] [--mode light|dark|print|all]
+    python tools/screenshot.py <path-o-url> [label] [--mode light|dark|print|all] [--slide N]
 
 Ejemplos:
     python tools/screenshot.py informe_dinamico.html
     python tools/screenshot.py informe_compras.html compras --mode dark
     python tools/screenshot.py informe_facturas.html facturas --mode all
     python tools/screenshot.py http://localhost:5000/resumen/por-mes
+    python tools/screenshot.py informe_compras_slides.html compras-slides --slide 3 --mode dark
 
 Notas:
 - Si <path-o-url> no empieza con "http", se trata como archivo local y se
@@ -24,6 +25,14 @@ Notas:
   alcanza con que Playwright emule el color-scheme (no hace falta clickear
   ningun toggle). "print" emula el media type "print" (la barra de filtro
   se oculta via .no-print, ver html_report.py).
+- "--slide N" es para los informes en formato presentacion (slide_shell en
+  html_report.py, ver modules/compras/generate_slides_report.py): el scroll
+  vive adentro de #deck (no del body), asi que una captura full_page normal
+  solo alcanza a la primera slide. Con --slide N (1-indexado) se hace
+  scrollIntoView() a esa slide antes de capturar, y la captura pasa a ser de
+  viewport (no full_page), porque cada slide ya ocupa toda la pantalla. No
+  tiene efecto en "print" (ahi todas las slides ya se apilan en una sola
+  pagina larga, capturada entera).
 - Los PNG se guardan en exploracion/screenshots/ (carpeta ya gitignorada
   via exploracion/), numerados y sin pisar capturas previas.
 - Despues de correr esto, leé el PNG resultante con la tool Read: Claude
@@ -49,14 +58,38 @@ def next_index() -> int:
     return (max(numeros) + 1) if numeros else 1
 
 
-def capturar(page, target: str, modo: str, nombre: str):
+def capturar(page, target: str, modo: str, nombre: str, slide: int | None = None):
     if modo == "print":
         page.emulate_media(media="print")
     else:
         page.emulate_media(media="screen", color_scheme=modo)
     page.goto(target, wait_until="networkidle", timeout=30000)
     destino = OUT_DIR / nombre
-    page.screenshot(path=str(destino), full_page=True)
+    if slide and modo != "print":
+        # scrollTop directo (no scrollIntoView): el deck tiene scroll-behavior
+        # smooth + scroll-snap, y la animacion no llega a terminar en un
+        # tiempo de espera corto -> la captura quedaba a mitad de camino
+        # entre dos slides.
+        page.evaluate(
+            """(n) => {
+                var deck = document.getElementById('deck');
+                var target = document.querySelectorAll('.slide')[n - 1];
+                if (deck && target) {
+                    // .deck tiene scroll-behavior:smooth (CSS) -- Chromium
+                    // anima incluso la asignacion directa de scrollTop, asi
+                    // que sin desactivarlo la captura llega a mitad de
+                    // camino. Se fuerza instantaneo solo para esta sesion.
+                    deck.style.scrollBehavior = 'auto';
+                    deck.style.scrollSnapType = 'none';
+                    deck.scrollTop = target.offsetTop;
+                }
+            }""",
+            slide,
+        )
+        page.wait_for_timeout(100)
+        page.screenshot(path=str(destino), full_page=False)
+    else:
+        page.screenshot(path=str(destino), full_page=True)
     print(f"OK: {destino}")
 
 
@@ -73,6 +106,13 @@ def main():
         i = args.index("--mode")
         modo = args[i + 1]
         del args[i:i + 2]
+
+    slide = None
+    if "--slide" in args:
+        i = args.index("--slide")
+        slide = int(args[i + 1])
+        del args[i:i + 2]
+
     label = args[0] if args else None
 
     if modo not in MODES + ("all",):
@@ -96,7 +136,7 @@ def main():
             sufijo = f"-{label}" if label else ""
             sufijo += f"-{m}" if modo == "all" else ""
             nombre = f"screenshot-{idx}{sufijo}.png"
-            capturar(page, target, m, nombre)
+            capturar(page, target, m, nombre, slide)
             idx += 1
         browser.close()
 

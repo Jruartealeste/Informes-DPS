@@ -6,6 +6,7 @@ su propio generate_html_report.py llamando a estas funciones y sobreescribe
 siempre la misma ruta de salida (no acumula archivos).
 """
 import json
+import uuid
 from datetime import datetime
 from html import escape
 
@@ -36,14 +37,16 @@ PAGE_CSS = """
 :root {
   color-scheme: light;
   --surface-1:      #fcfcfb;
-  --page-plane:     #f9f9f7;
+  --page-plane:     #f1f0eb;
   --text-primary:   #0b0b0b;
   --text-secondary: #52514e;
   --text-muted:     #898781;
   --gridline:       #e1e0d9;
   --baseline:       #c3c2b7;
   --border:         rgba(11,11,11,0.10);
-  --series-1:       #2a78d6;
+  --brand:          #f63200;
+  --brand-tint:     rgba(246,50,0,0.08);
+  --series-1:       #f63200;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -56,15 +59,17 @@ PAGE_CSS = """
     --gridline:       #2c2c2a;
     --baseline:       #383835;
     --border:         rgba(255,255,255,0.10);
-    --series-1:       #3987e5;
+    --brand-tint:     rgba(255,122,69,0.14);
+    --series-1:       #ff7a45;
   }
 }
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   background: var(--page-plane);
   color: var(--text-primary);
+  font-size: 14px;
 }
 .page {
   max-width: 980px;
@@ -76,9 +81,9 @@ header.report-header {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  margin-bottom: 28px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--text-primary);
 }
 header.report-header .brand {
   display: flex;
@@ -89,15 +94,24 @@ header.report-header .brand-logo {
   width: 46px;
   height: auto;
   flex-shrink: 0;
-  color: var(--text-primary);
+  color: var(--brand);
 }
 header.report-header .brand-logo svg {
   display: block;
   width: 100%;
   height: auto;
 }
+header.report-header .eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
 header.report-header h1 {
-  font-size: 22px;
+  font-size: 27px;
+  font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0 0 4px;
 }
@@ -114,7 +128,7 @@ button.print-btn {
   font-size: 13px;
   cursor: pointer;
 }
-button.print-btn:hover { background: var(--page-plane); }
+button.print-btn:hover { background: var(--page-plane); border-color: var(--brand); color: var(--brand); }
 
 .stat-grid {
   display: grid;
@@ -125,39 +139,42 @@ button.print-btn:hover { background: var(--page-plane); }
 .stat-tile {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  border-radius: 8px;
+  padding: 16px 18px;
 }
 .stat-tile .label {
-  font-size: 12px;
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-secondary);
   margin-bottom: 6px;
 }
 .stat-tile .value {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 .stat-tile .sublabel {
   font-size: 12px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 section.report-section {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 section.report-section h2 {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.01em;
   margin: 0 0 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--gridline);
 }
 
 svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
@@ -173,12 +190,15 @@ table.report-table {
 }
 table.report-table th, table.report-table td {
   text-align: left;
-  padding: 7px 10px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--gridline);
 }
 table.report-table th {
   color: var(--text-secondary);
   font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   border-bottom: 1px solid var(--baseline);
 }
 table.report-table td.num, table.report-table th.num {
@@ -186,6 +206,10 @@ table.report-table td.num, table.report-table th.num {
   font-variant-numeric: tabular-nums;
 }
 table.report-table tr { break-inside: avoid; }
+table.report-table tbody tr:hover { background: var(--page-plane); }
+table.report-table th.sortable { cursor: pointer; user-select: none; }
+table.report-table th.sortable:hover { color: var(--text-primary); }
+table.report-table tr.row-hidden { display: none; }
 
 #viz-tooltip {
   position: fixed;
@@ -223,7 +247,7 @@ footer.report-footer {
     --gridline: #d8d7d0;
     --baseline: #9a988f;
     --border: rgba(11,11,11,0.15);
-    --series-1: #2a78d6;
+    --series-1: #f63200;
   }
   .no-print { display: none !important; }
   .page { max-width: none; padding: 0; }
@@ -231,6 +255,9 @@ footer.report-footer {
   .stat-tile { box-shadow: none; }
   table.report-table tr { break-inside: avoid; }
   thead { display: table-header-group; }
+  /* El tope de TABLE_LIMIT filas (ver DASHBOARD_JS) es una limitacion de
+     pantalla: al imprimir/guardar PDF siempre va el detalle completo. */
+  table.report-table tr.row-hidden { display: table-row; }
 }
 """
 
@@ -250,7 +277,7 @@ DASHBOARD_CSS = """
 }
 .filter-bar .filter-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .filter-bar label { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
-.filter-bar input[type=month] {
+.filter-bar .period-select {
   border: 1px solid var(--border);
   background: var(--page-plane);
   color: var(--text-primary);
@@ -259,6 +286,7 @@ DASHBOARD_CSS = """
   font-size: 13px;
   font-family: inherit;
 }
+.filter-bar .period-select:focus { outline: none; border-color: var(--brand); }
 .filter-bar button {
   border: 1px solid var(--border);
   background: var(--page-plane);
@@ -268,9 +296,65 @@ DASHBOARD_CSS = """
   font-size: 13px;
   cursor: pointer;
 }
-.filter-bar button:hover { background: var(--surface-1); }
+.filter-bar button:hover { background: var(--surface-1); border-color: var(--brand); }
 .filter-coverage { color: var(--text-muted); }
 .filter-coverage strong { color: var(--text-primary); font-weight: 600; }
+
+.chart-toolbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px;
+  background: var(--page-plane);
+}
+.segmented button {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.segmented button.active { background: var(--surface-1); color: var(--brand); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.table-search {
+  border: 1px solid var(--border);
+  background: var(--page-plane);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  min-width: 220px;
+}
+.table-search:focus { outline: none; border-color: var(--brand); }
+.table-count { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+.table-more { margin-top: 10px; }
+.table-more-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--page-plane);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.table-more-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--surface-1); }
 """
 
 TOOLTIP_JS = """
@@ -309,8 +393,9 @@ def page_shell(titulo: str, subtitulo: str, secciones_html: str) -> str:
     <div class="brand">
       <div class="brand-logo">{LOGO_SVG}</div>
       <div>
+        <div class="eyebrow">{escape(subtitulo)}</div>
         <h1>{escape(titulo)}</h1>
-        <div class="meta">{escape(subtitulo)} &middot; Generado: {generado}</div>
+        <div class="meta">Generado: {generado}</div>
       </div>
     </div>
     <button class="print-btn no-print" onclick="window.print()">Imprimir / Guardar PDF</button>
@@ -346,6 +431,12 @@ def section(titulo: str, contenido_html: str) -> str:
   </section>"""
 
 
+def _text_w(texto: str, px_per_char: float = 6.5) -> float:
+    """Ancho aproximado de un string en el font-size chico (11px) que usan
+    los charts -- suficiente para dimensionar padding, no para layout exacto."""
+    return len(str(texto)) * px_per_char
+
+
 def bar_chart_svg(categorias, valores, *, colors=None, value_fmt=None, height=260):
     """
     Grafico de barras verticales de una sola magnitud. `colors` (opcional)
@@ -359,42 +450,62 @@ def bar_chart_svg(categorias, valores, *, colors=None, value_fmt=None, height=26
         return "<p>Sin datos.</p>"
 
     width = max(560, n * 70)
-    pad_left, pad_right, pad_top = 50, 20, 20
-    label_h = 46
+    max_val = max(valores) or 1
+    steps = 4
+    grid_values = [value_fmt(max_val * (i / steps)) for i in range(steps + 1)]
+    # pad_left se dimensiona segun el label mas ancho del eje Y (montos
+    # grandes formateados) para que el numero no se salga del viewBox por
+    # izquierda -- antes era un valor fijo (50) y con "$ 1.234.567" el texto
+    # colgaba fuera de la card.
+    pad_left = max(50, max(_text_w(v) for v in grid_values) + 18)
+    pad_right, pad_top = 20, 20
+    label_h = 34
     chart_h = height
     plot_h = chart_h - pad_top - label_h
     plot_w = width - pad_left - pad_right
 
-    max_val = max(valores) or 1
     bar_gap = 10
     bar_w = max(18, (plot_w / n) - bar_gap)
+    slot_w = plot_w / n
+    max_chars = max(3, int(slot_w / 6.2))
 
     gridlines = []
     grid_labels = []
-    steps = 4
-    for i in range(steps + 1):
-        frac = i / steps
-        y = pad_top + plot_h - frac * plot_h
+    for i, txt in enumerate(grid_values):
+        y = pad_top + plot_h - (i / steps) * plot_h
         gridlines.append(f'<line class="gridline" x1="{pad_left}" x2="{width - pad_right}" y1="{y:.1f}" y2="{y:.1f}" />')
-        grid_labels.append(f'<text x="{pad_left - 8}" y="{y + 4:.1f}" text-anchor="end">{value_fmt(max_val * frac)}</text>')
+        grid_labels.append(f'<text x="{pad_left - 8}" y="{y + 4:.1f}" text-anchor="end">{txt}</text>')
 
+    # Gradiente vertical por barra (opaco arriba, mas suave abajo) en vez de
+    # relleno solido plano -- da profundidad sin cambiar la paleta.
+    chart_uid = uuid.uuid4().hex[:8]
     bars = []
+    defs = []
     for i, (cat, val) in enumerate(zip(categorias, valores)):
         x = pad_left + i * (plot_w / n) + ((plot_w / n) - bar_w) / 2
         bar_h = (val / max_val) * plot_h if max_val else 0
         y = pad_top + plot_h - bar_h
         baseline_y = pad_top + plot_h
         color = colors[i] if colors else "var(--series-1)"
+        grad_id = f"bg-{chart_uid}-{i}"
+        defs.append(
+            f'<linearGradient id="{grad_id}" x1="0" y1="0" x2="0" y2="1">'
+            f'<stop offset="0%" style="stop-color:{color};stop-opacity:0.95" />'
+            f'<stop offset="100%" style="stop-color:{color};stop-opacity:0.55" />'
+            f'</linearGradient>'
+        )
         squared_h = min(4, bar_h)
+        etiqueta = _truncar(str(cat), max_chars)
         bars.append(f"""<g>
       <rect class="hit" x="{x - 4:.1f}" y="{pad_top:.1f}" width="{bar_w + 8:.1f}" height="{plot_h:.1f}" data-label="{escape(str(cat))}" data-value="{escape(value_fmt(val))}" />
-      <rect x="{x:.1f}" y="{y:.1f}" width="{bar_w:.1f}" height="{bar_h:.1f}" rx="4" ry="4" fill="{color}" pointer-events="none" />
+      <rect x="{x:.1f}" y="{y:.1f}" width="{bar_w:.1f}" height="{bar_h:.1f}" rx="4" ry="4" fill="url(#{grad_id})" pointer-events="none" />
       <rect x="{x:.1f}" y="{baseline_y - squared_h:.1f}" width="{bar_w:.1f}" height="{squared_h:.1f}" fill="{color}" pointer-events="none" />
-      <text x="{x + bar_w / 2:.1f}" y="{baseline_y + 18:.1f}" text-anchor="middle" transform="rotate(-40 {x + bar_w / 2:.1f} {baseline_y + 18:.1f})">{escape(str(cat))}</text>
+      <text x="{x + bar_w / 2:.1f}" y="{baseline_y + 18:.1f}" text-anchor="middle">{escape(etiqueta)}</text>
     </g>""")
 
     baseline_y = pad_top + plot_h
     return f"""<svg class="chart" viewBox="0 0 {width} {chart_h}" preserveAspectRatio="xMinYMin meet">
+    <defs>{''.join(defs)}</defs>
     {''.join(gridlines)}
     {''.join(grid_labels)}
     <line class="baseline" x1="{pad_left}" x2="{width - pad_right}" y1="{baseline_y:.1f}" y2="{baseline_y:.1f}" />
@@ -422,6 +533,7 @@ def hbar_chart_svg(categorias, valores, *, value_fmt=None, row_h=28):
     height = n * row_h + 20
     max_val = max(valores) or 1
 
+    grad_id = f"hbg-{uuid.uuid4().hex[:8]}"
     rows = []
     for i, (cat, val) in enumerate(zip(categorias, valores)):
         y = 10 + i * row_h
@@ -430,11 +542,17 @@ def hbar_chart_svg(categorias, valores, *, value_fmt=None, row_h=28):
         rows.append(f"""<g>
       <text x="{label_w - 10}" y="{y + row_h / 2 + 4:.1f}" text-anchor="end">{escape(etiqueta)}</text>
       <rect class="hit" x="0" y="{y:.1f}" width="{width:.1f}" height="{row_h - 6:.1f}" data-label="{escape(str(cat))}" data-value="{escape(value_fmt(val))}" />
-      <rect x="{label_w}" y="{y:.1f}" width="{max(bar_w, 2):.1f}" height="{row_h - 6:.1f}" rx="4" ry="4" fill="var(--series-1)" pointer-events="none" />
+      <rect x="{label_w}" y="{y:.1f}" width="{max(bar_w, 2):.1f}" height="{row_h - 6:.1f}" rx="4" ry="4" fill="url(#{grad_id})" pointer-events="none" />
       <text x="{label_w + bar_w + 8:.1f}" y="{y + row_h / 2 + 4:.1f}" text-anchor="start">{value_fmt(val)}</text>
     </g>""")
 
     return f"""<svg class="chart" viewBox="0 0 {width} {height}" preserveAspectRatio="xMinYMin meet">
+    <defs>
+      <linearGradient id="{grad_id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" style="stop-color:var(--series-1);stop-opacity:0.95" />
+        <stop offset="100%" style="stop-color:var(--series-1);stop-opacity:0.6" />
+      </linearGradient>
+    </defs>
     {''.join(rows)}
   </svg>"""
 
@@ -502,15 +620,48 @@ def stat_tiles_mount(mount_id: str = "stat-tiles") -> str:
     return f'<div class="stat-grid" id="{mount_id}"></div>'
 
 
+def period_compare_mount(mount_id: str) -> str:
+    """Mount para un chart de tipo 'period_compare' (spec.charts): barras
+    agrupadas por mes/trimestre, una serie por anio. Trae un toggle
+    Mensual/Trimestral que solo repinta ese chart puntual (ver DASHBOARD_JS,
+    renderPeriodCompare) -- no dispara el recalculo completo del filtro."""
+    return f"""<div class="chart-toolbar no-print">
+    <div class="segmented" data-toggle-for="{mount_id}">
+      <button type="button" class="active" data-granularity="month">Mensual</button>
+      <button type="button" data-granularity="quarter">Trimestral</button>
+    </div>
+  </div>
+  <div id="{mount_id}"></div>"""
+
+
+_MESES = [
+    ("01", "Ene"), ("02", "Feb"), ("03", "Mar"), ("04", "Abr"),
+    ("05", "May"), ("06", "Jun"), ("07", "Jul"), ("08", "Ago"),
+    ("09", "Sep"), ("10", "Oct"), ("11", "Nov"), ("12", "Dic"),
+]
+
+
 def filter_bar_html() -> str:
     """Barra de filtro de periodo (Desde/Hasta editable + texto de cobertura).
-    Los inputs van en no-print asi no aparecen al imprimir/PDF, pero el texto
-    de cobertura ("Datos disponibles" / "Mostrando") queda visible en el
+    Cada limite es un par de <select> Mes/Anio en vez de <input type="month">
+    nativo: el spinner de anio del input nativo obliga a clickear de a un
+    anio por vez (inutilizable en Windows/Chrome con datos de varios anios,
+    reportado por Javier). El <select> de Mes es fijo (1-12); el de Anio se
+    puebla dinamicamente en DASHBOARD_JS con los anios presentes en los
+    datos. Van en no-print asi no aparecen al imprimir/PDF, pero el texto de
+    cobertura ("Datos disponibles" / "Mostrando") queda visible en el
     impreso para que quede claro que periodo contempla el informe."""
-    return """<div class="filter-bar">
+    meses = "".join(f'<option value="{v}">{l}</option>' for v, l in _MESES)
+    return f"""<div class="filter-bar">
     <div class="filter-controls no-print">
-      <label>Desde <input type="month" id="f-desde"></label>
-      <label>Hasta <input type="month" id="f-hasta"></label>
+      <label>Desde
+        <select class="period-select" id="f-desde-mes">{meses}</select>
+        <select class="period-select" id="f-desde-anio"></select>
+      </label>
+      <label>Hasta
+        <select class="period-select" id="f-hasta-mes">{meses}</select>
+        <select class="period-select" id="f-hasta-anio"></select>
+      </label>
       <button type="button" id="f-reset">Ver todo el periodo</button>
     </div>
     <div class="filter-coverage" id="f-coverage">Calculando periodos disponibles...</div>
@@ -525,6 +676,15 @@ DASHBOARD_JS = """
   var records = JSON.parse(recordsEl.textContent);
   var spec = JSON.parse(specEl.textContent);
   var dateField = spec.dateField;
+  var tableState = {};
+  var TABLE_LIMIT = 50;
+  var lastFilteredRows = [];
+  var prefersDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  // El filtro de periodo se persiste por archivo (location.pathname) para
+  // sobrevivir a un reload del iframe -- el shell del dashboard (SHELL_JS)
+  // recarga el iframe entero cada vez que se cambia de pestana y se vuelve,
+  // lo que reseteaba el filtro a "todo el periodo" (reportado por Javier).
+  var FILTER_KEY = 'aleste-filtro:' + location.pathname;
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -550,19 +710,52 @@ DASHBOARD_JS = """
     s = String(s);
     return s.length <= maxChars ? s : s.slice(0, maxChars - 1).replace(/\\s+$/, '') + '\\u2026';
   }
+  function textW(s, pxPerChar) { return String(s).length * (pxPerChar || 6.5); }
 
   var periods = records.map(function (r) { return r[dateField]; }).filter(Boolean).sort();
   var minPeriod = periods.length ? periods[0] : null;
   var maxPeriod = periods.length ? periods[periods.length - 1] : null;
 
-  var elDesde = document.getElementById('f-desde');
-  var elHasta = document.getElementById('f-hasta');
+  var elDesdeMes = document.getElementById('f-desde-mes');
+  var elDesdeAnio = document.getElementById('f-desde-anio');
+  var elHastaMes = document.getElementById('f-hasta-mes');
+  var elHastaAnio = document.getElementById('f-hasta-anio');
   var elReset = document.getElementById('f-reset');
   var elCoverage = document.getElementById('f-coverage');
 
-  if (minPeriod && elDesde && elHasta) {
-    elDesde.min = minPeriod; elDesde.max = maxPeriod; elDesde.value = minPeriod;
-    elHasta.min = minPeriod; elHasta.max = maxPeriod; elHasta.value = maxPeriod;
+  function populateYearSelect(sel, years, selected) {
+    if (!sel) return;
+    sel.innerHTML = years.map(function (y) { return '<option value="' + y + '">' + y + '</option>'; }).join('');
+    sel.value = selected;
+  }
+  function getPeriod(mesEl, anioEl) {
+    if (!mesEl || !anioEl || !anioEl.value) return null;
+    return anioEl.value + '-' + mesEl.value;
+  }
+  function setPeriod(mesEl, anioEl, period) {
+    if (!mesEl || !anioEl || !period) return;
+    anioEl.value = period.slice(0, 4);
+    mesEl.value = period.slice(5, 7);
+  }
+
+  if (minPeriod) {
+    var years = [];
+    for (var y = parseInt(minPeriod.slice(0, 4), 10); y <= parseInt(maxPeriod.slice(0, 4), 10); y++) years.push(String(y));
+    populateYearSelect(elDesdeAnio, years, minPeriod.slice(0, 4));
+    populateYearSelect(elHastaAnio, years, maxPeriod.slice(0, 4));
+
+    var initialFrom = minPeriod, initialTo = maxPeriod;
+    var storedFilter = null;
+    try { storedFilter = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null'); } catch (e) {}
+    if (storedFilter && storedFilter.from && storedFilter.to &&
+        storedFilter.from >= minPeriod && storedFilter.from <= maxPeriod &&
+        storedFilter.to >= minPeriod && storedFilter.to <= maxPeriod &&
+        storedFilter.from <= storedFilter.to) {
+      initialFrom = storedFilter.from;
+      initialTo = storedFilter.to;
+    }
+    setPeriod(elDesdeMes, elDesdeAnio, initialFrom);
+    setPeriod(elHastaMes, elHastaAnio, initialTo);
   }
 
   // Filas sin fecha (dato faltante en el origen) solo se muestran cuando el
@@ -610,6 +803,8 @@ DASHBOARD_JS = """
     });
   }
 
+  var gradSeq = 0;
+
   // Puerto 1:1 de bar_chart_svg() (html_report.py) para que el grafico
   // recalculado en JS se vea identico al que se dibujaba en Python.
   function barChartSvg(categorias, valores, opts) {
@@ -619,21 +814,27 @@ DASHBOARD_JS = """
     var n = categorias.length;
     if (!n) return '<p>Sin datos.</p>';
     var width = Math.max(560, n * 70);
-    var padLeft = 50, padRight = 20, padTop = 20, labelH = 46, chartH = opts.height || 260;
-    var plotH = chartH - padTop - labelH, plotW = width - padLeft - padRight;
     var maxVal = Math.max.apply(null, valores) || 1;
+    var steps = 4;
+    var gridValues = [];
+    for (var i = 0; i <= steps; i++) gridValues.push(fmt(valueFmt, maxVal * (i / steps)));
+    var maxLabelW = 0;
+    gridValues.forEach(function (v) { maxLabelW = Math.max(maxLabelW, textW(v)); });
+    var padLeft = Math.max(50, maxLabelW + 18);
+    var padRight = 20, padTop = 20, labelH = 34, chartH = opts.height || 260;
+    var plotH = chartH - padTop - labelH, plotW = width - padLeft - padRight;
     var barGap = 10, barW = Math.max(18, (plotW / n) - barGap);
+    var maxChars = Math.max(3, Math.floor((plotW / n) / 6.2));
 
     var gridlines = [], gridLabels = [];
-    var steps = 4;
-    for (var i = 0; i <= steps; i++) {
-      var frac = i / steps;
-      var y = padTop + plotH - frac * plotH;
+    for (var i2 = 0; i2 <= steps; i2++) {
+      var y = padTop + plotH - (i2 / steps) * plotH;
       gridlines.push('<line class="gridline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" />');
-      gridLabels.push('<text x="' + (padLeft - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end">' + esc(fmt(valueFmt, maxVal * frac)) + '</text>');
+      gridLabels.push('<text x="' + (padLeft - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end">' + esc(gridValues[i2]) + '</text>');
     }
 
-    var bars = [];
+    var chartUid = 'c' + (gradSeq++);
+    var bars = [], defs = [];
     for (var j = 0; j < n; j++) {
       var cat = categorias[j], val = valores[j];
       var x = padLeft + j * (plotW / n) + ((plotW / n) - barW) / 2;
@@ -641,18 +842,22 @@ DASHBOARD_JS = """
       var yTop = padTop + plotH - barH;
       var baselineY = padTop + plotH;
       var color = colors ? (colors[cat] || 'var(--series-1)') : 'var(--series-1)';
+      var gradId = 'bg-' + chartUid + '-' + j;
+      defs.push('<linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:' + color + ';stop-opacity:0.95" /><stop offset="100%" style="stop-color:' + color + ';stop-opacity:0.55" /></linearGradient>');
       var squaredH = Math.min(4, barH);
+      var etiqueta = truncar(cat, maxChars);
       bars.push(
         '<g>' +
         '<rect class="hit" x="' + (x - 4).toFixed(1) + '" y="' + padTop.toFixed(1) + '" width="' + (barW + 8).toFixed(1) + '" height="' + plotH.toFixed(1) + '" data-label="' + esc(cat) + '" data-value="' + esc(fmt(valueFmt, val)) + '" />' +
-        '<rect x="' + x.toFixed(1) + '" y="' + yTop.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + barH.toFixed(1) + '" rx="4" ry="4" fill="' + color + '" pointer-events="none" />' +
+        '<rect x="' + x.toFixed(1) + '" y="' + yTop.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + barH.toFixed(1) + '" rx="4" ry="4" fill="url(#' + gradId + ')" pointer-events="none" />' +
         '<rect x="' + x.toFixed(1) + '" y="' + (baselineY - squaredH).toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + squaredH.toFixed(1) + '" fill="' + color + '" pointer-events="none" />' +
-        '<text x="' + (x + barW / 2).toFixed(1) + '" y="' + (baselineY + 18).toFixed(1) + '" text-anchor="middle" transform="rotate(-40 ' + (x + barW / 2).toFixed(1) + ' ' + (baselineY + 18).toFixed(1) + ')">' + esc(cat) + '</text>' +
+        '<text x="' + (x + barW / 2).toFixed(1) + '" y="' + (baselineY + 18).toFixed(1) + '" text-anchor="middle">' + esc(etiqueta) + '</text>' +
         '</g>'
       );
     }
     var baselineY2 = padTop + plotH;
     return '<svg class="chart" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
+      '<defs>' + defs.join('') + '</defs>' +
       gridlines.join('') + gridLabels.join('') +
       '<line class="baseline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + baselineY2.toFixed(1) + '" y2="' + baselineY2.toFixed(1) + '" />' +
       bars.join('') + '</svg>';
@@ -674,6 +879,7 @@ DASHBOARD_JS = """
     var height = n * rowH + 20;
     var maxVal = Math.max.apply(null, valores) || 1;
 
+    var gradId = 'hbg-' + (gradSeq++);
     var rows = [];
     for (var i = 0; i < n; i++) {
       var cat = categorias[i], val = valores[i];
@@ -684,12 +890,218 @@ DASHBOARD_JS = """
         '<g>' +
         '<text x="' + (labelW - 10) + '" y="' + (y + rowH / 2 + 4).toFixed(1) + '" text-anchor="end">' + esc(etiqueta) + '</text>' +
         '<rect class="hit" x="0" y="' + y.toFixed(1) + '" width="' + width.toFixed(1) + '" height="' + (rowH - 6).toFixed(1) + '" data-label="' + esc(cat) + '" data-value="' + esc(fmt(valueFmt, val)) + '" />' +
-        '<rect x="' + labelW + '" y="' + y.toFixed(1) + '" width="' + Math.max(barW, 2).toFixed(1) + '" height="' + (rowH - 6).toFixed(1) + '" rx="4" ry="4" fill="var(--series-1)" pointer-events="none" />' +
+        '<rect x="' + labelW + '" y="' + y.toFixed(1) + '" width="' + Math.max(barW, 2).toFixed(1) + '" height="' + (rowH - 6).toFixed(1) + '" rx="4" ry="4" fill="url(#' + gradId + ')" pointer-events="none" />' +
         '<text x="' + (labelW + barW + 8).toFixed(1) + '" y="' + (y + rowH / 2 + 4).toFixed(1) + '" text-anchor="start">' + esc(fmt(valueFmt, val)) + '</text>' +
         '</g>'
       );
     }
-    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMinYMin meet">' + rows.join('') + '</svg>';
+    var defsHtml = '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" style="stop-color:var(--series-1);stop-opacity:0.95" /><stop offset="100%" style="stop-color:var(--series-1);stop-opacity:0.6" /></linearGradient></defs>';
+    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMinYMin meet">' + defsHtml + rows.join('') + '</svg>';
+  }
+
+  // Linea/area para tendencia en el tiempo (una sola serie). Rotula todos los
+  // puntos como eje (igual que barChartSvg) pero solo pone texto de etiqueta
+  // cada N puntos para no saturar una tarjeta angosta del poster.
+  function lineAreaChartSvg(categorias, valores, opts) {
+    opts = opts || {};
+    var valueFmt = opts.fmt || 'int';
+    var n = categorias.length;
+    if (!n) return '<p>Sin datos.</p>';
+    var width = Math.max(480, n * 34);
+    var maxVal = Math.max.apply(null, valores) || 1;
+    var steps = 4;
+    var gridValues = [];
+    for (var i = 0; i <= steps; i++) gridValues.push(fmt(valueFmt, maxVal * (i / steps)));
+    var maxLabelW = 0;
+    gridValues.forEach(function (v) { maxLabelW = Math.max(maxLabelW, textW(v)); });
+    // padLeft segun el label mas ancho del eje Y (igual que barChartSvg).
+    // padRight segun el ancho real del rotulo del ultimo punto (endLabel
+    // mas abajo cuelga a la derecha del punto) -- antes era fijo (84) y
+    // con montos grandes el numero se cortaba contra el borde de la card.
+    var padLeft = Math.max(50, maxLabelW + 18);
+    var padRight = Math.max(40, textW(fmt(valueFmt, valores[n - 1])) + 24);
+    var padTop = 20, labelH = 34, chartH = opts.height || 240;
+    var plotH = chartH - padTop - labelH, plotW = width - padLeft - padRight;
+    var slot = plotW / n;
+
+    var gridlines = [], gridLabels = [];
+    for (var i2 = 0; i2 <= steps; i2++) {
+      var y = padTop + plotH - (i2 / steps) * plotH;
+      gridlines.push('<line class="gridline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" />');
+      gridLabels.push('<text x="' + (padLeft - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end">' + esc(gridValues[i2]) + '</text>');
+    }
+
+    var pts = [];
+    for (var j = 0; j < n; j++) {
+      var x = padLeft + j * slot + slot / 2;
+      var y = padTop + plotH - (maxVal ? (valores[j] / maxVal) * plotH : 0);
+      pts.push([x, y]);
+    }
+    var baselineY = padTop + plotH;
+    var linePath = pts.map(function (p, idx) { return (idx === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+    var areaPath = linePath +
+      ' L' + pts[n - 1][0].toFixed(1) + ',' + baselineY.toFixed(1) +
+      ' L' + pts[0][0].toFixed(1) + ',' + baselineY.toFixed(1) + ' Z';
+
+    var labelEvery = Math.max(1, Math.ceil(n / 8));
+    var labelMaxChars = Math.max(3, Math.floor((slot * labelEvery) / 6.2));
+    var hits = [], labels = [];
+    pts.forEach(function (p, idx) {
+      hits.push('<circle class="hit" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="14" data-label="' + esc(categorias[idx]) + '" data-value="' + esc(fmt(valueFmt, valores[idx])) + '" />');
+      if (idx % labelEvery === 0 || idx === n - 1) {
+        labels.push('<text x="' + p[0].toFixed(1) + '" y="' + (baselineY + 18).toFixed(1) + '" text-anchor="middle">' + esc(truncar(categorias[idx], labelMaxChars)) + '</text>');
+      }
+    });
+    var last = pts[n - 1];
+    var endDot = '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="5" fill="var(--series-1)" stroke="var(--surface-1)" stroke-width="2" pointer-events="none" />';
+    var endLabel = '<text x="' + (last[0] + 10).toFixed(1) + '" y="' + (last[1] - 8).toFixed(1) + '" text-anchor="start" font-weight="600" fill="var(--text-primary)">' + esc(fmt(valueFmt, valores[n - 1])) + '</text>';
+
+    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
+      gridlines.join('') + gridLabels.join('') +
+      '<line class="baseline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + baselineY.toFixed(1) + '" y2="' + baselineY.toFixed(1) + '" />' +
+      '<path d="' + areaPath + '" fill="var(--series-1)" fill-opacity="0.12" stroke="none" />' +
+      '<path d="' + linePath + '" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />' +
+      endDot + endLabel + labels.join('') + hits.join('') +
+      '</svg>';
+  }
+
+  // Barra apilada 100% (part-to-whole categorico, orden fijo por entidad --
+  // ver spec.charts[].order, nunca por magnitud). Etiqueta el % adentro del
+  // segmento solo si entra con padding; si no, queda solo en la leyenda (que
+  // usa texto en tinta de texto, nunca en el color de la serie).
+  function stacked100BarSvg(categorias, valores, colors, opts) {
+    opts = opts || {};
+    var valueFmt = opts.fmt || 'int';
+    var n = categorias.length;
+    if (!n) return '<p>Sin datos.</p>';
+    var total = valores.reduce(function (a, b) { return a + b; }, 0) || 1;
+    var width = 520, barH = 30, gap = 2;
+    var height = barH + 46;
+    var clipId = 'sc-' + (gradSeq++);
+
+    var segs = [], hits = [], x = 0;
+    categorias.forEach(function (cat, i) {
+      var w = (valores[i] / total) * width;
+      var segW = Math.max(w - (i < n - 1 ? gap : 0), 0);
+      var color = (colors && colors[cat]) || 'var(--series-1)';
+      var pct = Math.round((valores[i] / total) * 100);
+      segs.push('<rect x="' + x.toFixed(1) + '" y="0" width="' + segW.toFixed(1) + '" height="' + barH + '" fill="' + color + '" />');
+      if (segW > 40) {
+        segs.push('<text x="' + (x + segW / 2).toFixed(1) + '" y="' + (barH / 2 + 4.5).toFixed(1) + '" text-anchor="middle" fill="#fff" font-weight="600" font-size="12">' + pct + '%</text>');
+      }
+      hits.push('<rect class="hit" x="' + x.toFixed(1) + '" y="0" width="' + Math.max(w, 1).toFixed(1) + '" height="' + barH + '" fill="transparent" data-label="' + esc(cat) + '" data-value="' + esc(fmt(valueFmt, valores[i])) + ' (' + pct + '%)" />');
+      x += w;
+    });
+
+    var legend = categorias.map(function (cat, i) {
+      var color = (colors && colors[cat]) || 'var(--series-1)';
+      var pct = Math.round((valores[i] / total) * 100);
+      return '<g transform="translate(' + Math.round(i * (width / n)) + ', ' + (barH + 24) + ')">' +
+        '<rect width="10" height="10" rx="2" fill="' + color + '" />' +
+        '<text x="16" y="9" fill="var(--text-secondary)" font-size="12">' + esc(cat) + ' · ' + pct + '%</text>' +
+        '</g>';
+    }).join('');
+
+    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMinYMin meet">' +
+      '<defs><clipPath id="' + clipId + '"><rect x="0" y="0" width="' + width + '" height="' + barH + '" rx="6" ry="6" /></clipPath></defs>' +
+      '<g clip-path="url(#' + clipId + ')">' + segs.join('') + '</g>' +
+      hits.join('') + legend +
+      '</svg>';
+  }
+
+  // Comparacion periodo a periodo (mes a mes / trimestre a trimestre): barras
+  // agrupadas por mes|trimestre del anio, una serie por anio. El anio es un
+  // dato ordenado (no categorico) asi que la serie mas vieja arranca mas
+  // transparente y la mas reciente en opacidad plena, en vez de una paleta
+  // categorica arcoiris -- mismo tinte (var(--series-1)) en todos los anios.
+  function groupedBarChartSvg(categorias, years, seriesByYear, opts) {
+    opts = opts || {};
+    var valueFmt = opts.fmt || 'int';
+    var n = categorias.length, nSeries = years.length;
+    if (!n || !nSeries) return '<p>Sin datos.</p>';
+    var width = Math.max(560, n * 90);
+    var maxVal = 0;
+    years.forEach(function (y) { seriesByYear[y].forEach(function (v) { maxVal = Math.max(maxVal, v); }); });
+    maxVal = maxVal || 1;
+    var steps = 4;
+    var gridValues = [];
+    for (var i = 0; i <= steps; i++) gridValues.push(fmt(valueFmt, maxVal * (i / steps)));
+    var maxLabelW = 0;
+    gridValues.forEach(function (v) { maxLabelW = Math.max(maxLabelW, textW(v)); });
+    var padLeft = Math.max(50, maxLabelW + 18);
+    var padRight = 20, padTop = 20, labelH = 34, legendH = 26;
+    var chartH = (opts.height || 260) + legendH;
+    var plotH = chartH - padTop - labelH - legendH, plotW = width - padLeft - padRight;
+
+    var groupGap = 16, barGap = 3;
+    var groupW = plotW / n;
+    var barW = Math.max(6, (groupW - groupGap - (nSeries - 1) * barGap) / nSeries);
+
+    var gridlines = [], gridLabels = [];
+    for (var i2 = 0; i2 <= steps; i2++) {
+      var y = padTop + plotH - (i2 / steps) * plotH;
+      gridlines.push('<line class="gridline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" />');
+      gridLabels.push('<text x="' + (padLeft - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end">' + esc(gridValues[i2]) + '</text>');
+    }
+
+    function opacityFor(s) { return nSeries === 1 ? 1 : (0.35 + 0.65 * (s / (nSeries - 1))); }
+
+    var baselineY = padTop + plotH;
+    var bars = [], catLabels = [];
+    for (var j = 0; j < n; j++) {
+      var groupX = padLeft + j * groupW + groupGap / 2;
+      for (var s = 0; s < nSeries; s++) {
+        var val = seriesByYear[years[s]][j];
+        var barH = maxVal ? (val / maxVal) * plotH : 0;
+        var x = groupX + s * (barW + barGap);
+        var yTop = padTop + plotH - barH;
+        bars.push(
+          '<rect class="hit" x="' + (x - 1).toFixed(1) + '" y="' + padTop.toFixed(1) + '" width="' + (barW + 2).toFixed(1) + '" height="' + plotH.toFixed(1) + '" data-label="' + esc(years[s] + ' - ' + categorias[j]) + '" data-value="' + esc(fmt(valueFmt, val)) + '" />' +
+          '<rect x="' + x.toFixed(1) + '" y="' + yTop.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + barH.toFixed(1) + '" rx="3" ry="3" fill="var(--series-1)" fill-opacity="' + opacityFor(s).toFixed(2) + '" pointer-events="none" />'
+        );
+      }
+      catLabels.push('<text x="' + (groupX + (groupW - groupGap) / 2).toFixed(1) + '" y="' + (baselineY + 18).toFixed(1) + '" text-anchor="middle">' + esc(categorias[j]) + '</text>');
+    }
+
+    var legend = years.map(function (y, s) {
+      return '<g transform="translate(' + (padLeft + s * 64) + ',' + (chartH - legendH + 8) + ')">' +
+        '<rect width="10" height="10" rx="2" fill="var(--series-1)" fill-opacity="' + opacityFor(s).toFixed(2) + '" />' +
+        '<text x="16" y="9" font-size="12" fill="var(--text-secondary)">' + esc(y) + '</text>' +
+        '</g>';
+    }).join('');
+
+    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
+      gridlines.join('') + gridLabels.join('') +
+      '<line class="baseline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + baselineY.toFixed(1) + '" y2="' + baselineY.toFixed(1) + '" />' +
+      bars.join('') + catLabels.join('') + legend +
+      '</svg>';
+  }
+
+  var MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  var QUARTER_LABELS = ['T1', 'T2', 'T3', 'T4'];
+  var periodCompareState = {};
+  var periodCompareSpecs = {};
+
+  function renderPeriodCompare(c, rows) {
+    var granularity = periodCompareState[c.mount] || c.granularity || 'month';
+    var buckets = granularity === 'quarter' ? 4 : 12;
+    var catLabels = granularity === 'quarter' ? QUARTER_LABELS : MONTH_LABELS;
+
+    var byYear = {};
+    rows.forEach(function (r) {
+      var p = r[dateField];
+      if (!p || p.length < 7) return;
+      var year = p.slice(0, 4);
+      var month = parseInt(p.slice(5, 7), 10);
+      if (!month) return;
+      var idx = granularity === 'quarter' ? Math.ceil(month / 3) - 1 : month - 1;
+      if (!byYear[year]) byYear[year] = new Array(buckets).fill(0);
+      byYear[year][idx] += Number(r[c.field]) || 0;
+    });
+    var years = Object.keys(byYear).sort();
+    var svg = groupedBarChartSvg(catLabels, years, byYear, { fmt: c.fmt, height: c.height });
+    var el = document.getElementById(c.mount);
+    if (el) el.innerHTML = svg;
   }
 
   function renderStatTiles(mountId, items) {
@@ -701,13 +1113,73 @@ DASHBOARD_JS = """
     }).join('');
   }
 
-  function renderTable(mountId, columns, rows, numericCols) {
+  // Tabla con buscador en vivo + orden por columna + tope de TABLE_LIMIT filas
+  // (con boton "mostrar todas"). El buscador/orden se arman UNA sola vez por
+  // mount (el.dataset.built) y solo se repinta '.table-inner' en cada cambio,
+  // para no perder el foco del input mientras el usuario tipea.
+  function renderTable(mountId, columns, rows, numericCols, tableSpec) {
     var el = document.getElementById(mountId);
     if (!el) return;
+    if (!tableState[mountId]) {
+      tableState[mountId] = { search: '', expanded: false, sort: (tableSpec && tableSpec.sort) || null };
+    }
+    if (!el.dataset.built) {
+      el.innerHTML =
+        '<div class="table-toolbar no-print">' +
+          '<input type="search" class="table-search" placeholder="Buscar en la tabla...">' +
+          '<span class="table-count"></span>' +
+        '</div>' +
+        '<div class="table-inner"></div>' +
+        '<div class="table-more no-print" style="display:none"><button type="button" class="table-more-btn"></button></div>';
+      el.dataset.built = '1';
+      var searchInput = el.querySelector('.table-search');
+      searchInput.addEventListener('input', function () {
+        tableState[mountId].search = searchInput.value;
+        tableState[mountId].expanded = false;
+        paintTable(mountId);
+      });
+      el.querySelector('.table-more-btn').addEventListener('click', function () {
+        tableState[mountId].expanded = !tableState[mountId].expanded;
+        paintTable(mountId);
+      });
+    }
+    el._allColumns = columns;
+    el._allRows = rows;
+    el._numericCols = numericCols;
+    paintTable(mountId);
+  }
+
+  function paintTable(mountId) {
+    var el = document.getElementById(mountId);
+    if (!el) return;
+    var columns = el._allColumns, rows = el._allRows, numericCols = el._numericCols;
+    var st = tableState[mountId];
+
+    var sorted = st.sort ? sortRows(rows, st.sort) : rows;
+
+    var q = (st.search || '').trim().toLowerCase();
+    var filtered = q ? sorted.filter(function (r) {
+      return columns.some(function (c) {
+        var v = r[c[0]];
+        return v != null && String(v).toLowerCase().indexOf(q) !== -1;
+      });
+    }) : sorted;
+
+    var showAll = st.expanded || filtered.length <= TABLE_LIMIT;
+
     var head = columns.map(function (c) {
-      return '<th class="' + (numericCols.indexOf(c[0]) >= 0 ? 'num' : '') + '">' + esc(c[1]) + '</th>';
+      var key = c[0], label = c[1];
+      var cls = (numericCols.indexOf(key) >= 0 ? 'num sortable' : 'sortable');
+      var arrow = (st.sort && st.sort.key === key) ? (st.sort.dir === 'asc' ? ' ↑' : ' ↓') : '';
+      return '<th class="' + cls + '" data-key="' + esc(key) + '">' + esc(label) + arrow + '</th>';
     }).join('');
-    var body = rows.map(function (r) {
+    // Las filas mas alla de TABLE_LIMIT se quedan en el DOM (no se cortan del
+    // array) y solo se ocultan con la clase row-hidden: asi @media print
+    // (html_report.py) las vuelve a mostrar siempre, sin depender de que el
+    // evento JS 'beforeprint' llegue a disparar (en Chromium headless no lo
+    // hace; en un navegador de escritorio real si, pero mejor no apostar el
+    // PDF real a eso).
+    var body = filtered.map(function (r, i) {
       var cells = columns.map(function (c) {
         var v = r[c[0]];
         if (numericCols.indexOf(c[0]) >= 0) {
@@ -715,16 +1187,47 @@ DASHBOARD_JS = """
         }
         return '<td>' + (v == null ? '' : esc(v)) + '</td>';
       }).join('');
-      return '<tr>' + cells + '</tr>';
+      var rowCls = (!showAll && i >= TABLE_LIMIT) ? ' class="row-hidden"' : '';
+      return '<tr' + rowCls + '>' + cells + '</tr>';
     }).join('');
-    el.innerHTML = '<table class="report-table"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>';
+
+    var inner = el.querySelector('.table-inner');
+    inner.innerHTML = '<table class="report-table"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>';
+    inner.querySelectorAll('th.sortable').forEach(function (th) {
+      th.addEventListener('click', function () {
+        var key = th.dataset.key;
+        if (st.sort && st.sort.key === key) {
+          st.sort = { key: key, dir: st.sort.dir === 'asc' ? 'desc' : 'asc' };
+        } else {
+          st.sort = { key: key, dir: 'desc' };
+        }
+        paintTable(mountId);
+      });
+    });
+
+    var countEl = el.querySelector('.table-count');
+    if (countEl) {
+      countEl.textContent = (filtered.length === rows.length)
+        ? (rows.length + (rows.length === 1 ? ' fila' : ' filas'))
+        : (filtered.length + ' de ' + rows.length + ' filas');
+    }
+
+    var moreWrap = el.querySelector('.table-more');
+    var moreBtn = el.querySelector('.table-more-btn');
+    if (filtered.length > TABLE_LIMIT) {
+      moreWrap.style.display = '';
+      moreBtn.textContent = showAll ? ('▴ Mostrar solo las primeras ' + TABLE_LIMIT) : ('▾ Mostrar todas (' + filtered.length + ')');
+    } else {
+      moreWrap.style.display = 'none';
+    }
   }
 
   function renderAll() {
-    var from = (elDesde && elDesde.value) || minPeriod;
-    var to = (elHasta && elHasta.value) || maxPeriod;
-    if (from && to && from > to) { to = from; if (elHasta) elHasta.value = from; }
+    var from = getPeriod(elDesdeMes, elDesdeAnio) || minPeriod;
+    var to = getPeriod(elHastaMes, elHastaAnio) || maxPeriod;
+    if (from && to && from > to) { to = from; setPeriod(elHastaMes, elHastaAnio, from); }
     var rows = filterRecords(from, to);
+    try { localStorage.setItem(FILTER_KEY, JSON.stringify({ from: from, to: to })); } catch (e) {}
 
     if (spec.statTiles) {
       var items = spec.statTiles.map(function (t) {
@@ -748,7 +1251,14 @@ DASHBOARD_JS = """
       renderStatTiles('stat-tiles', items);
     }
 
+    lastFilteredRows = rows;
+
     (spec.charts || []).forEach(function (c) {
+      if (c.type === 'period_compare') {
+        periodCompareSpecs[c.mount] = c;
+        renderPeriodCompare(c, rows);
+        return;
+      }
       var agg = aggregate(rows, c.groupBy, [{ key: 'value', op: c.agg, field: c.field }]);
       if (c.groupBy === dateField) {
         agg.sort(function (a, b) { return String(a[c.groupBy]).localeCompare(String(b[c.groupBy])); });
@@ -763,14 +1273,31 @@ DASHBOARD_JS = """
       if (c.topN) agg = agg.slice(0, c.topN);
       var cats = agg.map(function (a) { return a[c.groupBy]; });
       var vals = agg.map(function (a) { return a.value; });
-      var svg = c.type === 'hbar' ? hbarChartSvg(cats, vals, { fmt: c.fmt }) : barChartSvg(cats, vals, { fmt: c.fmt, colors: c.colors });
+      var svg;
+      if (c.type === 'hbar') {
+        svg = hbarChartSvg(cats, vals, { fmt: c.fmt, rowH: c.rowH });
+      } else if (c.type === 'line') {
+        svg = lineAreaChartSvg(cats, vals, { fmt: c.fmt, height: c.height });
+      } else if (c.type === 'stacked100') {
+        var resolvedColors = {};
+        Object.keys(c.colors || {}).forEach(function (k) {
+          var v = c.colors[k];
+          resolvedColors[k] = (v && typeof v === 'object') ? (prefersDark ? v.dark : v.light) : v;
+        });
+        svg = stacked100BarSvg(cats, vals, resolvedColors, { fmt: c.fmt });
+      } else {
+        svg = barChartSvg(cats, vals, { fmt: c.fmt, colors: c.colors, height: c.height });
+      }
       var el = document.getElementById(c.mount);
       if (el) el.innerHTML = svg;
     });
 
     (spec.tables || []).forEach(function (t) {
-      var tableRows = t.groupBy ? sortRows(aggregate(rows, t.groupBy, t.aggs), t.sort) : sortRows(rows, t.sort);
-      renderTable(t.mount, t.columns, tableRows, t.numericCols || []);
+      var tableRows = t.groupBy ? aggregate(rows, t.groupBy, t.aggs) : rows;
+      if (t.topN) {
+        tableRows = sortRows(tableRows, t.sort);
+      }
+      renderTable(t.mount, t.columns, t.topN ? tableRows.slice(0, t.topN) : tableRows, t.numericCols || [], t);
     });
 
     if (elCoverage) {
@@ -780,12 +1307,28 @@ DASHBOARD_JS = """
     }
   }
 
-  if (elDesde) elDesde.addEventListener('change', renderAll);
-  if (elHasta) elHasta.addEventListener('change', renderAll);
+  [elDesdeMes, elDesdeAnio, elHastaMes, elHastaAnio].forEach(function (el) {
+    if (el) el.addEventListener('change', renderAll);
+  });
   if (elReset) elReset.addEventListener('click', function () {
-    if (elDesde) elDesde.value = minPeriod;
-    if (elHasta) elHasta.value = maxPeriod;
+    setPeriod(elDesdeMes, elDesdeAnio, minPeriod);
+    setPeriod(elHastaMes, elHastaAnio, maxPeriod);
     renderAll();
+  });
+
+  // Toggle Mensual/Trimestral de un chart period_compare: repinta solo ese
+  // chart con las filas ya filtradas, sin pasar por renderAll().
+  document.querySelectorAll('.segmented[data-toggle-for]').forEach(function (seg) {
+    var mountId = seg.dataset.toggleFor;
+    seg.querySelectorAll('button[data-granularity]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        seg.querySelectorAll('button').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        periodCompareState[mountId] = btn.dataset.granularity;
+        var c = periodCompareSpecs[mountId];
+        if (c) renderPeriodCompare(c, lastFilteredRows);
+      });
+    });
   });
 
   renderAll();
@@ -801,3 +1344,404 @@ def dashboard_bundle(records: list, spec: dict) -> str:
         f'<script type="application/json" id="report-spec">{json.dumps(spec, ensure_ascii=False)}</script>\n'
         f'<script>{DASHBOARD_JS}</script>'
     )
+
+
+# --- Formato presentacion (slides) ---
+#
+# Capa alternativa al dashboard de una sola pantalla (page_shell): en vez de
+# secciones apiladas, arma un "deck" de pantallas completas navegables
+# (flechas, scroll con snap, puntitos), pensado para mostrar/proyectar un
+# resumen ejecutivo en vez del detalle completo. Reutiliza el mismo motor de
+# datos (DASHBOARD_JS/dashboard_bundle, records_from_df, bar_chart_svg specs)
+# -- solo cambia el shell HTML/CSS/JS alrededor. Sigue siendo un archivo
+# autocontenido: se abre con doble click y se imprime a PDF (una slide por
+# pagina) igual que el dashboard.
+
+SLIDE_CSS = """
+.slides-body { overflow: hidden; height: 100vh; }
+.deck {
+  scroll-snap-type: y mandatory;
+  overflow-y: auto;
+  height: 100vh;
+  scroll-behavior: smooth;
+}
+.slide {
+  min-height: 100vh;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 64px 88px;
+  box-sizing: border-box;
+  position: relative;
+}
+.slide-header { margin-bottom: 28px; }
+.slide-header h2 { font-size: 30px; font-weight: 700; margin: 4px 0 0; letter-spacing: -0.01em; }
+.slide-header .eyebrow { margin: 0; }
+
+.slide-cover { align-items: flex-start; background: linear-gradient(160deg, var(--surface-1), var(--page-plane)); }
+.slide-cover .cover-logo { width: 76px; color: var(--brand); margin-bottom: 28px; }
+.slide-cover .cover-logo svg { display: block; width: 100%; height: auto; }
+.slide-cover .eyebrow { margin: 0 0 10px; }
+.slide-cover h1 { font-size: 54px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 18px; max-width: 800px; }
+.slide-cover .cover-meta { font-size: 17px; color: var(--text-secondary); max-width: 640px; margin-bottom: 6px; }
+.slide-cover .cover-generated { font-size: 13px; color: var(--text-muted); position: absolute; bottom: 48px; left: 88px; }
+
+.slide-closing { align-items: center; text-align: center; }
+.slide-closing h2 { font-size: 34px; margin: 0 0 14px; }
+.slide-closing p { max-width: 620px; color: var(--text-secondary); font-size: 15px; margin: 0 auto; }
+
+.slide-kpis .stat-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-bottom: 0; }
+.slide-kpis .stat-tile { padding: 26px 28px; }
+.slide-kpis .stat-tile .label { font-size: 12px; }
+.slide-kpis .stat-tile .value { font-size: 52px; }
+
+.slide-chart-full .chart-mount, .slide-chart-full > div:last-child { flex: 1; display: flex; align-items: center; }
+
+.slide-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; flex: 1; align-items: center; }
+.slide-grid-2 .slide-panel h3 { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; margin: 0 0 14px; color: var(--text-secondary); }
+
+.slide-nav {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px;
+  padding: 8px 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.14); z-index: 20;
+  font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+.slide-nav-btn { border: none; background: transparent; color: var(--text-primary); font-size: 20px; cursor: pointer; line-height: 1; padding: 2px 8px; }
+.slide-nav-btn:hover { color: var(--brand); }
+
+.slide-dots { position: fixed; right: 22px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 9px; z-index: 20; }
+.slide-dots .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--baseline); border: none; cursor: pointer; padding: 0; }
+.slide-dots .dot.active { background: var(--brand); transform: scale(1.35); }
+
+.slide-filter { position: fixed; top: 18px; right: 18px; z-index: 20; max-width: 380px; }
+.slide-filter .filter-bar { margin-bottom: 0; font-size: 12px; padding: 8px 14px; }
+
+.slide-poster { justify-content: flex-start; padding-top: 56px; padding-bottom: 56px; }
+.poster-grid { display: grid; gap: 20px; flex: 1; align-content: start; }
+.poster-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.poster-grid.cols-1 { grid-template-columns: 1fr; }
+.poster-card {
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px;
+  overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.poster-card-header {
+  background: var(--text-primary); color: var(--surface-1);
+  padding: 10px 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; display: flex; align-items: center; gap: 8px;
+}
+.poster-card-header .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); flex-shrink: 0; }
+.poster-card-body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; }
+.poster-card-note { font-size: 11.5px; color: var(--text-muted); margin-top: 10px; }
+.poster-kpis .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 0; }
+.poster-kpis .stat-tile { padding: 14px 16px; }
+.poster-kpis .stat-tile .value { font-size: 30px; }
+
+@media print {
+  .slide-poster { padding-top: 24px; padding-bottom: 24px; }
+}
+
+@media print {
+  .slides-body { overflow: visible; height: auto; }
+  .deck { height: auto; overflow: visible; scroll-snap-type: none; }
+  .slide { min-height: auto; height: auto; page-break-after: always; break-after: page; padding: 24px 0; }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+  .slide-nav, .slide-dots { display: none !important; }
+  .slide-filter { position: static; margin: 0 0 16px; box-shadow: none; border: none; max-width: none; }
+  /* .cover-generated esta absoluto contra el piso de una slide de 100vh en
+     pantalla; en print la slide se achica a su contenido y ese "bottom:48px"
+     termina superpuesto con el subtitulo. Vuelve al flujo normal. */
+  .slide-cover .cover-generated { position: static; margin-top: 14px; }
+}
+"""
+
+SLIDE_NAV_JS = """
+(function () {
+  var deck = document.getElementById('deck');
+  if (!deck) return;
+  var slides = Array.prototype.slice.call(deck.querySelectorAll('.slide'));
+  var dotsWrap = document.getElementById('slide-dots');
+  var counterEl = document.getElementById('slide-current');
+  var prevBtn = document.getElementById('nav-prev');
+  var nextBtn = document.getElementById('nav-next');
+  var current = 0;
+
+  slides.forEach(function (s, i) {
+    var dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('aria-label', 'Slide ' + (i + 1));
+    dot.addEventListener('click', function () { goTo(i); });
+    dotsWrap.appendChild(dot);
+  });
+  var dots = Array.prototype.slice.call(dotsWrap.querySelectorAll('.dot'));
+
+  function setActive(i) {
+    current = i;
+    if (counterEl) counterEl.textContent = String(i + 1);
+    dots.forEach(function (d, j) { d.classList.toggle('active', j === i); });
+  }
+
+  function goTo(i) {
+    i = Math.max(0, Math.min(slides.length - 1, i));
+    slides[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  if (prevBtn) prevBtn.addEventListener('click', function () { goTo(current - 1); });
+  if (nextBtn) nextBtn.addEventListener('click', function () { goTo(current + 1); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && ['INPUT', 'TEXTAREA'].indexOf(e.target.tagName) !== -1) return;
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); goTo(current + 1); }
+    else if (e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); goTo(current - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); goTo(0); }
+    else if (e.key === 'End') { e.preventDefault(); goTo(slides.length - 1); }
+  });
+
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+          setActive(slides.indexOf(entry.target));
+        }
+      });
+    }, { root: deck, threshold: [0.6] });
+    slides.forEach(function (s) { observer.observe(s); });
+  }
+})();
+"""
+
+
+def slide(inner_html: str, *, css_class: str = "") -> str:
+    """Envuelve el contenido de una pantalla completa del deck."""
+    cls = f"slide {css_class}".strip()
+    return f'<section class="{cls}" data-slide>{inner_html}</section>'
+
+
+def slide_header(eyebrow: str, titulo: str) -> str:
+    return f'<div class="slide-header"><div class="eyebrow">{escape(eyebrow)}</div><h2>{escape(titulo)}</h2></div>'
+
+
+def poster_card(titulo: str, mount_html: str, *, nota: str = None, css_class: str = "") -> str:
+    """Tarjeta chica para un deck tipo poster: header en negro (identidad
+    ALESTE) con un punto de acento en el rojo de marca, cuerpo con el mount
+    del grafico/tabla. `css_class` es para variantes de tamaño de tile
+    (ver .poster-kpis en SLIDE_CSS)."""
+    nota_html = f'<div class="poster-card-note">{escape(nota)}</div>' if nota else ""
+    cls = f"poster-card {css_class}".strip()
+    return f"""<div class="{cls}">
+    <div class="poster-card-header"><span class="dot"></span>{escape(titulo)}</div>
+    <div class="poster-card-body">{mount_html}{nota_html}</div>
+  </div>"""
+
+
+def poster_grid(cards: list, *, cols: int = 2) -> str:
+    return f'<div class="poster-grid cols-{cols}">{"".join(cards)}</div>'
+
+
+def cover_slide(titulo: str, subtitulo: str, meta: str = "") -> str:
+    generado = datetime.now().strftime("%Y-%m-%d %H:%M")
+    meta_html = f'<div class="cover-meta">{escape(meta)}</div>' if meta else ""
+    return slide(
+        f'<div class="cover-logo">{LOGO_SVG}</div>'
+        f'<div class="eyebrow">{escape(subtitulo)}</div>'
+        f'<h1>{escape(titulo)}</h1>'
+        f'{meta_html}'
+        f'<div class="cover-generated">Generado: {generado}</div>',
+        css_class="slide-cover",
+    )
+
+
+def closing_slide(titulo: str, texto: str) -> str:
+    return slide(f'<h2>{escape(titulo)}</h2><p>{escape(texto)}</p>', css_class="slide-closing")
+
+
+def slide_shell(titulo: str, subtitulo: str, slides_html: list, records: list, spec: dict) -> str:
+    n = len(slides_html)
+    deck = "".join(slides_html)
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{escape(titulo)}</title>
+<style>{PAGE_CSS}{DASHBOARD_CSS}{SLIDE_CSS}</style>
+</head>
+<body class="slides-body">
+<div class="deck" id="deck">
+{deck}
+</div>
+<div class="slide-nav no-print">
+  <button type="button" class="slide-nav-btn" id="nav-prev" aria-label="Anterior">&lsaquo;</button>
+  <div class="slide-counter"><span id="slide-current">1</span>&nbsp;/&nbsp;{n}</div>
+  <button type="button" class="slide-nav-btn" id="nav-next" aria-label="Siguiente">&rsaquo;</button>
+</div>
+<div class="slide-dots no-print" id="slide-dots"></div>
+<div class="slide-filter">{filter_bar_html()}</div>
+<div id="viz-tooltip"></div>
+<script>{TOOLTIP_JS}{SLIDE_NAV_JS}</script>
+{dashboard_bundle(records, spec)}
+</body>
+</html>"""
+
+
+# --- Shell: dashboard multi-modulo (sidebar + iframe) ---
+#
+# "Home" que agrupa todos los informe_<modulo>.html bajo un sidebar estilo
+# Mantis. Cada informe sigue siendo un HTML autocontenido que se puede abrir
+# suelto con doble click, igual que hoy -- el shell solo agrega navegacion
+# por encima (un <iframe> que apunta al archivo del modulo activo), no
+# cambia como cada modulo genera su archivo. Lo arma generate_dashboard.py
+# (raiz del repo) con la lista de modulos dados de alta.
+
+SHELL_CSS = """
+.shell-body { margin: 0; height: 100vh; overflow: hidden; }
+.shell-layout { display: flex; height: 100vh; }
+.shell-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px;
+  overflow-y: auto;
+}
+.shell-sidebar .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 20px; }
+.shell-sidebar .brand-logo { width: 34px; flex-shrink: 0; color: var(--brand); }
+.shell-sidebar .brand-logo svg { display: block; width: 100%; height: auto; }
+.shell-sidebar .brand-title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+.shell-sidebar .brand-subtitle { font-size: 11px; color: var(--text-muted); }
+.shell-nav { display: flex; flex-direction: column; gap: 2px; }
+.shell-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: none;
+  border-right: 2px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.shell-nav-item:hover { background: var(--page-plane); }
+.shell-nav-item.active {
+  background: var(--brand-tint);
+  border-right-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+}
+.shell-nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; flex-shrink: 0; }
+.shell-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.shell-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.shell-topbar h1 { font-size: 15px; font-weight: 600; margin: 0; }
+.shell-frame-wrap { flex: 1; min-height: 0; }
+.shell-frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; background: var(--page-plane); }
+
+@media print {
+  .shell-sidebar, .shell-topbar { display: none !important; }
+  .shell-layout, .shell-main, .shell-frame-wrap { height: auto; display: block; }
+  .shell-frame-wrap iframe { height: 100vh; }
+}
+"""
+
+SHELL_JS = """
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.shell-nav-item'));
+  var frame = document.getElementById('shell-frame');
+  var titleEl = document.getElementById('shell-title');
+  var STORAGE_KEY = 'aleste-dashboard-modulo';
+
+  function activate(id) {
+    var item = items.filter(function (it) { return it.dataset.id === id; })[0];
+    if (!item || !frame) return;
+    items.forEach(function (it) { it.classList.toggle('active', it === item); });
+    frame.src = item.dataset.src;
+    if (titleEl) titleEl.textContent = item.dataset.label;
+    try { localStorage.setItem(STORAGE_KEY, id); } catch (e) {}
+  }
+
+  items.forEach(function (it) {
+    it.addEventListener('click', function () { activate(it.dataset.id); });
+  });
+
+  var stored = null;
+  try { stored = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+  var initial = (stored && items.some(function (it) { return it.dataset.id === stored; }))
+    ? stored
+    : (items[0] && items[0].dataset.id);
+  if (initial) activate(initial);
+
+  var printBtn = document.getElementById('shell-print');
+  if (printBtn) printBtn.addEventListener('click', function () {
+    // iframes de otro archivo local (file://) a veces bloquean el acceso a
+    // contentWindow segun el navegador -- si tira SecurityError, se cae a
+    // imprimir el shell (mejor eso que un boton roto).
+    try {
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        return;
+      }
+    } catch (e) {}
+    window.print();
+  });
+})();
+"""
+
+
+def dashboard_shell(modules: list) -> str:
+    """`modules`: lista de (id, label, archivo_html). Arma el shell con
+    sidebar de navegacion + iframe que carga el informe del modulo activo."""
+    nav_items = "".join(
+        f'<button type="button" class="shell-nav-item" data-id="{escape(id_)}" '
+        f'data-src="{escape(archivo)}" data-label="{escape(label)}">'
+        f'<span class="dot"></span>{escape(label)}</button>'
+        for id_, label, archivo in modules
+    )
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dashboard ALESTE ADS</title>
+<style>{PAGE_CSS}{SHELL_CSS}</style>
+</head>
+<body class="shell-body">
+<div class="shell-layout">
+  <nav class="shell-sidebar no-print">
+    <div class="brand">
+      <div class="brand-logo">{LOGO_SVG}</div>
+      <div>
+        <div class="brand-title">ALESTE ADS</div>
+        <div class="brand-subtitle">Dashboard Advertys</div>
+      </div>
+    </div>
+    <div class="shell-nav">{nav_items}</div>
+  </nav>
+  <div class="shell-main">
+    <div class="shell-topbar no-print">
+      <h1 id="shell-title">Dashboard</h1>
+      <button type="button" class="print-btn" id="shell-print">Imprimir / Guardar PDF</button>
+    </div>
+    <div class="shell-frame-wrap">
+      <iframe id="shell-frame" title="Informe"></iframe>
+    </div>
+  </div>
+</div>
+<script>{SHELL_JS}</script>
+</body>
+</html>"""
