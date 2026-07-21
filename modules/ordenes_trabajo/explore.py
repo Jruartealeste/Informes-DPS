@@ -21,6 +21,8 @@ PASSWORD = os.environ.get("ADVERTYS_PASSWORD")
 
 OUT_DIR = Path("exploracion")
 OUT_DIR.mkdir(exist_ok=True)
+SCREENSHOT_DIR = OUT_DIR / "screenshots"
+SCREENSHOT_DIR.mkdir(exist_ok=True)
 
 
 def esperar_postback(page, timeout=25000):
@@ -69,7 +71,7 @@ def main():
 
         if "Login.aspx" in page.url:
             print("ERROR: no se pudo hacer login. Revisa usuario/contraseña en .env")
-            page.screenshot(path=str(OUT_DIR / "error_login.png"))
+            page.screenshot(path=str(SCREENSHOT_DIR / "ot_error_login.png"))
             browser.close()
             sys.exit(1)
 
@@ -80,10 +82,10 @@ def main():
         print(f"Probando navegacion directa: {direct_url}")
         page.goto(direct_url, wait_until="networkidle", timeout=30000)
         esperar_postback(page)
-        page.screenshot(path=str(OUT_DIR / "03_directo.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "ot_03_directo.png"), full_page=True)
         (OUT_DIR / "directo.html").write_text(page.content(), encoding="utf-8")
         print(f"URL tras navegacion directa: {page.url}")
-        page.screenshot(path=str(OUT_DIR / "03_orden_trabajo.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "ot_03_orden_trabajo.png"), full_page=True)
         print(f"URL tras click: {page.url}")
 
         # Guardar el HTML para poder revisar la estructura de la grilla
@@ -93,7 +95,7 @@ def main():
         filtro_btn = page.locator('td[id$="_Cb_B-1"]').first
         filtro_btn.click()
         page.wait_for_timeout(800)
-        page.screenshot(path=str(OUT_DIR / "04_filtro_abierto.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "ot_04_filtro_abierto.png"), full_page=True)
         (OUT_DIR / "filtro_abierto.html").write_text(page.content(), encoding="utf-8")
 
         todas_item = page.get_by_text("Todas", exact=True).first
@@ -108,7 +110,7 @@ def main():
                 }"""
             )
         esperar_postback(page)
-        page.screenshot(path=str(OUT_DIR / "05_filtro_todas.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "ot_05_filtro_todas.png"), full_page=True)
         (OUT_DIR / "filtro_todas.html").write_text(page.content(), encoding="utf-8")
 
         print("Exportando a XLSX (click nativo por texto del item, sin requerir visibilidad)...")
@@ -132,7 +134,7 @@ def main():
             print(f"OK: descarga guardada en {destino}")
         except Exception as e:
             print(f"ERROR al descargar: {e}")
-            page.screenshot(path=str(OUT_DIR / "error_export.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "ot_error_export.png"), full_page=True)
 
         browser.close()
 

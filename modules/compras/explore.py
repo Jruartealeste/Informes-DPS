@@ -26,6 +26,8 @@ PASSWORD = os.environ.get("ADVERTYS_PASSWORD")
 
 OUT_DIR = Path("exploracion")
 OUT_DIR.mkdir(exist_ok=True)
+SCREENSHOT_DIR = OUT_DIR / "screenshots"
+SCREENSHOT_DIR.mkdir(exist_ok=True)
 
 
 def esperar_postback(page, timeout=25000):
@@ -90,29 +92,29 @@ def main():
 
         if "Login.aspx" in page.url:
             print("ERROR: no se pudo hacer login. Revisa usuario/contraseña en .env")
-            page.screenshot(path=str(OUT_DIR / "compras_error_login.png"))
+            page.screenshot(path=str(SCREENSHOT_DIR / "compras_error_login.png"))
             browser.close()
             sys.exit(1)
 
         print(f"Login OK. URL actual: {page.url}")
-        page.screenshot(path=str(OUT_DIR / "compras_01_menu.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "compras_01_menu.png"), full_page=True)
 
         print("Expandiendo grupo 'Administracion' del menu...")
         if not click_por_texto_o_title(page, "Administracion"):
             print("Aviso: no se encontro el grupo 'Administracion' por texto exacto, sigo igual.")
         page.wait_for_timeout(800)
-        page.screenshot(path=str(OUT_DIR / "compras_02_admin_expandido.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "compras_02_admin_expandido.png"), full_page=True)
 
         print("Haciendo click en 'Compras'...")
         if not click_por_texto_o_title(page, "Compras"):
             print("ERROR: no se encontro el nodo 'Compras' en el menu.")
             (OUT_DIR / "compras_menu.html").write_text(page.content(), encoding="utf-8")
-            page.screenshot(path=str(OUT_DIR / "compras_error_menu.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "compras_error_menu.png"), full_page=True)
             browser.close()
             sys.exit(1)
         esperar_postback(page)
         print(f"URL tras click en Compras: {page.url}")
-        page.screenshot(path=str(OUT_DIR / "compras_03_listado.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "compras_03_listado.png"), full_page=True)
         (OUT_DIR / "compras_listado.html").write_text(page.content(), encoding="utf-8")
 
         print("Intentando cambiar filtro a 'Todas' (si existe en esta vista)...")
@@ -120,7 +122,7 @@ def main():
         if filtro_btn.count() > 0:
             filtro_btn.click()
             page.wait_for_timeout(800)
-            page.screenshot(path=str(OUT_DIR / "compras_04_filtro_abierto.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "compras_04_filtro_abierto.png"), full_page=True)
             todas_item = page.get_by_text("Todas", exact=True).first
             try:
                 todas_item.click(timeout=5000)
@@ -133,7 +135,7 @@ def main():
                     }"""
                 )
             esperar_postback(page)
-            page.screenshot(path=str(OUT_DIR / "compras_05_filtro_todas.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "compras_05_filtro_todas.png"), full_page=True)
             (OUT_DIR / "compras_filtro_todas.html").write_text(page.content(), encoding="utf-8")
         else:
             print("Aviso: no se encontro el boton de filtro habitual; sigo sin cambiarlo.")
@@ -159,7 +161,7 @@ def main():
             print(f"OK: descarga guardada en {destino}")
         except Exception as e:
             print(f"ERROR al descargar: {e}")
-            page.screenshot(path=str(OUT_DIR / "compras_error_export.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "compras_error_export.png"), full_page=True)
 
         browser.close()
 

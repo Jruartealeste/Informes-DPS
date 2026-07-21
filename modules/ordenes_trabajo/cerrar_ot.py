@@ -22,9 +22,17 @@ Cada paso es explicito y se corre por separado (no hay un "cerrar todo de
 un saque"): se ejecuta un estimado o la OT por vez y se revisa la captura
 resultante antes de seguir con el siguiente.
 
+Antes de intentar 'Finalizado', chequea en modo lectura (sin clickear
+Editar) si el estimado esta completo segun la regla acordada con Javier
+(2026-07-21): todo item con Proveedor tiene que tener una O.C. vigente
+(no anulada), y tiene que haber al menos una factura 'Contabilizada'. Si
+no se cumple, aborta con un motivo claro en vez de gastar un intento
+contra Advertys (ver `chequear_estimado_completo`).
+
 Uso:
     python -m modules.ordenes_trabajo.cerrar_ot finalizar-estimado <numero_estimado>
     python -m modules.ordenes_trabajo.cerrar_ot cerrar-ot <numero_ot>
+    python -m modules.ordenes_trabajo.cerrar_ot chequear-estimado <numero_ot> <numero_estimado>
 """
 import os
 import sys
@@ -39,7 +47,7 @@ URL = os.environ.get("ADVERTYS_URL")
 USER = os.environ.get("ADVERTYS_USER")
 PASSWORD = os.environ.get("ADVERTYS_PASSWORD")
 
-OUT_DIR = Path("exploracion") / "cerrar_ot"
+OUT_DIR = Path("exploracion") / "screenshots"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -103,6 +111,140 @@ def boton_visible(page, texto):
         except Exception:
             continue
     return False
+
+
+def normalizar_num_oc(texto):
+    """Normaliza un numero de O.C. para comparar entre pestanas: en 'Items
+    del Estimado' aparece sin ceros a la izquierda (ej. '149') pero en
+    'Ordenes Compra' aparece con ellos (ej. '00149')."""
+    texto = (texto or "").strip()
+    try:
+        return str(int(texto))
+    except ValueError:
+        return texto
+
+
+def leer_grid_visible(page):
+    """Lee la grilla ASPxGridView actualmente visible (la pestana activa) y
+    devuelve una lista de dicts {nombre_columna: texto}. Alinea celdas de
+    datos con el texto del header por posicion -- verificado contra un
+    estimado real (OT 235 / Estimado 439, 2026-07-21) que header y filas
+    tienen exactamente la misma cantidad de celdas en el mismo orden.
+    Selector de header: `td[class*='dxgvHeader']` (no `td.dxgvHeader`: esta
+    instalacion de Advertys usa la clase 'dxgvHeader_Office2010Blue')."""
+    tablas = page.locator("table[id*='DXMainTable']")
+    tabla = None
+    for i in range(tablas.count()):
+        candidata = tablas.nth(i)
+        try:
+            if candidata.is_visible():
+                tabla = candidata
+                break
+        except Exception:
+            continue
+    if tabla is None:
+        return []
+
+    headers_loc = tabla.locator("td[class*='dxgvHeader']")
+    headers = [headers_loc.nth(i).inner_text().strip() for i in range(headers_loc.count())]
+    if not headers:
+        return []
+
+    filas_loc = tabla.locator("tr[id*='DXDataRow']")
+    filas = []
+    for i in range(filas_loc.count()):
+        celdas = filas_loc.nth(i).locator("td")
+        n = celdas.count()
+        fila = {nombre: (celdas.nth(j).inner_text().strip() if j < n else "") for j, nombre in enumerate(headers)}
+        filas.append(fila)
+    return filas
+
+
+def _col(fila, *nombres_posibles):
+    """Busca el valor de una columna por coincidencia parcial del nombre de
+    header (evita depender de un indice fijo, y evita problemas de encoding
+    con 'N° O.C.' buscando solo la parte estable 'O.C.')."""
+    for clave, valor in fila.items():
+        for nombre in nombres_posibles:
+            if nombre in clave:
+                return valor
+    return ""
+
+
+def chequear_estimado_completo(page, numero_estimado):
+    """Chequeo de SOLO LECTURA (nunca clickea 'Editar' ni 'Guardar'):
+    replica la regla de negocio acordada con Javier (2026-07-21) para saber
+    si un Estimado de Costos puede pasar a 'Finalizado':
+
+      a) Todo item con Proveedor cargado tiene que tener una Orden de
+         Compra vigente (numero de O.C. cargado en el item, y esa O.C. no
+         puede estar en estado 'Anulada' en la pestana Ordenes Compra).
+      b) Tiene que haber al menos una factura en estado 'Contabilizada' en
+         la pestana Facturas.
+
+    Se corre ANTES de clickear 'Editar', para poder abortar con un motivo
+    claro en vez de intentar la transicion a ciegas y depender del rechazo
+    generico de Advertys ("Los importes tercerizados no estan CANCELADOS").
+
+    OJO: esto cubre las dos causas mas comunes, pero no todas -- ver la nota
+    "Caso real confirmado por Javier (OT 235 / Estimado 439)" en el README:
+    un desfasaje de imputaciones tras reemplazar una O.C. anulada por otra
+    tambien bloquea la finalizacion y esta funcion NO lo detecta (el item
+    ya apunta a la O.C. nueva y la factura ya esta Contabilizada, pero
+    Advertys igual rechaza por el lado contable). Un 'ok' aca es una
+    condicion necesaria, no suficiente.
+
+    Devuelve (ok: bool, motivos: list[str])."""
+    motivos = []
+
+    if not click_boton_visible(page, "Items del Estimado"):
+        motivos.append("No se pudo abrir la pestana 'Items del Estimado' para chequear proveedores/OC.")
+    else:
+        esperar_postback(page)
+        page.wait_for_timeout(600)
+        items = leer_grid_visible(page)
+        items_sin_oc = []
+        ocs_referenciadas = set()
+        for fila in items:
+            proveedor = _col(fila, "Proveedor").strip()
+            num_oc = _col(fila, "O.C.").strip()
+            if proveedor:
+                if not num_oc:
+                    titulo = _col(fila, "Titulo") or _col(fila, "Nro")
+                    items_sin_oc.append(f"'{titulo}' (proveedor: {proveedor})")
+                else:
+                    ocs_referenciadas.add(normalizar_num_oc(num_oc))
+        if items_sin_oc:
+            motivos.append(
+                f"{len(items_sin_oc)} item(s) con proveedor sin O.C. cargada: " + "; ".join(items_sin_oc)
+            )
+
+        if ocs_referenciadas:
+            if not click_boton_visible(page, "Ordenes Compra"):
+                motivos.append("No se pudo abrir la pestana 'Ordenes Compra' para validar el estado de las O.C. referenciadas.")
+            else:
+                esperar_postback(page)
+                page.wait_for_timeout(600)
+                ocs = leer_grid_visible(page)
+                estado_por_oc = {normalizar_num_oc(_col(fila, "O.C.")): _col(fila, "Estado") for fila in ocs}
+                oc_anuladas = [oc for oc in ocs_referenciadas if estado_por_oc.get(oc, "").strip() == "Anulada"]
+                if oc_anuladas:
+                    motivos.append(
+                        f"La(s) O.C. {', '.join(sorted(oc_anuladas))} referenciada(s) por items del estimado "
+                        "esta(n) en estado 'Anulada' (no cuenta como emitida)."
+                    )
+
+    if not click_boton_visible(page, "Facturas"):
+        motivos.append("No se pudo abrir la pestana 'Facturas' para chequear si hay factura contabilizada.")
+    else:
+        esperar_postback(page)
+        page.wait_for_timeout(600)
+        facturas = leer_grid_visible(page)
+        hay_contabilizada = any(_col(f, "Estado").strip() == "Contabilizada" for f in facturas)
+        if not hay_contabilizada:
+            motivos.append("No tiene ninguna factura en estado 'Contabilizada' en la pestana Facturas.")
+
+    return (len(motivos) == 0, motivos)
 
 
 def click_boton_visible(page, texto, timeout=5000):
@@ -250,6 +392,16 @@ def finalizar_estimado(numero_ot, numero_estimado):
             browser.close()
             return
 
+        print("  Chequeando si el estimado esta completo (proveedores con O.C., factura contabilizada)...")
+        completo, motivos = chequear_estimado_completo(page, numero_estimado)
+        if not completo:
+            print(f"  BLOQUEADO: el estimado {numero_estimado} esta incompleto, no se va a intentar Finalizar:")
+            for m in motivos:
+                print(f"    - {m}")
+            shot(page, f"est_{numero_estimado}_00_bloqueado_incompleto")
+            browser.close()
+            return
+
         if not click_boton_visible(page, "Editar"):
             raise RuntimeError("No se encontro el boton 'Editar' del estimado")
         esperar_postback(page)
@@ -316,6 +468,42 @@ def cerrar_ot(numero_ot):
         browser.close()
 
 
+def chequear_estimado(numero_ot, numero_estimado):
+    """Diagnostico de SOLO LECTURA: informa si el estimado esta completo
+    (proveedores con O.C. vigente + factura contabilizada) sin clickear
+    'Editar' en ningun momento. Sirve para revisar varios estimados de
+    varias OT antes de intentar cerrarlas, sin gastar intentos contra
+    Advertys."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(accept_downloads=True)
+        login(page)
+
+        print(f"Navegando a OT {numero_ot} > Estimados Costo > {numero_estimado} (modo vista)...")
+        ir_a_ot(page, numero_ot)
+        if not click_boton_visible(page, "Estimados Costo"):
+            raise RuntimeError("No se encontro la pestana 'Estimados Costo'")
+        esperar_postback(page)
+        page.wait_for_timeout(800)
+
+        fila_est = page.get_by_text(str(numero_estimado), exact=True)
+        if fila_est.count() == 0:
+            raise RuntimeError(f"No se encontro el estimado {numero_estimado} en la grilla")
+        fila_est.first.click(timeout=5000)
+        esperar_postback(page)
+        page.wait_for_timeout(800)
+
+        completo, motivos = chequear_estimado_completo(page, numero_estimado)
+        if completo:
+            print(f"OK: estimado {numero_estimado} esta completo (proveedores con O.C. vigente, factura contabilizada).")
+        else:
+            print(f"INCOMPLETO (estado amarillo): estimado {numero_estimado} no se puede finalizar todavia:")
+            for m in motivos:
+                print(f"  - {m}")
+
+        browser.close()
+
+
 def main():
     if not URL or not USER or not PASSWORD:
         print("ERROR: completa ADVERTYS_URL, ADVERTYS_USER y ADVERTYS_PASSWORD en .env")
@@ -332,6 +520,8 @@ def main():
         finalizar_estimado(numero_ot, numero_estimado)
     elif accion == "cerrar-ot":
         cerrar_ot(sys.argv[2])
+    elif accion == "chequear-estimado":
+        chequear_estimado(sys.argv[2], sys.argv[3])
     else:
         print(f"Accion desconocida: {accion}")
         print(__doc__)

@@ -24,9 +24,9 @@ o "regenerá el informe de Facturas".
    hace upsert en `advertys.db` (tabla `<modulo>`), por la clave única del
    módulo (ver `modules/<modulo>/config.py`).
 2. `python -m modules.<modulo>.generate_html_report` — regenera
-   `informe_<modulo>.html` en la raíz, sobrescribiendo el archivo anterior
+   `informes/informe_<modulo>.html`, sobrescribiendo el archivo anterior
    (no se acumulan versiones viejas).
-3. `python tools/screenshot.py informe_<modulo>.html <modulo> --mode all`
+3. `python tools/screenshot.py informes/informe_<modulo>.html <modulo> --mode all`
    — ver `workflows/verificar_informe_visual.md`. Solo hace falta si el
    HTML/CSS cambió en esta sesión; un refresh de datos puro sobre un
    informe que ya se veía bien no necesita repetir la verificación visual
@@ -43,5 +43,5 @@ o "regenerá el informe de Facturas".
   (Facturas, por ejemplo, tiene un combo "Filtro" que por defecto trae
   solo el mes en curso).
 
-**Salida esperada:** `informe_<modulo>.html` actualizado en la raíz,
-listo para abrir con doble click o compartir por link de OneDrive.
+**Salida esperada:** `informes/informe_<modulo>.html` actualizado, listo
+para abrir con doble click o compartir por link de OneDrive.

@@ -26,6 +26,8 @@ PASSWORD = os.environ.get("ADVERTYS_PASSWORD")
 
 OUT_DIR = Path("exploracion")
 OUT_DIR.mkdir(exist_ok=True)
+SCREENSHOT_DIR = OUT_DIR / "screenshots"
+SCREENSHOT_DIR.mkdir(exist_ok=True)
 
 
 def esperar_postback(page, timeout=25000):
@@ -88,18 +90,18 @@ def main():
 
         if "Login.aspx" in page.url:
             print("ERROR: no se pudo hacer login. Revisa usuario/contraseña en .env")
-            page.screenshot(path=str(OUT_DIR / "facturas_error_login.png"))
+            page.screenshot(path=str(SCREENSHOT_DIR / "facturas_error_login.png"))
             browser.close()
             sys.exit(1)
 
         print(f"Login OK. URL actual: {page.url}")
-        page.screenshot(path=str(OUT_DIR / "facturas_01_menu.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "facturas_01_menu.png"), full_page=True)
 
         print("Expandiendo grupo 'Consultas' del menu...")
         if not click_por_texto_o_title(page, "Consultas"):
             print("Aviso: no se encontro el grupo 'Consultas' por texto exacto, sigo igual.")
         page.wait_for_timeout(800)
-        page.screenshot(path=str(OUT_DIR / "facturas_02_consultas_expandido.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "facturas_02_consultas_expandido.png"), full_page=True)
 
         # Hay mas de un nodo "Facturacion"/"Facturas" en el menu (Advertys
         # reusa esos nombres en distintas categorias, ej. Administracion
@@ -116,11 +118,11 @@ def main():
         except Exception as e:
             print(f"ERROR: no se pudo clickear la carpeta Facturacion por ID: {e}")
             (OUT_DIR / "facturas_menu.html").write_text(page.content(), encoding="utf-8")
-            page.screenshot(path=str(OUT_DIR / "facturas_error_menu.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "facturas_error_menu.png"), full_page=True)
             browser.close()
             sys.exit(1)
         page.wait_for_timeout(800)
-        page.screenshot(path=str(OUT_DIR / "facturas_03_facturacion_expandido.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "facturas_03_facturacion_expandido.png"), full_page=True)
 
         print("Haciendo click en 'Facturas' (por ID)...")
         try:
@@ -128,12 +130,12 @@ def main():
         except Exception as e:
             print(f"ERROR: no se pudo clickear el nodo Facturas por ID: {e}")
             (OUT_DIR / "facturas_menu.html").write_text(page.content(), encoding="utf-8")
-            page.screenshot(path=str(OUT_DIR / "facturas_error_menu.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "facturas_error_menu.png"), full_page=True)
             browser.close()
             sys.exit(1)
         esperar_postback(page)
         print(f"URL tras click en Facturas: {page.url}")
-        page.screenshot(path=str(OUT_DIR / "facturas_04_listado.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "facturas_04_listado.png"), full_page=True)
         (OUT_DIR / "facturas_listado.html").write_text(page.content(), encoding="utf-8")
 
         # Esta vista NO usa el mismo widget de filtro que OT/Compras: es un
@@ -147,7 +149,7 @@ def main():
         if filtro_btn.count() > 0:
             filtro_btn.click()
             page.wait_for_timeout(800)
-            page.screenshot(path=str(OUT_DIR / "facturas_05_filtro_abierto.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "facturas_05_filtro_abierto.png"), full_page=True)
             todos_item = page.get_by_text("Todos", exact=True).first
             try:
                 todos_item.click(timeout=5000)
@@ -160,7 +162,7 @@ def main():
                     }"""
                 )
             esperar_postback(page)
-            page.screenshot(path=str(OUT_DIR / "facturas_06_filtro_todas.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "facturas_06_filtro_todas.png"), full_page=True)
             (OUT_DIR / "facturas_filtro_todas.html").write_text(page.content(), encoding="utf-8")
         else:
             print("Aviso: no se encontro el combo de Filtro esperado; sigo sin cambiarlo.")
@@ -186,7 +188,7 @@ def main():
             print(f"OK: descarga guardada en {destino}")
         except Exception as e:
             print(f"ERROR al descargar: {e}")
-            page.screenshot(path=str(OUT_DIR / "facturas_error_export.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "facturas_error_export.png"), full_page=True)
 
         browser.close()
 

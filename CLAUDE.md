@@ -40,8 +40,8 @@ asumió).
   (`normalizar_fecha`/`normalizar_numero`), `html_report.py` (page shell,
   CSS claro/oscuro/print, charts SVG, motor JS del dashboard dinámico,
   `dashboard_shell()` para el sidebar+iframe), `generate_dashboard.py`
-  (genera `dashboard.html`, el entrypoint que agrupa todos los
-  `informe_*.html`), `api.py` (API local de solo lectura).
+  (genera `informes/dashboard.html`, el entrypoint que agrupa todos los
+  `informes/informe_*.html`), `api.py` (API local de solo lectura).
 - Genéricas (`tools/`): utilidades que no son de un módulo puntual.
   Hoy: `tools/screenshot.py` (captura con Playwright para verificación
   visual — ver Screenshot Workflow más abajo).
@@ -78,34 +78,33 @@ más preciso. No crees ni sobrescribas un workflow sin avisar, salvo que
 Javier te lo pida explícitamente — son la referencia que se va afinando
 con el tiempo, no un archivo descartable.
 
+Repetido, esto es el loop de mejora continua del proyecto: cada vuelta
+(fallo real → causa arreglada → verificado → documentado) deja el
+sistema un poco más robusto que la anterior.
+
 ## Screenshot Workflow
 
-Para mejorar la calidad visual de los informes, este proyecto usa
-**Playwright (Python)** en vez de Puppeteer/Node — ya es la dependencia
-que usan los `explore.py` de cada módulo, así que no suma un toolchain
-nuevo.
-
 - Tool: `python tools/screenshot.py <path-o-url> [label] [--mode
-  light|dark|print|all]`
-- Capturas van a `exploracion/screenshots/screenshot-N[-label][-modo].png`
-  (numeradas, nunca se pisan).
-- `--mode all` saca las 3 variantes de una corrida — es lo normal después
-  de tocar CSS o el layout de un informe.
-- Después de capturar, leé el PNG con la tool Read — podés ver la imagen
-  directamente y comparar spacing, tamaños de fuente, colores exactos,
-  truncado de texto, alineación.
+  light|dark|print|all]` (Playwright Python — misma dependencia que ya
+  usan los `explore.py`, no suma toolchain nuevo).
+- Capturas en `exploracion/screenshots/screenshot-N[-label][-modo].png`
+  (numeradas, nunca se pisan). `--mode all` es lo normal después de tocar
+  CSS o el layout de un informe.
+- Leé el PNG resultante con la tool Read antes de dar el cambio por
+  terminado.
 - Detalle completo del cuándo/por qué en
   `workflows/verificar_informe_visual.md`.
-
-## El loop de mejora continua
-
-1. Identificar qué falló (un error de Advertys real, un layout roto, un
-   dato mal mapeado)
-2. Arreglar el tool correspondiente
-3. Verificar que el arreglo funciona (correrlo de nuevo; si es visual,
-   con el Screenshot Workflow)
-4. Actualizar el workflow o el README con el hallazgo
-5. Seguir, con un sistema un poco más robusto que antes
+- **Criterio unificado (2026-07-21):** absolutamente todo screenshot
+  temporal de este proyecto — el de `tools/screenshot.py`, el de cada
+  `explore.py` de módulo, y el del flujo de cierre de OT
+  (`cerrar_ot.py`/`explore_cerrar_ot.py`/`ver_imputaciones.py`) — se
+  guarda en la misma carpeta `exploracion/screenshots/`, nunca suelto en
+  la raíz de `exploracion/` ni en subcarpetas propias por script. Cada
+  script prefija sus archivos con el nombre del módulo (`compras_...`,
+  `facturas_...`, `ot_...`, `est_...`) para que no se pisen entre sí al
+  compartir carpeta. Un `explore.py` nuevo debe seguir este mismo patrón
+  (`SCREENSHOT_DIR = OUT_DIR / "screenshots"`, prefijo de módulo en el
+  nombre de archivo) en vez de tirar PNGs sueltos en `exploracion/`.
 
 ## Estructura de carpetas
 
@@ -117,14 +116,16 @@ db.py, common.py,       # compartido entre módulos
 html_report.py, api.py
 exploracion/            # capturas y HTML/Excel de relevamientos y verificaciones (gitignored)
 advertys.db             # SQLite, una tabla por módulo (gitignored)
-informe_*.html          # entregable real — se sobrescribe en cada corrida, no se acumula
+informes/               # dashboard.html + informe_*.html — entregable real, se sobrescribe en cada corrida
 .env                    # credenciales de Advertys (NUNCA en otro lado, gitignored)
 ```
 
-**Deliverable real:** los `informe_<modulo>.html` en la raíz — son
+**Deliverable real:** los `informe_<modulo>.html` en `informes/` — son
 autocontenidos (sin CDN), se abren con doble click y se imprimen a PDF
-desde el navegador. Como el proyecto vive en OneDrive, se sincronizan
-solos.
+desde el navegador. `informes/dashboard.html` los agrupa con un `<iframe>`
+que apunta a cada uno por nombre de archivo relativo, así que todos tienen
+que vivir juntos en esa misma carpeta. Como el proyecto vive en OneDrive,
+se sincronizan solos.
 
 **Todo lo de `exploracion/` es descartable/regenerable** — capturas de
 relevamiento, HTML crudo de Advertys, exports intermedios. No es un
@@ -150,31 +151,6 @@ Esto aplica tanto a código nuevo que yo escriba como a los `explore.py`
 ya existentes: si en algún momento agrego o modifico un flujo contra
 Advertys real, reviso primero que ningún click apunte a un botón de
 esa naturaleza antes de correrlo.
-
-## Skills disponibles
-
-Wrappers delgados sobre los workflows de arriba — viven en
-`.claude/skills/` y se invocan por `/nombre` o por lenguaje natural (Javier
-pidiendo lo mismo que ya describen los workflows). Cada skill apunta al
-workflow correspondiente como fuente de verdad, no lo duplica:
-
-- `/actualizar-informe [modulo] [xlsx]` — carga un export nuevo en un
-  módulo existente y regenera su informe. Envuelve
-  `workflows/actualizar_informe.md`.
-- `/relevar-modulo [nombre]` — arma el pipeline completo para una sección
-  de Advertys sin módulo todavía. Envuelve
-  `workflows/relevar_modulo_nuevo.md`, con la salvaguarda de solo-lectura
-  repetida inline porque hace Playwright en vivo.
-- `/verificar-visual [informe.html] [label]` — captura claro/oscuro/print
-  con Playwright antes de dar un cambio de layout por terminado. Envuelve
-  `workflows/verificar_informe_visual.md`.
-- `/refresh-dashboard` — regenera todos los `informe_*.html` más
-  `dashboard.html` en una sola pasada. No tiene workflow propio, combina
-  `actualizar_informe.md` con `generate_dashboard.py`.
-
-Si un workflow cambia, el skill correspondiente puede necesitar un ajuste
-menor — no debería duplicar la prosa completa del workflow, solo los
-comandos concretos.
 
 ## Quirks conocidos del entorno
 

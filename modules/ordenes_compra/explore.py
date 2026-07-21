@@ -25,6 +25,8 @@ PASSWORD = os.environ.get("ADVERTYS_PASSWORD")
 
 OUT_DIR = Path("exploracion")
 OUT_DIR.mkdir(exist_ok=True)
+SCREENSHOT_DIR = OUT_DIR / "screenshots"
+SCREENSHOT_DIR.mkdir(exist_ok=True)
 
 
 def esperar_postback(page, timeout=25000):
@@ -87,7 +89,7 @@ def main():
 
         if "Login.aspx" in page.url:
             print("ERROR: no se pudo hacer login. Revisa usuario/contraseña en .env")
-            page.screenshot(path=str(OUT_DIR / "oc_produccion_error_login.png"))
+            page.screenshot(path=str(SCREENSHOT_DIR / "oc_produccion_error_login.png"))
             browser.close()
             sys.exit(1)
 
@@ -97,7 +99,7 @@ def main():
         page.goto(direct_url, wait_until="networkidle", timeout=30000)
         esperar_postback(page)
         page.wait_for_timeout(800)
-        page.screenshot(path=str(OUT_DIR / "oc_produccion_01_listado.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "oc_produccion_01_listado.png"), full_page=True)
 
         print("Cambiando filtro a 'Todos' para traer el historico completo...")
         if abrir_combo_filtro(page):
@@ -113,7 +115,7 @@ def main():
         else:
             print("Aviso: no se encontro el combo de Filtro, sigo con el default")
         page.wait_for_timeout(500)
-        page.screenshot(path=str(OUT_DIR / "oc_produccion_02_filtro_todos.png"), full_page=True)
+        page.screenshot(path=str(SCREENSHOT_DIR / "oc_produccion_02_filtro_todos.png"), full_page=True)
 
         print("Exportando a XLSX...")
         click_js = """(texto) => {
@@ -136,7 +138,7 @@ def main():
             print(f"OK: descarga guardada en {destino}")
         except Exception as e:
             print(f"ERROR al descargar: {e}")
-            page.screenshot(path=str(OUT_DIR / "oc_produccion_error_export.png"), full_page=True)
+            page.screenshot(path=str(SCREENSHOT_DIR / "oc_produccion_error_export.png"), full_page=True)
 
         browser.close()
 

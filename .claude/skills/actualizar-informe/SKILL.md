@@ -7,7 +7,7 @@ argument-hint: [modulo] [ruta-al-xlsx]
 ## Qué hace
 
 Carga un export `.xlsx` nuevo de Advertys en un módulo ya armado y regenera
-`informe_<modulo>.html`. Fuente de verdad completa:
+`informes/informe_<modulo>.html`. Fuente de verdad completa:
 [workflows/actualizar_informe.md](../../../workflows/actualizar_informe.md)
 — si algo acá y el workflow difieren, gana el workflow (releerlo).
 
@@ -17,15 +17,22 @@ Carga un export `.xlsx` nuevo de Advertys en un módulo ya armado y regenera
    no es un módulo reconocido, revisar la tabla de "Módulos armados hasta
    ahora" en README.md antes de asumir.
 2. **Caso especial `pendientes`:** no tiene `ingest.py` propio, cruza
-   `ordenes_trabajo` + `estimados_costos` + `ordenes_compra`. Si el módulo
-   es `pendientes`, correr primero el `ingest.py` de los módulos que
-   tengan export nuevo y recién después el paso 4 (sin paso 3 propio).
+   `ordenes_trabajo` + `estimados_costos` + `ordenes_compra` +
+   `oc_pendientes_generar` + `estimados_pendientes_facturar` +
+   `items_pendientes_oc`. Si el módulo es `pendientes`, correr primero el
+   `ingest.py` de los módulos que tengan export nuevo y recién después el
+   paso 4 (sin paso 3 propio). `items_pendientes_oc` es distinto: no tiene
+   Excel que cargar, se refresca corriendo
+   `python -m modules.ordenes_trabajo.crawl_items_pendientes` (navega
+   Advertys en vivo, tarda unos minutos) — solo hace falta si pasó un
+   rato desde la última corrida y puede haber cambiado el estado de algún
+   Proveedor/O.C. en un estimado no-terminal.
 3. Si el módulo no es `pendientes`:
    `python -m modules.<modulo>.ingest "$1"`
 4. `python -m modules.<modulo>.generate_html_report`
 5. Solo si hubo cambios de CSS/layout en esta sesión (no un refresh de
    datos puro): invocar el skill `verificar-visual` sobre
-   `informe_<modulo>.html`.
+   `informes/informe_<modulo>.html`.
 6. Reportar filas cargadas y el rango de fechas cubierto por el informe
    resultante.
 

@@ -74,4 +74,4 @@ NUMERIC_COLUMNS = [
 # --- Rutas ---
 DB_TABLE = "facturas"
 REPORT_OUTPUT_PATH = "informe_facturas.xlsx"
-REPORT_HTML_OUTPUT_PATH = "informe_facturas.html"
+REPORT_HTML_OUTPUT_PATH = "informes/informe_facturas.html"

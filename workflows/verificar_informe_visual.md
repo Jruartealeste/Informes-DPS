@@ -18,7 +18,7 @@ dependencias nuevas al proyecto).
 1. Generar/actualizar el informe:
    `python -m modules.<modulo>.generate_html_report`
 2. Capturar las 3 variantes de una sola vez:
-   `python tools/screenshot.py informe_<modulo>.html <modulo> --mode all`
+   `python tools/screenshot.py informes/informe_<modulo>.html <modulo> --mode all`
    Esto guarda `exploracion/screenshots/screenshot-N-<modulo>-light.png`,
    `-dark.png` y `-print.png` (numerados, sin pisar capturas anteriores).
 3. Leer los 3 PNG con la tool Read y revisar puntualmente:

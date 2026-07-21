@@ -25,7 +25,7 @@ URL = os.environ.get("ADVERTYS_URL")
 USER = os.environ.get("ADVERTYS_USER")
 PASSWORD = os.environ.get("ADVERTYS_PASSWORD")
 
-OUT_DIR = Path("exploracion") / "cerrar_ot"
+OUT_DIR = Path("exploracion") / "screenshots"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 NUMERO_OT = sys.argv[1] if len(sys.argv) > 1 else "235"

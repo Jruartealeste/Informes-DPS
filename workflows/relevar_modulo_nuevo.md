@@ -39,10 +39,13 @@ Facturas):**
 6. **Generar el HTML y verificar visualmente** antes de dar el módulo por
    terminado — ver `workflows/verificar_informe_visual.md`.
 7. **Registrar el módulo en el dashboard:** sumarlo a la lista `MODULOS` de
-   `generate_dashboard.py` (raíz) — `(id, label, config.REPORT_HTML_OUTPUT_PATH)`,
-   usando el path desde el `config.py` del módulo nuevo en vez de escribir
-   el nombre del archivo a mano — y correr `python generate_dashboard.py`
-   para que aparezca en el sidebar de `dashboard.html`.
+   `generate_dashboard.py` (raíz) — `(id, label,
+   os.path.basename(config.REPORT_HTML_OUTPUT_PATH))`, usando el path desde
+   el `config.py` del módulo nuevo en vez de escribir el nombre del archivo
+   a mano — y correr `python generate_dashboard.py` para que aparezca en
+   el sidebar de `informes/dashboard.html`. El `REPORT_HTML_OUTPUT_PATH`
+   del módulo nuevo tiene que apuntar a `informes/informe_<modulo>.html`
+   (misma carpeta que el dashboard) para que el iframe lo encuentre.
 8. **Documentar** en el README (sumar el módulo a la tabla + una sección
    de notas propias si hubo gotchas) para que el próximo módulo no repita
    la misma exploración a ciegas.

@@ -11,7 +11,7 @@ Excel exportado de Advertys
         ▼
    Base local (SQLite, una tabla por módulo)
         │
-        ├──► modules/<modulo>/generate_html_report.py  →  informe_*.html
+        ├──► modules/<modulo>/generate_html_report.py  →  informes/informe_*.html
         └──► api.py                                       →  API local (JSON)
 ```
 
@@ -23,12 +23,16 @@ mismo archivo — no se acumulan versiones viejas. Como la carpeta del
 proyecto vive en OneDrive, alcanza con compartir el link de OneDrive al
 `.html` para que se vea siempre actualizado.
 
-**Entrypoint real: `dashboard.html`.** Agrupa todos los `informe_*.html` bajo
-un único sidebar de navegación (estilo dashboard, no un admin template con
-build — ver "Identidad visual" más abajo). Lo genera `generate_dashboard.py`
-en la raíz y también se abre con doble click; cada informe individual sigue
-siendo autocontenido y abrible suelto, el shell solo agrega navegación por
-encima.
+**Entrypoint real: `informes/dashboard.html`.** Agrupa todos los
+`informes/informe_*.html` bajo un único sidebar de navegación (estilo
+dashboard, no un admin template con build — ver "Identidad visual" más
+abajo). Lo genera `generate_dashboard.py` desde la raíz y también se abre
+con doble click; cada informe individual sigue siendo autocontenido y
+abrible suelto, el shell solo agrega navegación por encima. Todos los
+`.html` que arma el pipeline (dashboard + informes) viven juntos en
+`informes/` porque el sidebar los carga en un `<iframe>` por nombre de
+archivo relativo — tienen que estar en la misma carpeta para que esa
+referencia funcione.
 
 Los `generate_report.py` (Excel, con `openpyxl`) siguen en el repo por si
 hace falta algo puntual, pero ya no son el entregable real — no se
@@ -41,7 +45,7 @@ Informes/
 ├── db.py               # conexion SQLite compartida (get_connection())
 ├── common.py            # normalizar_fecha / normalizar_numero, compartidas
 ├── html_report.py        # shell HTML/CSS + charts SVG + tablas + dashboard_shell, compartido
-├── generate_dashboard.py # genera dashboard.html (sidebar + iframe sobre los informe_*.html)
+├── generate_dashboard.py # genera informes/dashboard.html (sidebar + iframe sobre los informe_*.html)
 ├── api.py                # API de solo lectura (hoy: Ordenes de Trabajo)
 ├── assets/
 │   └── aleste-logo.svg   # isotipo de la agencia, fuente del LOGO_SVG embebido en html_report.py
@@ -49,7 +53,7 @@ Informes/
 │   ├── ordenes_trabajo/
 │   │   ├── config.py               # mapeo de columnas y rutas
 │   │   ├── ingest.py                 # carga el Excel + esquema de la tabla
-│   │   ├── generate_html_report.py   # genera informe_dinamico.html (el informe real)
+│   │   ├── generate_html_report.py   # genera informes/informe_dinamico.html (el informe real)
 │   │   ├── generate_report.py        # genera .xlsx (legacy, no se usa mas)
 │   │   ├── explore.py                # relevamiento en vivo (Playwright)
 │   │   └── generar_ejemplo.py        # genera un Excel de prueba
@@ -70,11 +74,13 @@ Informes/
 │   └── pendientes/
 │       └── generate_html_report.py  # cruza ordenes_trabajo + estimados_costos + ordenes_compra_produccion
 ├── exploracion/          # capturas/HTML/Excel de cada relevamiento en vivo
-├── dashboard.html        # entrypoint: sidebar + iframe sobre los informes (generate_dashboard.py)
-├── informe_pendientes.html # salida del modulo Pendientes (OT abiertas + detalle)
-├── informe_dinamico.html # salida del modulo Ordenes de Trabajo
-├── informe_compras.html  # salida del modulo Compras
-└── informe_facturas.html # salida del modulo Facturas
+└── informes/             # todos los .html que arma el pipeline, en una sola carpeta
+    ├── dashboard.html            # entrypoint: sidebar + iframe sobre los informes (generate_dashboard.py)
+    ├── informe_pendientes.html   # salida del modulo Pendientes (OT abiertas + detalle)
+    ├── informe_dinamico.html     # salida del modulo Ordenes de Trabajo
+    ├── informe_compras.html      # salida del modulo Compras
+    ├── informe_compras_slides.html # salida del modulo Compras (formato presentacion)
+    └── informe_facturas.html     # salida del modulo Facturas
 ```
 
 Cada módulo nuevo se suma como una carpeta más dentro de `modules/`, con los
@@ -85,12 +91,15 @@ mismos archivos (`config.py`, `ingest.py`, `generate_html_report.py`,
 
 | Módulo | Carpeta | Tabla en `advertys.db` | Informe |
 |---|---|---|---|
-| Órdenes de Trabajo | `modules/ordenes_trabajo/` | `ordenes_trabajo` | `informe_dinamico.html` |
-| Compras (Administración > Compras) | `modules/compras/` | `compras` | `informe_compras.html` |
-| Facturas (Consultas > Facturación > Facturas) | `modules/facturas/` | `facturas` | `informe_facturas.html` |
+| Órdenes de Trabajo | `modules/ordenes_trabajo/` | `ordenes_trabajo` | `informes/informe_dinamico.html` |
+| Compras (Administración > Compras) | `modules/compras/` | `compras` | `informes/informe_compras.html` |
+| Facturas (Consultas > Facturación > Facturas) | `modules/facturas/` | `facturas` | `informes/informe_facturas.html` |
 | Estimados de Costo (Cuentas y Producción > Estimado Costos) | `modules/estimados_costos/` | `estimados_costos` | (sin informe propio, alimenta Pendientes) |
 | Órdenes de Compra Producción (Ordenes de Compra > O.C. Producción) | `modules/ordenes_compra/` | `ordenes_compra_produccion` | (sin informe propio, alimenta Pendientes) |
-| **Pendientes** (cruce OT abiertas + Estimados + OC) | `modules/pendientes/` | *(no ingesta, cruza las 3 tablas de arriba)* | `informe_pendientes.html` |
+| OCs Pendientes de Generar (Cuentas y Producción, shortcut) | `modules/oc_pendientes_generar/` | `oc_pendientes_generar` | (sin informe propio, alimenta Pendientes) |
+| Estim.Pendientes Facturar (Cuentas y Producción, shortcut) | `modules/estimados_pendientes_facturar/` | `estimados_pendientes_facturar` | (sin informe propio, alimenta Pendientes) |
+| Items pendientes de O.C. (crawl item-level, sin Excel) | `modules/ordenes_trabajo/crawl_items_pendientes.py` | `items_pendientes_oc` | (sin informe propio, alimenta Pendientes) |
+| **Pendientes** (cruce OT abiertas + Estimados + OC + los 3 anteriores) | `modules/pendientes/` | *(no ingesta, cruza las 6 tablas de arriba)* | `informes/informe_pendientes.html` |
 
 Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
 
@@ -142,6 +151,136 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   una regla `@media print` que fuerza todo el contenido visible al imprimir
   sin importar qué quedó colapsado en pantalla (mismo espíritu que el tope
   de 50 filas de `renderTable` en `html_report.py`).
+- **Semáforo amarillo "Bloqueada para cierre" (confirmado con Javier,
+  2026-07-21):** un Estimado de Costos no se puede pasar a `Finalizado` si
+  (a) algún item tiene Proveedor cargado pero no tiene una Orden de Compra
+  emitida, o (b) el estimado todavía tiene saldo pendiente de facturar. En
+  vez de reconstruir esta lógica a mano item por item (algo que sí hay que
+  hacer si se quiere chequear un estimado puntual en vivo, ver
+  `modules/ordenes_trabajo/cerrar_ot.py chequear-estimado`), Advertys ya
+  expone **dos vistas propias** que resuelven exactamente esto a granel:
+  el shortcut **"OCs Pendientes de Generar"** (`modules/oc_pendientes_generar/`,
+  ViewID=`EstimadoDetalle_ListView_OC_Pendientes`) y **"Estim.Pendientes
+  Facturar"** (`modules/estimados_pendientes_facturar/`,
+  ViewID=`EstimadoCostos_ListView_Pendiente_de_Facturar`), ambas bajo
+  "Cuentas y Producción". Una OT queda marcada con el badge amarillo
+  "Bloqueada" (tooltip con el motivo puntual) si alguno de sus estimados
+  aparece en cualquiera de las dos.
+  - Ninguna de las dos vistas trae una columna de item/ID estable entre
+    corridas (una fila = un item o un estimado, sin identificador que
+    sobreviva a que se resuelva el pendiente): por eso sus `ingest.py`
+    **reemplazan la tabla entera** (`DELETE` + `INSERT`) en vez de hacer
+    upsert por clave como el resto de los módulos — son snapshots de "qué
+    falta ahora mismo", y un ítem/estimado que se resuelve tiene que
+    desaparecer de la base local, no quedar marcado para siempre.
+  - Mismo gotcha de símbolo de grado que el resto del proyecto, y esta vez
+    **dentro del mismo archivo**: en el export de "Estim.Pendientes
+    Facturar", "N° Estimado"/"N° OT" usan `°` (U+00B0) pero "Nº Cliente"
+    usa `º` (U+00BA) — confirmado byte a byte.
+  - Ninguna de las dos vistas tuvo, en el relevamiento real, un combo de
+    filtro por período (ya vienen filtradas de por sí a "lo pendiente
+    ahora"); si Advertys le agrega uno en el futuro y las filas parecen
+    menos de las esperadas, revisar como en Facturas/Estimado Costos.
+- **"OCs Pendientes de Generar" es más angosta de lo que su nombre sugiere
+  (confirmado con Javier, 2026-07-21):** esa vista de Advertys solo expone
+  casos en un estado YA avanzado. Prueba real: el Estimado 472 (OT 272,
+  estado "Provisorio") tiene un item de rubro "SERVICIOS/PRODUCTOS DE
+  TERCEROS" con Costo real de $2.400.000, sin Proveedor ni O.C. cargados
+  todavía — y esa vista del sistema (que ese día tenía 4 filas en total en
+  todo el sistema) no lo lista. Javier quería detectarlo antes: desde el
+  momento en que a un item se le asigna un Proveedor (o incluso antes, si
+  ya es tercerizado con costo real y todavía no tiene proveedor).
+  - Advertys **no tiene** una vista de lista para "Items del Estimado" de
+    todos los estimados a la vez (se relevó buscando en "Cuentas y
+    Producción" y no existe un shortcut así) — el detalle de items solo se
+    ve abriendo cada Estimado de Costos individualmente, pestaña "Items
+    del Estimado".
+  - Por eso se sumó `modules/ordenes_trabajo/crawl_items_pendientes.py`:
+    a diferencia de todos los demás módulos, **no tiene `ingest.py`** (no
+    hay Excel que parsear) — navega Advertys en vivo con Playwright,
+    estimado por estimado, **solo para los estimados NO terminales de OT
+    abiertas** (ver `ESTIMADO_ESTADOS_TERMINALES` en
+    `modules/pendientes/generate_html_report.py`: un estimado terminal ya
+    pasó el chequeo de Advertys para llegar ahí, no hace falta re-revisarlo).
+    Eso acota el barrido a ~20 estimados en vez de los 500+ del sistema,
+    tarda unos minutos (no segundos, es solo-lectura contra Advertys real
+    con una navegación por estimado) y llena la tabla `items_pendientes_oc`
+    (mismo criterio "reemplazar entera" que `oc_pendientes_generar`/
+    `estimados_pendientes_facturar`, ver arriba). Marca dos motivos:
+    `sin_oc` (Proveedor cargado, O.C. vacía — lo que pidió Javier) y
+    `sin_proveedor` (rubro tercerizado con Costo > 0, Proveedor todavía
+    vacío — señal más temprana encontrada en el relevamiento).
+    Uso: `python -m modules.ordenes_trabajo.crawl_items_pendientes`.
+  - `modules/pendientes/generate_html_report.py` combina esta tabla con
+    `oc_pendientes_generar` (`_combinar_items_pendientes`, dedup por
+    `(numero_estimado, detalle)`): el crawl cubre más temprano pero solo
+    OT abiertas con estimados no-terminales; la vista del sistema cubre
+    todo el histórico pero solo casos avanzados — se complementan, no se
+    reemplazan.
+
+- **Tercera causa de bloqueo, agregada 2026-07-21 (confirmado con Javier):**
+  una O.C. que no está en estado `Utilizada`/`Anulada` (`OC_ESTADOS_RESUELTOS`)
+  y todavía tiene `saldo > 0` también bloquea el cierre — aunque el Estimado
+  ya esté en un estado terminal. Caso real que motivó el fix: OT 278, Estimado
+  "Facturado manual" (ya facturado al cliente) con la O.C. #198 a SADAIC en
+  "Autorizada" con $677.000 de saldo sin resolver con el proveedor. Antes de
+  este fix esa OT quedaba en semáforo amarillo ("En curso") pero **no
+  contaba** en ningún tile del informe (ni "Listas para cerrar" ni
+  "Bloqueadas para cierre" ni "Sin estimados") — los tres tiles sumaban 22
+  en vez de las 23 OT abiertas reales. Ver `saldo_oc_pendiente` /
+  `_nota_oc_pendiente` en `modules/pendientes/generate_html_report.py`.
+  **Antes de dar por buenos los tiles de un informe nuevo, verificar que
+  las categorías mutuamente excluyentes sumen el total** — este bug pasó
+  desapercibido porque cada tile individualmente parecía razonable.
+
+### Notas del flujo de cierre de OT (`cerrar_ot.py`, `ver_imputaciones.py`)
+
+- **Regla de negocio confirmada por Javier (2026-07-21):** un Estimado de
+  Costos no se puede pasar a `Finalizado` si (a) alguno de sus items tiene
+  Proveedor cargado pero no tiene una Orden de Compra vigente emitida, o
+  (b) no tiene ninguna factura en estado `Contabilizada` en la pestaña
+  Facturas. Una OT que tenga algún estimado en ese estado se considera
+  "amarilla": abierta pero bloqueada para cerrar.
+  `cerrar_ot.py` ahora chequea esto en modo lectura (`chequear_estimado_completo`,
+  pestañas "Items del Estimado" → columnas `Proveedor`/`N° O.C.`, "Ordenes
+  Compra" → columna `Estado` para descartar O.C. `Anulada`, "Facturas" →
+  columna `Estado`) **antes** de clickear "Editar", y aborta con el motivo
+  puntual en vez de intentar la transición a ciegas. Selectores de grilla
+  verificados en vivo contra OT 235/Estimado 439: las grillas son
+  `ASPxGridView` de DevExpress (`table[id*='DXMainTable']`, headers en
+  `td[class*='dxgvHeader']` — OJO, no es la clase exacta `dxgvHeader`, esta
+  instalación usa `dxgvHeader_Office2010Blue` — y filas en
+  `tr[id*='DXDataRow']`, alineadas 1 a 1 por posición con el header).
+  Comando de diagnóstico standalone, sin tocar nunca Editar/Guardar:
+  `python -m modules.ordenes_trabajo.cerrar_ot chequear-estimado <numero_ot> <numero_estimado>`.
+  **Ojo:** esta regla cubre las dos causas más comunes pero no es
+  exhaustiva — es una condición necesaria, no suficiente (ver el caso real
+  de desfasaje de imputaciones más abajo, que un estimado con O.C. vigente
+  y factura contabilizada puede seguir bloqueado igual).
+- Cuando Advertys rechaza `Estimado -> Finalizado` con el mensaje **"Los
+  importes tercerizados no estan CANCELADOS"**, la causa no siempre está a
+  la vista en "Items del Estimado": hay que abrir la pestaña **Imputaciones**
+  del estimado (solo lectura, `python -m modules.ordenes_trabajo.ver_imputaciones
+  <numero_ot> <numero_estimado>`) y mirar las filas de las cuentas
+  `510010`/`510011` ("COSTO PRODUCCIÓN DE TERCEROS") — son los importes
+  tercerizados que el sistema chequea, y tienen que estar compensados
+  (Debe = Haber) por OC.
+- **Caso real confirmado por Javier (OT 235 / Estimado 439, 2026-07-21):**
+  cuando se **anula una Orden de Compra y se la reemplaza por otra** (acá,
+  OC 122 anulada → reemplazada por OC 149, mismo ítem "Microfonos x 3
+  Jornadas"), Advertys deja la imputación del lado venta (cuenta
+  `411040-VTA SERVICIOS DE TERCEROS (OC)`) referenciando todavía la OC
+  vieja (122), mientras que el lado costo (`510010`) ya quedó con la OC
+  nueva (149) — es un desfasaje de sistema, no un dato mal cargado por
+  el usuario. Ese desfasaje entre OC del lado venta y OC del lado costo
+  parece ser lo que le impide a Advertys "cancelar" el importe tercerizado
+  y bloquea la finalización del estimado.
+- Este pipeline **no tiene** (ni va a agregar sin aprobación explícita)
+  un script que edite imputaciones o reasigne OCs — es una corrección
+  contable, no una transición de estado simple como las que
+  `cerrar_ot.py` tiene permitido tocar (ver salvaguarda de solo-lectura en
+  `CLAUDE.md`). La corrección de este tipo de desfasaje se hace a mano en
+  Advertys.
 
 ### Notas del módulo Compras
 
@@ -191,7 +330,7 @@ pip install -r requirements.txt
 ```bash
 python -m modules.ordenes_trabajo.generar_ejemplo             # crea un Excel de prueba
 python -m modules.ordenes_trabajo.ingest sample_data/advertys_export_ejemplo.xlsx
-python -m modules.ordenes_trabajo.generate_html_report         # genera informe_dinamico.html
+python -m modules.ordenes_trabajo.generate_html_report         # genera informes/informe_dinamico.html
 ```
 
 Borrá `advertys.db` y la carpeta `sample_data/` cuando quieras arrancar en limpio
@@ -242,27 +381,31 @@ python -m modules.facturas.generate_html_report
 
 python -m modules.estimados_costos.ingest "ruta/a/tu/export.xlsx"
 python -m modules.ordenes_compra.ingest "ruta/a/tu/export.xlsx"
-python -m modules.pendientes.generate_html_report   # cruza OT + Estimados + OC, no tiene ingest propio
+python -m modules.oc_pendientes_generar.ingest "ruta/a/tu/export.xlsx"
+python -m modules.estimados_pendientes_facturar.ingest "ruta/a/tu/export.xlsx"
+python -m modules.ordenes_trabajo.crawl_items_pendientes   # sin Excel, navega Advertys en vivo (tarda unos minutos)
+python -m modules.pendientes.generate_html_report   # cruza las 6 tablas de arriba, no tiene ingest propio
 ```
 
 Cada vez que tengas un export nuevo, repetís esos dos comandos del módulo
 que corresponda y el informe (`.html`) queda actualizado con todo lo último
 — no hace falta borrar nada, los registros existentes se actualizan por su
-clave única. Después abrís `dashboard.html` (o el `informe_*.html` suelto)
-con doble click y usás el botón "Imprimir / Guardar PDF" (o Ctrl+P) si
-necesitás mandárselo a un cliente.
+clave única. Después abrís `informes/dashboard.html` (o el
+`informes/informe_*.html` suelto) con doble click y usás el botón
+"Imprimir / Guardar PDF" (o Ctrl+P) si necesitás mandárselo a un cliente.
 
-Para que `informe_pendientes.html` refleje datos frescos hace falta que las
-tres tablas que cruza estén actualizadas: `ordenes_trabajo`,
+Para que `informes/informe_pendientes.html` refleje datos frescos hace
+falta que las tres tablas que cruza estén actualizadas: `ordenes_trabajo`,
 `estimados_costos` y `ordenes_compra_produccion` (los tres primeros
 `ingest.py` de arriba) — recién ahí correr
 `python -m modules.pendientes.generate_html_report`.
 
-`dashboard.html` en sí casi nunca hace falta regenerarlo — solo apunta por
-nombre de archivo a cada `informe_*.html`, así que una corrida normal de
-`ingest.py` + `generate_html_report.py` ya se refleja solo la próxima vez
-que se abra. Correr `python generate_dashboard.py` de nuevo solo hace falta
-si se suma o saca un módulo del sidebar.
+`informes/dashboard.html` en sí casi nunca hace falta regenerarlo — solo
+apunta por nombre de archivo a cada `informe_*.html` en esa misma carpeta,
+así que una corrida normal de `ingest.py` + `generate_html_report.py` ya se
+refleja solo la próxima vez que se abra. Correr `python
+generate_dashboard.py` de nuevo solo hace falta si se suma o saca un
+módulo del sidebar.
 
 ## 5. Consultar en vivo con la API (opcional)
 
@@ -326,7 +469,7 @@ Postgres es un cambio contenido (la lógica de cada `ingest.py`, `api.py` y
 | `db.py` | Conexión compartida a la base SQLite (`get_connection()`) |
 | `common.py` | Normalización de fechas/números, compartida entre módulos |
 | `html_report.py` | Page shell + CSS (claro/oscuro/print), stat tiles, gráficos SVG con tooltip, tablas y `dashboard_shell()` (sidebar + iframe) — usado por cada `generate_html_report.py` y por `generate_dashboard.py` |
-| `generate_dashboard.py` | Genera `dashboard.html`: sidebar con un ítem por módulo dado de alta, cada uno carga su `informe_*.html` en un iframe |
+| `generate_dashboard.py` | Genera `informes/dashboard.html`: sidebar con un ítem por módulo dado de alta, cada uno carga su `informe_*.html` (misma carpeta) en un iframe |
 | `api.py` | API local de solo lectura (Flask) |
 
 **Identidad visual:** `--brand` en `PAGE_CSS` (`html_report.py`) es el naranja

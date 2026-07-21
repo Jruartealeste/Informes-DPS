@@ -41,7 +41,7 @@ NUMERIC_COLUMNS = ["renta_teorica", "renta_real"]
 # --- Rutas ---
 DB_TABLE = "ordenes_trabajo"
 REPORT_OUTPUT_PATH = "informe_dinamico.xlsx"
-REPORT_HTML_OUTPUT_PATH = "informe_dinamico.html"
+REPORT_HTML_OUTPUT_PATH = "informes/informe_dinamico.html"
 
 # Carpeta donde caeria el export si en algun momento se logra automatizar
 # (por ahora se usa manualmente pasando la ruta al script ingest.py)
