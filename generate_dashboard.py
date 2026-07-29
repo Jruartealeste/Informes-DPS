@@ -15,6 +15,7 @@ import os
 import html_report as hr
 from modules.compras import config as compras_config
 from modules.facturas import config as facturas_config
+from modules.iibb import config as iibb_config
 from modules.ordenes_trabajo import config as ot_config
 from modules.pendientes import generate_html_report as pendientes_report
 
@@ -26,6 +27,7 @@ MODULOS = [
     ("ordenes_trabajo", "Ordenes de Trabajo", os.path.basename(ot_config.REPORT_HTML_OUTPUT_PATH)),
     ("compras", "Compras", os.path.basename(compras_config.REPORT_HTML_OUTPUT_PATH)),
     ("facturas", "Facturas", os.path.basename(facturas_config.REPORT_HTML_OUTPUT_PATH)),
+    ("iibb", "IIBB (recupero OC/OP)", os.path.basename(iibb_config.REPORT_HTML_OUTPUT_PATH)),
 ]
 
 

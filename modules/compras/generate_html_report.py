@@ -79,12 +79,12 @@ def main():
     secciones = "".join([
         hr.filter_bar_html(),
         hr.stat_tiles_mount(),
-        hr.section("Total impositivo por mes", hr.mount("chart-mes")),
-        hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion")),
+        hr.section("Total impositivo por mes", hr.mount("chart-mes"), wide=True),
+        hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion"), wide=True),
         hr.section("Compras por estado", hr.mount("chart-estado")),
         hr.section("Compras por tipo (Gastos / Medios / Produccion)", hr.mount("chart-tipo")),
-        hr.section("Top 10 proveedores por total impositivo", hr.mount("chart-proveedores")),
-        hr.section("Compras por proveedor (todos)", hr.mount("tabla-proveedores")),
+        hr.section("Top 10 proveedores por total impositivo", hr.mount("chart-proveedores"), wide=True),
+        hr.section("Compras por proveedor (todos)", hr.mount("tabla-proveedores"), wide=True),
         hr.dashboard_bundle(records, spec),
     ])
 

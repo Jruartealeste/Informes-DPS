@@ -100,6 +100,7 @@ mismos archivos (`config.py`, `ingest.py`, `generate_html_report.py`,
 | Estim.Pendientes Facturar (Cuentas y Producción, shortcut) | `modules/estimados_pendientes_facturar/` | `estimados_pendientes_facturar` | (sin informe propio, alimenta Pendientes) |
 | Items pendientes de O.C. (crawl item-level, sin Excel) | `modules/ordenes_trabajo/crawl_items_pendientes.py` | `items_pendientes_oc` | (sin informe propio, alimenta Pendientes) |
 | **Pendientes** (cruce OT abiertas + Estimados + OC + los 3 anteriores) | `modules/pendientes/` | *(no ingesta, cruza las 6 tablas de arriba)* | `informes/informe_pendientes.html` |
+| **IIBB** (Consultas > Contabilidad > Imputaciones, cruzado con Facturas) | `modules/iibb/` | `imputaciones_iibb` (filtrada a cuentas OC/OP) | `informes/informe_iibb.html` |
 
 Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
 
@@ -319,6 +320,97 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   la marca/unidad de negocio, Cliente es la razón social facturada. Para
   cruces futuros, la entidad facturable real es `Cliente` + `Cuit`.
 
+### Notas del módulo IIBB
+
+- **Contexto:** ALESTE ADS S.A. es agencia (comisionista) y puede deducir de
+  la base imponible de IIBB los montos de Órdenes de Compra (producción) y
+  Órdenes de Publicidad (medios) que factura a sus clientes a modo de
+  recupero de costo, sin margen. Pedido de Javier (2026-07-22): un informe
+  por factura de venta con N° Factura + Cliente + Subtotal s/IVA + monto
+  OC/OP deducible + base imponible neta, recortado a los **últimos 6 meses**
+  (ventana rodante, recalculada en cada corrida — no es un período elegible
+  por el usuario como en los demás módulos).
+- **Caminos descartados durante el relevamiento** (2026-07-22/23, todos
+  probados en vivo antes de llegar a la solución real):
+  - *Factura por factura:* la grilla de Facturas no trae la OC relacionada
+    en su export plano — esa relación solo aparece dentro de "Items
+    Facturas" al abrir cada factura individual. Hubiera significado
+    scrapear ~150-250 facturas una por una en vez de un export masivo.
+  - *Pivot "Informe IIBB" pre-armado en Advertys* (Informes > Análisis): ya
+    filtra por las cuentas correctas, pero es un Pivot Grid vacío sin
+    configurar — Advertys/sistemas le dijo a Javier que configurarlo de
+    forma útil requería desarrollo pago.
+- **La solución real:** la vista **Imputaciones** (`Consultas > Contabilidad
+  > Imputaciones`, `ViewID=Imputacion_ListView`) es el libro de asientos
+  contables, plano y exportable en bulk. Cada línea comparte la misma clave
+  compuesta que ya arma `facturas.clave_factura`:
+  `(TA, Asiento, TR, N° Referencia)` — así que se cruza directo con
+  `modules/facturas` sin abrir nada factura por factura. Ojo: acá también
+  usa "N°" con el símbolo de grados (U+00B0), igual que Facturas.
+- Igual que Facturas/Compras, esta vista tiene un combo "Filtro" con default
+  "Mes Actual" — hay que ponerlo en "Todos" antes de exportar (relevado:
+  ~600 filas en "Mes Actual" contra ~22700 en "Todos").
+- **Plan de cuentas (confirmado con Javier 2026-07-23):** de todas las
+  cuentas de ingreso (411xxx/412xxx) relevadas, **solo** estas dos son
+  recupero de costo de terceros deducible:
+  - `411040 - VTA SERVICIOS DE TERCEROS (OC)` (recupero producción)
+  - `411075 - VTA SERVICIOS MEDIOS (OP)` (recupero medios)
+
+  Todo el resto (FEE, SERVICIO AGENCIA PRODUCCION/MEDIOS, VTA SERVICIOS
+  PROPIOS, VTA X DIFERENCIA DE SERV 3EROS, MARK UP, BONIFICACIONES,
+  INTERESES GANADOS) es margen/comisión propia de la agencia: queda como
+  base gravada, no se descuenta. `modules/iibb/ingest.py` ya filtra a esas
+  2 cuentas al cargar — la tabla `imputaciones_iibb` **no** es el libro
+  mayor completo, es un recorte de un solo propósito (mismo patrón que
+  `oc_pendientes_generar`/`estimados_pendientes_facturar`), y se reemplaza
+  entera en cada corrida (no hay columna de ID de línea en el export para
+  hacer upsert).
+- El libro de Imputaciones registra los ingresos en negativo (contrapartida
+  de crédito); `generate_html_report.py` toma valor absoluto para mostrar
+  el monto deducible en positivo.
+- **N° de OC/OP por factura (pedido de Javier, 2026-07-23):** Imputaciones
+  no trae el número de OC/OP, solo el monto — el número real solo está en
+  la grilla de items de cada factura individual. Se agregó
+  `modules/iibb/crawl_oc_por_factura.py`: crawl de solo lectura con
+  Playwright, factura por factura, pero acotado a las que tienen
+  deducible en la ventana de 6 meses (no las 1000+ históricas). Corre en
+  unos minutos, no consume tokens de por sí (es un script determinista,
+  igual que `crawl_items_pendientes.py`).
+  - **Gotcha grande:** las facturas TA='FP' (Producción) y TA='FM'
+    (Medios) son objetos DISTINTOS en Advertys (`DPS_Factura` vs
+    `FacturasMedios`), con pestañas de items de nombre distinto ("Items
+    Facturas" vs "Items Facturas Medios") — al principio el crawl fallaba
+    silenciosamente en el 70% de los casos (todas las Medios) hasta
+    detectarlo.
+  - **Gotcha paginación:** la grilla de items pagina de a 20 filas por
+    default. Las primeras corridas truncaban en silencio cualquier
+    factura con más de 20 items (3 de 97 en la ventana relevada). Se
+    agregó `leer_grid_completo()` que sigue el botón "Siguiente" del
+    pager (`id` termina en `_PBN`, deshabilitado cuando no hay más
+    páginas) hasta agotarlas.
+  - **Ojo con `N° Referencia` duplicado entre TA distintos:** confirmado
+    con un caso real (`000500000015` existe como factura FM de ALUAR Y
+    como factura FP de INCAA) — `N° Referencia` solo es único dentro de
+    su clave compuesta completa, nunca lo uses solo para buscar/cruzar.
+  - **El monto de cada item NO es comparable 1 a 1 contra el monto
+    deducible de Imputaciones:** el "Neto Sin Iva" de un item incluye el
+    margen/fee de la agencia sobre ese item cuando lo hay (confirmado
+    comparando ambas fuentes en las 97 facturas de la ventana 2026-07-23:
+    la mediana de `monto_deducible / suma_items_con_oc` da 0.90, es decir
+    un ~10% de margen embebido en el precio del item, variable por
+    factura). Por eso el informe usa el N° de OC/OP del crawl solo como
+    referencia, y el monto deducible sigue saliendo de Imputaciones.
+  - **3 facturas con deducible en Imputaciones pero NINGÚN item con N° de
+    OC cargado en Advertys** (000500000015, 000500000016, 000500001433):
+    revisado en vivo, no es un bug del crawl — esos items realmente no
+    tienen Orden de Compra asociada en la factura, aunque el asiento
+    contable sí registra recupero. Vale la pena que Javier lo confirme
+    con el equipo contable si le extraña.
+  - **1 factura con el sentido invertido** (000500001429: deducible
+    $89.256 en el libro vs $54.200 sumando los items con OC — el libro
+    registra MÁS de lo que los items muestran, al revés que en el resto):
+    monto chico, pero anómalo, vale la pena revisarlo puntualmente.
+
 ## 1. Instalar dependencias
 
 ```bash
@@ -428,13 +520,36 @@ lectura sobre Órdenes de Trabajo (por ahora es el único módulo expuesto):
 
 ## 6. Automatizar
 
-Mientras el export de Advertys sea manual, lo más simple es dejarte un
-alias o script de una línea que corra `ingest.py` + `generate_html_report.py`
-del módulo que corresponda después de exportar. Si en algún momento
-Advertys permite programar el export a una carpeta fija, se puede
-automatizar del todo con:
+El export desde Advertys ya está automatizado (login + navegación +
+descarga vía Playwright) para 7 de los 8 módulos:
 
-- **Windows**: Task Scheduler ejecutando un `.bat` con esos dos comandos
+```bash
+python -m tools.actualizar_todo
+```
+
+Corre `modules/<modulo>/export.py` de `compras`, `facturas`,
+`estimados_costos`, `ordenes_compra`, `oc_pendientes_generar`,
+`estimados_pendientes_facturar` y `ordenes_trabajo` (cada uno una versión
+productiva y recortada del `explore.py` correspondiente, reusando el login
+compartido de `tools/advertys_session.py`), carga cada export en
+`advertys.db`, y al final regenera todos los `generate_html_report.py` y
+`generate_dashboard.py`. Un fallo puntual en un módulo no aborta el resto
+— el resumen final indica qué quedó OK y qué falló.
+
+**IIBB queda deliberadamente afuera** (sin `export.py` propio): su export
+es mucho más pesado (~22.700 filas vs. cientos en el resto) y tiene
+además su propio crawl lento (`crawl_oc_por_factura.py`). Se sigue
+actualizando a mano con `modules/iibb/ingest.py` + su
+`generate_html_report.py`, igual que siempre.
+
+Si Advertys está caído o preferís cargar un Excel puntual a mano, el
+flujo manual de `ingest.py` + `generate_html_report.py` por módulo (ver
+`workflows/actualizar_informe.md`) sigue funcionando igual que antes.
+
+Como el export ya no depende de que Advertys programe nada, esto se puede
+dejar corriendo solo:
+
+- **Windows**: Task Scheduler ejecutando `python -m tools.actualizar_todo`
 - **Linux/Mac**: un cron job, por ejemplo cada mañana a las 8:00
 
 ## 7. Conectar esto con Claude Code

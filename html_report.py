@@ -33,6 +33,29 @@ LOGO_SVG = """<svg viewBox="66 48 176 131" width="176" height="131" xmlns="http:
   <path d="M118.843,140.051h40.032v7.897h-28.311v5.165h27.616v7.947h-27.616v5.712h28.807v8.096h-40.529v-34.817Z" fill="currentColor"/>
 </svg>"""
 
+# Boton claro/oscuro manual (independiente del prefers-color-scheme del SO).
+# El icono se resuelve solo con CSS (ver .theme-toggle mas abajo en PAGE_CSS)
+# segun el tema activo -- no depende de que el JS corra para verse correcto.
+_TOGGLE_ICON_STROKE = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'
+SUN_ICON_SVG = (
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+    f'<circle cx="12" cy="12" r="4.5" {_TOGGLE_ICON_STROKE}/>'
+    f'<path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" {_TOGGLE_ICON_STROKE}/>'
+    "</svg>"
+)
+MOON_ICON_SVG = (
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+    f'<path d="M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z" {_TOGGLE_ICON_STROKE}/>'
+    "</svg>"
+)
+THEME_TOGGLE_BTN = (
+    '<button type="button" class="theme-toggle no-print" data-theme-toggle '
+    'title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">'
+    f'<span class="icon icon-sun">{SUN_ICON_SVG}</span>'
+    f'<span class="icon icon-moon">{MOON_ICON_SVG}</span>'
+    "</button>"
+)
+
 PAGE_CSS = """
 :root {
   color-scheme: light;
@@ -48,8 +71,13 @@ PAGE_CSS = """
   --brand-tint:     rgba(246,50,0,0.08);
   --series-1:       #f63200;
 }
+/* El tema por defecto sigue el prefers-color-scheme del SO. data-theme en
+   <html> (seteado por THEME_INIT_JS/THEME_JS al togglear el boton) fuerza
+   un tema explicito que gana por sobre la preferencia del SO en cualquier
+   direccion -- por eso el bloque de "dark" de mas abajo se excluye con
+   :not([data-theme="light"]) en vez de repetir logica en JS. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --surface-1:      #1a1a19;
     --page-plane:     #0d0d0d;
@@ -63,6 +91,19 @@ PAGE_CSS = """
     --series-1:       #ff7a45;
   }
 }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1:      #1a1a19;
+  --page-plane:     #0d0d0d;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --gridline:       #2c2c2a;
+  --baseline:       #383835;
+  --border:         rgba(255,255,255,0.10);
+  --brand-tint:     rgba(255,122,69,0.14);
+  --series-1:       #ff7a45;
+}
 * { box-sizing: border-box; }
 body {
   margin: 0;
@@ -72,9 +113,32 @@ body {
   font-size: 14px;
 }
 .page {
-  max-width: 980px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: 32px 40px 64px;
+}
+/* Grid de secciones: por defecto cada .report-section ocupa una columna
+   (quedan de a 2 lado a lado en pantallas anchas); .report-section--full
+   (charts de serie temporal, comparaciones y tablas) fuerza el ancho
+   completo. minmax(480px,1fr) esta calibrado para que .page a 1440px de
+   max-width resuelva siempre en exactamente 2 columnas, no 3 -- asi los
+   pares de charts "half" (Estado/Tipo, Proveedores/Clientes, etc.) quedan
+   prolijos en vez de dejar un hueco vacio en la fila. */
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.section-grid > .stat-grid,
+.section-grid > .filter-bar,
+.section-grid > .report-section--full {
+  grid-column: 1 / -1;
+}
+.section-grid > .report-section { margin-bottom: 0; }
+@media print {
+  .section-grid { display: block; }
+  .section-grid > .report-section { margin-bottom: 20px; }
 }
 header.report-header {
   display: flex;
@@ -119,6 +183,8 @@ header.report-header .meta {
   color: var(--text-secondary);
   font-size: 13px;
 }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+
 button.print-btn {
   border: 1px solid var(--border);
   background: var(--surface-1);
@@ -129,6 +195,33 @@ button.print-btn {
   cursor: pointer;
 }
 button.print-btn:hover { background: var(--page-plane); border-color: var(--brand); color: var(--brand); }
+
+button.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+}
+button.theme-toggle:hover { background: var(--page-plane); border-color: var(--brand); color: var(--brand); }
+button.theme-toggle .icon { width: 18px; height: 18px; display: block; }
+button.theme-toggle .icon svg { display: block; width: 100%; height: 100%; }
+/* Por defecto (sin data-theme, SO en claro) se ve el sol -- clickear pasa a
+   oscuro. El icono espeja el tema activo, no cambia con JS: ver el bloque
+   :not([data-theme="light"]) / [data-theme="dark"] de mas arriba. */
+button.theme-toggle .icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) button.theme-toggle .icon-sun { display: none; }
+  :root:not([data-theme="light"]) button.theme-toggle .icon-moon { display: block; }
+}
+:root[data-theme="dark"] button.theme-toggle .icon-sun { display: none; }
+:root[data-theme="dark"] button.theme-toggle .icon-moon { display: block; }
 
 .stat-grid {
   display: grid;
@@ -237,7 +330,11 @@ footer.report-footer {
 }
 
 @media print {
-  :root {
+  /* Imprimir siempre en claro, sin importar el tema elegido en pantalla --
+     el selector repite [data-theme] para igualar la especificidad de los
+     bloques de arriba ({dark via prefers-color-scheme} y :root[data-theme]);
+     como este bloque va despues en el archivo, gana el empate. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
     color-scheme: light;
     --surface-1: #ffffff;
     --page-plane: #ffffff;
@@ -373,6 +470,82 @@ TOOLTIP_JS = """
 })();
 """
 
+# THEME_INIT_JS corre sincronico en <head>, antes de pintar body, para poner
+# el data-theme guardado (si el usuario ya lo eligio antes) sin flash de
+# color equivocado. THEME_JS (bottom de body, junto a TOOLTIP_JS) maneja el
+# click del boton y la sincronizacion con el iframe del dashboard_shell via
+# postMessage -- no via localStorage compartido, porque cada archivo
+# informe_<modulo>.html/dashboard.html puede quedar en un origen file://
+# distinto segun el navegador y localStorage no cruza esa frontera de forma
+# confiable.
+THEME_INIT_JS = """
+(function () {
+  try {
+    var t = localStorage.getItem('aleste-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+"""
+
+THEME_JS = """
+(function () {
+  var STORAGE_KEY = 'aleste-theme';
+  var root = document.documentElement;
+
+  function currentTheme() {
+    var explicit = root.getAttribute('data-theme');
+    if (explicit === 'light' || explicit === 'dark') return explicit;
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
+  }
+
+  function setTheme(theme, opts) {
+    opts = opts || {};
+    root.setAttribute('data-theme', theme);
+    if (opts.persist !== false) {
+      try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) {}
+    }
+    if (opts.propagate !== false) {
+      var frame = document.getElementById('shell-frame');
+      if (frame && frame.contentWindow) {
+        try { frame.contentWindow.postMessage({ type: 'aleste-theme', theme: theme }, '*'); } catch (e) {}
+      }
+      if (window.parent && window.parent !== window) {
+        try { window.parent.postMessage({ type: 'aleste-theme', theme: theme }, '*'); } catch (e) {}
+      }
+    }
+  }
+
+  setTheme(currentTheme(), { persist: false, propagate: false });
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-theme-toggle]');
+    if (!btn) return;
+    setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+  });
+
+  window.addEventListener('message', function (e) {
+    var data = e.data;
+    if (data && data.type === 'aleste-theme' && (data.theme === 'light' || data.theme === 'dark')) {
+      // No persistir: esto es al shell empujando SU tema al iframe que
+      // recien cargo (o viceversa), no una eleccion del usuario en este
+      // documento puntual -- persistirlo pisaba para siempre el "seguir al
+      // SO" del informe standalone con lo ultimo que mostro el shell.
+      setTheme(data.theme, { persist: false, propagate: false });
+    }
+  });
+
+  // dashboard_shell: al cambiar de modulo (nuevo src en el iframe) le avisa
+  // el tema activo al informe recien cargado, que arranca sin saberlo.
+  var shellFrame = document.getElementById('shell-frame');
+  if (shellFrame) {
+    shellFrame.addEventListener('load', function () {
+      try { shellFrame.contentWindow.postMessage({ type: 'aleste-theme', theme: currentTheme() }, '*'); } catch (e) {}
+    });
+  }
+})();
+"""
+
 
 def _fmt_money(v: float) -> str:
     return f"$ {v:,.0f}".replace(",", ".")
@@ -386,6 +559,7 @@ def page_shell(titulo: str, subtitulo: str, secciones_html: str) -> str:
 <meta charset="utf-8">
 <title>{escape(titulo)}</title>
 <style>{PAGE_CSS}{DASHBOARD_CSS}</style>
+<script>{THEME_INIT_JS}</script>
 </head>
 <body>
 <div class="page">
@@ -398,13 +572,16 @@ def page_shell(titulo: str, subtitulo: str, secciones_html: str) -> str:
         <div class="meta">Generado: {generado}</div>
       </div>
     </div>
-    <button class="print-btn no-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <div class="header-actions no-print">
+      {THEME_TOGGLE_BTN}
+      <button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+    </div>
   </header>
-  {secciones_html}
+  <div class="section-grid">{secciones_html}</div>
   <footer class="report-footer">Informe generado automaticamente desde advertys.db. Volve a correr el script para reflejar el ultimo export.</footer>
 </div>
 <div id="viz-tooltip"></div>
-<script>{TOOLTIP_JS}</script>
+<script>{TOOLTIP_JS}{THEME_JS}</script>
 </body>
 </html>"""
 
@@ -424,8 +601,13 @@ def stat_tiles(items) -> str:
     return f'<div class="stat-grid">{"".join(tiles)}</div>'
 
 
-def section(titulo: str, contenido_html: str) -> str:
-    return f"""<section class="report-section">
+def section(titulo: str, contenido_html: str, *, wide: bool = False) -> str:
+    """`wide=True` fuerza ancho completo dentro del grid de 2 columnas de
+    .section-grid -- usalo para series temporales, comparaciones de periodo
+    y tablas; dejalo en False (default) para charts categoricos chicos que
+    conviene mostrar de a pares lado a lado."""
+    css_class = "report-section report-section--full" if wide else "report-section"
+    return f"""<section class="{css_class}">
     <h2>{escape(titulo)}</h2>
     {contenido_html}
   </section>"""
@@ -517,8 +699,11 @@ def _truncar(texto: str, max_chars: int) -> str:
     return texto if len(texto) <= max_chars else texto[: max_chars - 1].rstrip() + "…"
 
 
-def hbar_chart_svg(categorias, valores, *, value_fmt=None, row_h=28):
-    """Grafico de barras horizontales, para rankings (top N por categoria)."""
+def hbar_chart_svg(categorias, valores, *, value_fmt=None, row_h=28, height=None):
+    """Grafico de barras horizontales, para rankings (top N por categoria).
+    `height` (opcional) fuerza el alto total del viewBox -- usalo para que
+    quede del mismo tamano que un chart vecino (bar/line) en un par lado a
+    lado, cuando el numero de filas no llega a llenar esa altura."""
     value_fmt = value_fmt or (lambda v: f"{v:,.0f}")
     n = len(categorias)
     if n == 0:
@@ -530,7 +715,7 @@ def hbar_chart_svg(categorias, valores, *, value_fmt=None, row_h=28):
     pad_right = 90
     width = 760
     plot_w = width - label_w - pad_right
-    height = n * row_h + 20
+    height = max(height or 0, n * row_h + 20)
     max_val = max(valores) or 1
 
     grad_id = f"hbg-{uuid.uuid4().hex[:8]}"
@@ -679,6 +864,7 @@ DASHBOARD_JS = """
   var tableState = {};
   var TABLE_LIMIT = 50;
   var lastFilteredRows = [];
+  var lastFilterRange = { from: null, to: null };
   var prefersDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   // El filtro de periodo se persiste por archivo (location.pathname) para
   // sobrevivir a un reload del iframe -- el shell del dashboard (SHELL_JS)
@@ -876,7 +1062,7 @@ DASHBOARD_JS = """
     var maxChars = Math.floor((labelW - 10) / 6.4);
     var padRight = 90, width = 760;
     var plotW = width - labelW - padRight;
-    var height = n * rowH + 20;
+    var height = Math.max(opts.height || 0, n * rowH + 20);
     var maxVal = Math.max.apply(null, valores) || 1;
 
     var gradId = 'hbg-' + (gradSeq++);
@@ -1082,25 +1268,71 @@ DASHBOARD_JS = """
   var periodCompareState = {};
   var periodCompareSpecs = {};
 
-  function renderPeriodCompare(c, rows) {
-    var granularity = periodCompareState[c.mount] || c.granularity || 'month';
-    var buckets = granularity === 'quarter' ? 4 : 12;
-    var catLabels = granularity === 'quarter' ? QUARTER_LABELS : MONTH_LABELS;
+  // period_compare NO usa las filas ya filtradas por el filtro de periodo:
+  // siempre compara el rango elegido (por numero de mes, sin importar el
+  // anio) contra el mismo rango corrido 1 anio atras, aunque ese anio
+  // anterior no este dentro del filtro (pedido de Javier 2026-07-22). Por
+  // eso lee de `records` completo, no de `rows`.
+  function addMonths(period, delta) {
+    var y = parseInt(period.slice(0, 4), 10);
+    var m = parseInt(period.slice(5, 7), 10);
+    var total = y * 12 + (m - 1) + delta;
+    var ny = Math.floor(total / 12);
+    var nm = total - ny * 12 + 1;
+    return ny + '-' + (nm < 10 ? '0' + nm : '' + nm);
+  }
 
-    var byYear = {};
-    rows.forEach(function (r) {
-      var p = r[dateField];
-      if (!p || p.length < 7) return;
-      var year = p.slice(0, 4);
-      var month = parseInt(p.slice(5, 7), 10);
-      if (!month) return;
-      var idx = granularity === 'quarter' ? Math.ceil(month / 3) - 1 : month - 1;
-      if (!byYear[year]) byYear[year] = new Array(buckets).fill(0);
-      byYear[year][idx] += Number(r[c.field]) || 0;
-    });
-    var years = Object.keys(byYear).sort();
-    var svg = groupedBarChartSvg(catLabels, years, byYear, { fmt: c.fmt, height: c.height });
+  function renderPeriodCompare(c, from, to) {
+    var granularity = periodCompareState[c.mount] || c.granularity || 'month';
+    var catLabelsAll = granularity === 'quarter' ? QUARTER_LABELS : MONTH_LABELS;
     var el = document.getElementById(c.mount);
+    if (!from || !to) { if (el) el.innerHTML = '<p>Sin datos.</p>'; return; }
+
+    function bucketKey(period) {
+      var m = parseInt(period.slice(5, 7), 10);
+      return granularity === 'quarter' ? (Math.ceil(m / 3) - 1) : (m - 1);
+    }
+
+    // Periodos (YYYY-MM) cubiertos por el filtro, en orden cronologico.
+    var periodsInRange = [];
+    var p = from, guard = 0;
+    while (p <= to && guard < 1200) { periodsInRange.push(p); p = addMonths(p, 1); guard++; }
+
+    // Orden de aparicion de cada bucket (respeta el orden cronologico del
+    // rango elegido, ej. Nov,Dic,Ene,Feb en vez de Ene..Dic fijo).
+    var bucketOrder = [], seen = {};
+    periodsInRange.forEach(function (per) {
+      var k = bucketKey(per);
+      if (!seen[k]) { seen[k] = true; bucketOrder.push(k); }
+    });
+    var catLabels = bucketOrder.map(function (k) { return catLabelsAll[k]; });
+
+    var sumByPeriod = {};
+    records.forEach(function (r) {
+      var d = r[dateField];
+      if (!d || d.length < 7) return;
+      var per = d.slice(0, 7);
+      sumByPeriod[per] = (sumByPeriod[per] || 0) + (Number(r[c.field]) || 0);
+    });
+
+    var actual = bucketOrder.map(function () { return 0; });
+    var anterior = bucketOrder.map(function () { return 0; });
+    periodsInRange.forEach(function (per) {
+      var idx = bucketOrder.indexOf(bucketKey(per));
+      actual[idx] += sumByPeriod[per] || 0;
+      anterior[idx] += sumByPeriod[addMonths(per, -12)] || 0;
+    });
+
+    var anioDesde = parseInt(from.slice(0, 4), 10), anioHasta = parseInt(to.slice(0, 4), 10);
+    var labelActual = anioDesde === anioHasta ? String(anioDesde) : (anioDesde + '-' + anioHasta);
+    var labelAnterior = anioDesde === anioHasta ? String(anioDesde - 1) : ((anioDesde - 1) + '-' + (anioHasta - 1));
+
+    var years = [labelAnterior, labelActual];
+    var seriesByYear = {};
+    seriesByYear[labelAnterior] = anterior;
+    seriesByYear[labelActual] = actual;
+
+    var svg = groupedBarChartSvg(catLabels, years, seriesByYear, { fmt: c.fmt, height: c.height });
     if (el) el.innerHTML = svg;
   }
 
@@ -1252,11 +1484,12 @@ DASHBOARD_JS = """
     }
 
     lastFilteredRows = rows;
+    lastFilterRange = { from: from, to: to };
 
     (spec.charts || []).forEach(function (c) {
       if (c.type === 'period_compare') {
         periodCompareSpecs[c.mount] = c;
-        renderPeriodCompare(c, rows);
+        renderPeriodCompare(c, from, to);
         return;
       }
       var agg = aggregate(rows, c.groupBy, [{ key: 'value', op: c.agg, field: c.field }]);
@@ -1275,7 +1508,7 @@ DASHBOARD_JS = """
       var vals = agg.map(function (a) { return a.value; });
       var svg;
       if (c.type === 'hbar') {
-        svg = hbarChartSvg(cats, vals, { fmt: c.fmt, rowH: c.rowH });
+        svg = hbarChartSvg(cats, vals, { fmt: c.fmt, rowH: c.rowH, height: c.height });
       } else if (c.type === 'line') {
         svg = lineAreaChartSvg(cats, vals, { fmt: c.fmt, height: c.height });
       } else if (c.type === 'stacked100') {
@@ -1326,7 +1559,7 @@ DASHBOARD_JS = """
         btn.classList.add('active');
         periodCompareState[mountId] = btn.dataset.granularity;
         var c = periodCompareSpecs[mountId];
-        if (c) renderPeriodCompare(c, lastFilteredRows);
+        if (c) renderPeriodCompare(c, lastFilterRange.from, lastFilterRange.to);
       });
     });
   });
@@ -1417,6 +1650,7 @@ SLIDE_CSS = """
 
 .slide-filter { position: fixed; top: 18px; right: 18px; z-index: 20; max-width: 380px; }
 .slide-filter .filter-bar { margin-bottom: 0; font-size: 12px; padding: 8px 14px; }
+.slide-theme-toggle { position: fixed; top: 18px; left: 18px; z-index: 20; }
 
 .slide-poster { justify-content: flex-start; padding-top: 56px; padding-bottom: 56px; }
 .poster-grid { display: grid; gap: 20px; flex: 1; align-content: start; }
@@ -1567,6 +1801,7 @@ def slide_shell(titulo: str, subtitulo: str, slides_html: list, records: list, s
 <meta charset="utf-8">
 <title>{escape(titulo)}</title>
 <style>{PAGE_CSS}{DASHBOARD_CSS}{SLIDE_CSS}</style>
+<script>{THEME_INIT_JS}</script>
 </head>
 <body class="slides-body">
 <div class="deck" id="deck">
@@ -1578,9 +1813,10 @@ def slide_shell(titulo: str, subtitulo: str, slides_html: list, records: list, s
   <button type="button" class="slide-nav-btn" id="nav-next" aria-label="Siguiente">&rsaquo;</button>
 </div>
 <div class="slide-dots no-print" id="slide-dots"></div>
+<div class="slide-theme-toggle no-print">{THEME_TOGGLE_BTN}</div>
 <div class="slide-filter">{filter_bar_html()}</div>
 <div id="viz-tooltip"></div>
-<script>{TOOLTIP_JS}{SLIDE_NAV_JS}</script>
+<script>{TOOLTIP_JS}{SLIDE_NAV_JS}{THEME_JS}</script>
 {dashboard_bundle(records, spec)}
 </body>
 </html>"""
@@ -1607,12 +1843,39 @@ SHELL_CSS = """
   flex-direction: column;
   padding: 20px 12px;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.15s ease;
 }
+.shell-sidebar.collapsed { width: 68px; }
 .shell-sidebar .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 20px; }
 .shell-sidebar .brand-logo { width: 34px; flex-shrink: 0; color: var(--brand); }
 .shell-sidebar .brand-logo svg { display: block; width: 100%; height: auto; }
-.shell-sidebar .brand-title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
-.shell-sidebar .brand-subtitle { font-size: 11px; color: var(--text-muted); }
+.shell-sidebar .brand-title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.shell-sidebar .brand-subtitle { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.shell-sidebar.collapsed .brand { justify-content: center; padding: 0 0 20px; }
+.shell-sidebar.collapsed .brand-text { display: none; }
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sidebar-toggle:hover { background: var(--page-plane); color: var(--text-primary); }
+.sidebar-toggle .icon { width: 16px; height: 16px; flex-shrink: 0; transition: transform 0.15s ease; }
+.sidebar-toggle .icon svg { display: block; width: 100%; height: 100%; }
+.sidebar-toggle-label { white-space: nowrap; }
+.shell-sidebar.collapsed .sidebar-toggle { justify-content: center; padding: 8px 0; }
+.shell-sidebar.collapsed .sidebar-toggle .icon { transform: rotate(180deg); }
+.shell-sidebar.collapsed .sidebar-toggle-label { display: none; }
 .shell-nav { display: flex; flex-direction: column; gap: 2px; }
 .shell-nav-item {
   display: flex;
@@ -1638,7 +1901,12 @@ SHELL_CSS = """
   color: var(--brand);
   font-weight: 600;
 }
-.shell-nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; flex-shrink: 0; }
+.shell-nav-item .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85; }
+.shell-nav-item .nav-icon svg { display: block; width: 100%; height: 100%; }
+.shell-nav-item.active .nav-icon { opacity: 1; }
+.shell-nav-item .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shell-sidebar.collapsed .shell-nav-item { justify-content: center; padding: 9px 0; gap: 0; }
+.shell-sidebar.collapsed .nav-label { display: none; }
 .shell-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .shell-topbar {
   display: flex;
@@ -1665,6 +1933,32 @@ SHELL_JS = """
   var frame = document.getElementById('shell-frame');
   var titleEl = document.getElementById('shell-title');
   var STORAGE_KEY = 'aleste-dashboard-modulo';
+  var COLLAPSE_KEY = 'aleste-dashboard-sidebar-collapsed';
+
+  var sidebar = document.querySelector('.shell-sidebar');
+  var toggleBtn = document.getElementById('shell-sidebar-toggle');
+  var toggleLabel = toggleBtn ? toggleBtn.querySelector('.sidebar-toggle-label') : null;
+
+  function setCollapsed(collapsed) {
+    if (!sidebar) return;
+    sidebar.classList.toggle('collapsed', collapsed);
+    if (toggleLabel) toggleLabel.textContent = collapsed ? 'Expandir' : 'Contraer';
+    if (toggleBtn) {
+      var text = collapsed ? 'Expandir menu' : 'Contraer menu';
+      toggleBtn.title = text;
+      toggleBtn.setAttribute('aria-label', text);
+    }
+    try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0'); } catch (e) {}
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function () {
+      setCollapsed(!sidebar.classList.contains('collapsed'));
+    });
+  }
+  var storedCollapsed = null;
+  try { storedCollapsed = localStorage.getItem(COLLAPSE_KEY); } catch (e) {}
+  setCollapsed(storedCollapsed === '1');
 
   function activate(id) {
     var item = items.filter(function (it) { return it.dataset.id === id; })[0];
@@ -1704,13 +1998,48 @@ SHELL_JS = """
 """
 
 
+_ICON_STROKE = 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"'
+
+# Un icono de linea por modulo (id -> SVG interno, sin el wrapper <svg>) para
+# poder diferenciar cada pestana cuando el sidebar esta contraido y solo
+# queda el icono visible (el label de texto se oculta, ver .nav-label).
+# Modulo nuevo que no esta en este mapa cae a NAV_ICON_DEFAULT (circulo) en
+# vez de romper -- pero conviene sumarle su propio icono aca al darlo de alta.
+NAV_ICONS = {
+    "pendientes": f'<circle cx="12" cy="12" r="8.5" {_ICON_STROKE}/><path d="M12 7.5V12l3 2" {_ICON_STROKE}/>',
+    "ordenes_trabajo": (
+        f'<rect x="5" y="4" width="14" height="17" rx="2" {_ICON_STROKE}/>'
+        f'<path d="M9 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" {_ICON_STROKE}/>'
+        f'<path d="M8.5 11.5h7M8.5 15h7M8.5 18.5h4" {_ICON_STROKE}/>'
+    ),
+    "compras": (
+        f'<path d="M7 8h10l-1 12a2 2 0 01-2 2H10a2 2 0 01-2-2L7 8z" {_ICON_STROKE}/>'
+        f'<path d="M9 8V6a3 3 0 016 0v2" {_ICON_STROKE}/>'
+    ),
+    "facturas": (
+        f'<path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" {_ICON_STROKE}/>'
+        f'<path d="M14 3v4a1 1 0 001 1h4" {_ICON_STROKE}/>'
+        f'<path d="M9 12.5h6M9 15.5h6M9 18.5h3" {_ICON_STROKE}/>'
+    ),
+}
+NAV_ICON_DEFAULT = f'<circle cx="12" cy="12" r="4" fill="currentColor"/>'
+
+_CHEVRON_ICON = f'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 18l-6-6 6-6" {_ICON_STROKE}/></svg>'
+
+
+def _nav_icon_svg(id_: str) -> str:
+    inner = NAV_ICONS.get(id_, NAV_ICON_DEFAULT)
+    return f'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">{inner}</svg>'
+
+
 def dashboard_shell(modules: list) -> str:
     """`modules`: lista de (id, label, archivo_html). Arma el shell con
     sidebar de navegacion + iframe que carga el informe del modulo activo."""
     nav_items = "".join(
         f'<button type="button" class="shell-nav-item" data-id="{escape(id_)}" '
-        f'data-src="{escape(archivo)}" data-label="{escape(label)}">'
-        f'<span class="dot"></span>{escape(label)}</button>'
+        f'data-src="{escape(archivo)}" data-label="{escape(label)}" title="{escape(label)}">'
+        f'<span class="nav-icon">{_nav_icon_svg(id_)}</span>'
+        f'<span class="nav-label">{escape(label)}</span></button>'
         for id_, label, archivo in modules
     )
     return f"""<!doctype html>
@@ -1719,29 +2048,37 @@ def dashboard_shell(modules: list) -> str:
 <meta charset="utf-8">
 <title>Dashboard ALESTE ADS</title>
 <style>{PAGE_CSS}{SHELL_CSS}</style>
+<script>{THEME_INIT_JS}</script>
 </head>
 <body class="shell-body">
 <div class="shell-layout">
   <nav class="shell-sidebar no-print">
     <div class="brand">
       <div class="brand-logo">{LOGO_SVG}</div>
-      <div>
+      <div class="brand-text">
         <div class="brand-title">ALESTE ADS</div>
         <div class="brand-subtitle">Dashboard Advertys</div>
       </div>
     </div>
+    <button type="button" class="sidebar-toggle" id="shell-sidebar-toggle" title="Contraer menu" aria-label="Contraer menu">
+      <span class="icon">{_CHEVRON_ICON}</span>
+      <span class="sidebar-toggle-label">Contraer</span>
+    </button>
     <div class="shell-nav">{nav_items}</div>
   </nav>
   <div class="shell-main">
     <div class="shell-topbar no-print">
       <h1 id="shell-title">Dashboard</h1>
-      <button type="button" class="print-btn" id="shell-print">Imprimir / Guardar PDF</button>
+      <div class="header-actions">
+        {THEME_TOGGLE_BTN}
+        <button type="button" class="print-btn" id="shell-print">Imprimir / Guardar PDF</button>
+      </div>
     </div>
     <div class="shell-frame-wrap">
       <iframe id="shell-frame" title="Informe"></iframe>
     </div>
   </div>
 </div>
-<script>{SHELL_JS}</script>
+<script>{SHELL_JS}{THEME_JS}</script>
 </body>
 </html>"""

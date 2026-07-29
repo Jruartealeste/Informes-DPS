@@ -79,11 +79,11 @@ def main():
     secciones = "".join([
         hr.filter_bar_html(),
         hr.stat_tiles_mount(),
-        hr.section("Renta real por mes", hr.mount("chart-mes")),
-        hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion")),
+        hr.section("Renta real por mes", hr.mount("chart-mes"), wide=True),
+        hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion"), wide=True),
         hr.section("Ordenes por estado", hr.mount("chart-estado")),
         hr.section("Top 10 anunciantes por renta real", hr.mount("chart-anunciante")),
-        hr.section("Rentabilidad por anunciante (todos)", hr.mount("tabla-anunciante")),
+        hr.section("Rentabilidad por anunciante (todos)", hr.mount("tabla-anunciante"), wide=True),
         hr.dashboard_bundle(records, spec),
     ])
 

@@ -715,17 +715,13 @@ def main():
     semaforo_counts = resumen["semaforo"].value_counts().to_dict()
     filtro_html = _semaforo_filter_bar_html(semaforo_counts, cant_ot)
     tabla_ot_html = _tabla_ot_html(resumen_ordenado, estimados, oc, items_pendientes, estimados_pend_facturar)
-    nota_alcance = (
-        '<p class="empty">Este análisis incluye únicamente las OT en estado '
-        '<strong>Abierta</strong>: las OT <strong>Anuladas</strong> quedan '
-        'fuera (no se evalúan sus estimados ni órdenes de compra).</p>'
-    )
 
     secciones = "".join([
         tiles,
         hr.section(
-            "Detalle por OT (estimados de costo + órdenes de compra)",
-            nota_alcance + filtro_html + tabla_ot_html,
+            "Detalle por OT abiertas (estimados de costo + órdenes de compra)",
+            filtro_html + tabla_ot_html,
+            wide=True,
         ),
     ])
 

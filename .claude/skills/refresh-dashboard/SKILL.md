@@ -6,47 +6,63 @@ argument-hint: (sin argumentos, o lista de módulos con export nuevo)
 
 ## Qué hace
 
-Regenera todos los `informes/informe_<modulo>.html` y el
-`informes/dashboard.html` que los agrupa en una sola pasada. Útil cuando hay exports nuevos para varios
-módulos el mismo día, o cuando se tocó `html_report.py`/
-`generate_dashboard.py` y hace falta refrescar todo el set de una vez. No
-tiene workflow propio en `workflows/` — combina
-[actualizar_informe.md](../../../workflows/actualizar_informe.md) con
-`generate_dashboard.py`.
+Exporta en vivo desde Advertys (login + navegar + descargar XLSX vía
+Playwright) y carga en `advertys.db` los 7 módulos que tienen
+`modules/<modulo>/export.py` — `compras`, `facturas`, `estimados_costos`,
+`ordenes_compra`, `oc_pendientes_generar`, `estimados_pendientes_facturar`,
+`ordenes_trabajo` — y después regenera todos los `informes/informe_<modulo>.html`
+y el `informes/dashboard.html` que los agrupa, en una sola pasada. El
+export ya no es manual para estos 7 módulos (era el comportamiento viejo
+de este skill; `tools/actualizar_todo.py` es el que reemplaza ese paso).
+
+**IIBB queda afuera de este script a propósito** — su export es mucho más
+pesado (~22.700 filas vs. cientos en el resto de los módulos) y además
+tiene su propio crawl lento aparte (`crawl_oc_por_factura.py`, "unos
+minutos"). Sigue actualizándose con el flujo manual de siempre.
 
 ## Pasos
 
-1. Si Javier trajo exports `.xlsx` nuevos para uno o más módulos, cargarlos
-   primero con el skill `actualizar-informe`, uno por módulo — respetando
-   el caso especial de `pendientes` (primero `ordenes_trabajo` /
-   `estimados_costos` / `ordenes_compra` / `oc_pendientes_generar` /
-   `estimados_pendientes_facturar`, recién después `pendientes`).
-   `items_pendientes_oc` no tiene Excel propio: solo re-correrlo
-   (`python -m modules.ordenes_trabajo.crawl_items_pendientes`, tarda
-   unos minutos) si Javier pide específicamente refrescar ese dato o pasó
-   bastante tiempo desde la última corrida.
-2. Regenerar el resto de los informes desde los datos ya en `advertys.db`
-   (sin re-ingest) para los módulos con `generate_html_report.py`:
-   - `python -m modules.ordenes_trabajo.generate_html_report`
-   - `python -m modules.compras.generate_html_report`
-   - `python -m modules.facturas.generate_html_report`
-   - `python -m modules.pendientes.generate_html_report`
-   Antes de asumir que esta lista sigue completa, chequear la lista
-   `MODULOS` en `generate_dashboard.py` — puede haberse sumado un módulo
-   nuevo vía el skill `relevar-modulo`.
-3. `python generate_dashboard.py` — regenera `informes/dashboard.html` con
-   el sidebar actualizado.
-4. Si hubo cambios de CSS/layout en esta sesión, correr el skill
+1. Correr `python -m tools.actualizar_todo` (desde la raíz del proyecto,
+   con `-m` para que `modules` sea importable) — hace login a Advertys una
+   vez por módulo, exporta y carga los 7 módulos de arriba, y al final
+   regenera los 4 `generate_html_report.py` existentes
+   (`ordenes_trabajo`, `compras`, `facturas`, `pendientes`) y
+   `generate_dashboard.py`. Un fallo puntual en un módulo no aborta el
+   resto — al final del stdout hay un resumen con qué módulos quedaron OK
+   y cuáles fallaron (y por qué). Antes de asumir que la lista de 7
+   módulos sigue completa, chequear `MODULOS` en `tools/actualizar_todo.py`
+   — puede haberse sumado un módulo nuevo vía el skill `relevar-modulo`
+   (si el módulo nuevo tiene su propio `export.py`, agregarlo ahí también).
+2. **Fallback manual** — si Advertys está caído, el login falla, o Javier
+   ya trae un Excel puntual en vez de dejar que el script lo exporte: usar
+   el skill `actualizar-informe` para ese módulo en particular en lugar
+   del paso 1, respetando el caso especial de `pendientes` (primero
+   `ordenes_trabajo` / `estimados_costos` / `ordenes_compra` /
+   `oc_pendientes_generar` / `estimados_pendientes_facturar`, recién
+   después `pendientes`).
+3. **IIBB** siempre se actualiza aparte con el skill `actualizar-informe`
+   (export manual, como siempre) — no lo toca `tools/actualizar_todo.py`.
+4. `items_pendientes_oc` no tiene Excel propio y sigue siendo opt-in: solo
+   re-correrlo (`python -m modules.ordenes_trabajo.crawl_items_pendientes`,
+   tarda unos minutos) si Javier pide específicamente refrescar ese dato o
+   pasó bastante tiempo desde la última corrida.
+5. Si hubo cambios de CSS/layout en esta sesión, correr el skill
    `verificar-visual` sobre `informes/dashboard.html` y sobre los informes
    que cambiaron.
-5. Reportar qué módulos se actualizaron y con qué rango de datos cada uno.
+6. Reportar qué módulos se actualizaron (y cuáles fallaron, si los hubo)
+   con qué rango de datos cada uno.
 
 ## Notas
 
-- No re-ingerir datos de un módulo si no hay export nuevo para él — este
-  skill por default solo regenera HTML desde lo que ya está en
-  `advertys.db`.
+- `tools/actualizar_todo.py` corre headless, sin ventana visible, igual
+  que ya corrían los `explore.py` de cada módulo — cada `export.py` es
+  una copia productiva y recortada del `explore.py` correspondiente
+  (mismos selectores ya verificados, sin las capturas de debug de más).
+  Ver `tools/advertys_session.py` para el login compartido.
 - `estimados_costos`, `ordenes_compra`, `oc_pendientes_generar`,
   `estimados_pendientes_facturar` y `items_pendientes_oc` son *feeder* de
   `pendientes` (no tienen `generate_html_report.py` propio ni entrada en
   el dashboard) — no intentar regenerarles un informe propio.
+- Si en algún momento se agrega un `export.py` nuevo (módulo nuevo, o
+  IIBB deja de ser manual), sumarlo a `MODULOS` en
+  `tools/actualizar_todo.py` — no hay detección automática.

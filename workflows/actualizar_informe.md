@@ -1,5 +1,13 @@
 # Actualizar un informe existente
 
+**Para refrescar todos los módulos de una, no uno puntual:** usar
+`python -m tools.actualizar_todo` en su lugar (ver skill
+`refresh-dashboard`) — exporta en vivo desde Advertys y carga los 7
+módulos automatizados de una sola pasada. Este workflow es para el caso
+manual/puntual: un módulo a la vez, con un Excel que Javier ya tiene a
+mano (incluye siempre a IIBB, que quedó deliberadamente fuera de la
+automatización).
+
 **Objetivo:** cargar un export nuevo de Advertys en un módulo ya armado y
 dejar el informe HTML actualizado con los datos más recientes.
 
