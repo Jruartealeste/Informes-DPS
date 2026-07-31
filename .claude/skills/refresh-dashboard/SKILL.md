@@ -46,9 +46,12 @@ minutos"). Sigue actualizándose con el flujo manual de siempre.
    re-correrlo (`python -m modules.ordenes_trabajo.crawl_items_pendientes`,
    tarda unos minutos) si Javier pide específicamente refrescar ese dato o
    pasó bastante tiempo desde la última corrida.
-5. Si hubo cambios de CSS/layout en esta sesión, correr el skill
-   `verificar-visual` sobre `informes/dashboard.html` y sobre los informes
-   que cambiaron.
+5. Si hubo cambios de CSS/layout en esta sesión, verificar visualmente
+   `informes/dashboard.html` y los informes que cambiaron: si es uno solo,
+   con el skill `verificar-visual` inline; si son 2+ (lo típico cuando el
+   cambio fue en `html_report.py` compartido), delegar al subagent
+   `informe-visual-qa` para no inflar el hilo principal con capturas de
+   cada módulo.
 6. Reportar qué módulos se actualizaron (y cuáles fallaron, si los hubo)
    con qué rango de datos cada uno.
 

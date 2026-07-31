@@ -9,6 +9,16 @@ CSS, gráficos compartidos) o al `generate_html_report.py` de un módulo
 específico. No hace falta para un simple refresh de datos sobre un
 informe que ya se verificó visualmente y no cambió de estructura.
 
+**Un informe vs. varios en la misma pasada:** para un solo informe, seguir
+este workflow inline (el overhead de arrancar un subagent nuevo no se
+justifica para 3 capturas). Para 2+ informes en la misma pasada
+(típicamente un cambio a `html_report.py` compartido que dispara
+`refresh-dashboard`), delegar al subagent `informe-visual-qa`
+(`.claude/agents/informe-visual-qa.md`, solo lectura) en vez de repetir
+estos pasos módulo por módulo en el hilo principal — ver
+`workflows/arquitectura_claude_code.md` para el criterio de cuándo usar un
+subagent en este proyecto.
+
 **Tool:** `tools/screenshot.py` (Playwright, Chromium headless — el mismo
 motor que ya usan los `explore.py` de cada módulo, así que no suma
 dependencias nuevas al proyecto).

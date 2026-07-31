@@ -76,6 +76,19 @@ ESTIMADO_ESTADOS_TERMINALES = {
 }
 OC_ESTADOS_RESUELTOS = {"Utilizada", "Anulada"}
 
+# Aviso de higiene de datos (agregado 2026-07-30): una OT con mas estimados
+# que el tamano de pagina default de la grilla "Estimados Costo" en Advertys
+# (20, confirmado en vivo contra la OT 144 -- "Pagina 1 de 2, 20 por pagina")
+# es en si misma una senal de que algo no se cerro a tiempo -- se van
+# acumulando estimados mes a mes (ej. "REDES SOCIALES - ENE 25", "- FEB 25",
+# etc.) en vez de abrir una OT nueva por periodo. Ademas, a esa cantidad
+# `cerrar_ot.py listar-candidatos` no puede evaluar en vivo los estimados que
+# caen en la segunda pagina (busca por texto exacto solo en lo ya renderizado
+# en pantalla) -- ver nota en modules/ordenes_trabajo/cerrar_ot.py. Mismo
+# umbral en ambos archivos, cross-referenciado en vez de compartido (ver
+# "Por que NO se hizo un framework generico multi-modulo" en el README).
+UMBRAL_MUCHOS_ESTIMADOS = 20
+
 # Regla de negocio confirmada por Javier (2026-07-21), mas precisa que el
 # check generico de arriba: un Estimado de Costos NO se puede Finalizar (y
 # por lo tanto la OT que cuelga de el queda "bloqueada" para cerrar) si:
@@ -597,9 +610,16 @@ def _fila_tabla_ot(
 ) -> str:
     numero_ot = fila["numero_ot"]
     sin_estimados = fila["cant_estimados"] == 0
+    muchos_estimados = fila["cant_estimados"] > UMBRAL_MUCHOS_ESTIMADOS
     bloqueada = bool(fila.get("motivo_bloqueo"))
-    row_class = "ot-row row-alerta" if sin_estimados else "ot-row"
+    row_class = "ot-row row-alerta" if (sin_estimados or muchos_estimados) else "ot-row"
     alerta = '<span class="badge-alerta">Sin estimados</span>' if sin_estimados else ""
+    badge_muchos = (
+        f'<span class="badge-alerta" title="Tiene {fila["cant_estimados"]} estimados cargados: '
+        'revisar si esta OT deberia haberse cerrado hace rato en vez de seguir '
+        f'acumulando estimados nuevos.">Muchos estimados ({fila["cant_estimados"]})</span>'
+        if muchos_estimados else ""
+    )
     badge_bloqueo = (
         f'<span class="badge-bloqueada" title="{escape(fila["motivo_bloqueo"])}">Bloqueada</span>'
         if bloqueada else ""
@@ -619,7 +639,7 @@ def _fila_tabla_ot(
     fila_resumen = f"""<tr class="{row_class}" data-semaforo="{semaforo}" onclick="{_ROW_TOGGLE_JS}">
       <td>{semaforo_dot}</td>
       <td>{escape(str(numero_ot))}</td>
-      <td>{escape(str(resumen_txt))}{alerta}{badge_bloqueo}</td>
+      <td>{escape(str(resumen_txt))}{alerta}{badge_muchos}{badge_bloqueo}</td>
       <td>{escape(str(fila.get("anunciante") or ""))}</td>
       <td>{escape(str(fila.get("responsable") or ""))}</td>
       <td>{fecha_str}</td>
@@ -693,6 +713,7 @@ def main():
 
     cant_ot = len(resumen)
     cant_sin_estimados = int((resumen["cant_estimados"] == 0).sum())
+    cant_muchos_estimados = int((resumen["cant_estimados"] > UMBRAL_MUCHOS_ESTIMADOS).sum())
     cant_listas = int((resumen["semaforo"] == "good").sum())
     cant_bloqueadas = int((resumen["motivo_bloqueo"] != "").sum())
     # renta_teorica/renta_real son porcentajes de rentabilidad (ej. 49.51),
@@ -708,6 +729,7 @@ def main():
         ("Listas para cerrar", str(cant_listas), "estimados y OC ya resueltos"),
         ("Bloqueadas para cierre", str(cant_bloqueadas), "item sin O.C. y/o saldo pendiente de facturar"),
         ("Sin estimados cargados", str(cant_sin_estimados), "revisar por que siguen abiertas"),
+        ("Muchos estimados acumulados", str(cant_muchos_estimados), f"más de {UMBRAL_MUCHOS_ESTIMADOS} estimados: revisar si debería estar cerrada"),
         ("Renta teórica promedio", f"{renta_teorica_promedio:.1f}%"),
         ("Comprometido en órdenes de compra", _fmt_money(total_comprometido_oc)),
     ])
@@ -733,7 +755,7 @@ def main():
         f.write(html)
 
     print(f"OK: informe generado en {REPORT_HTML_OUTPUT_PATH}")
-    print(f"  {cant_ot} OT abiertas, {cant_sin_estimados} sin estimados cargados, {cant_bloqueadas} bloqueadas para cierre.")
+    print(f"  {cant_ot} OT abiertas, {cant_sin_estimados} sin estimados cargados, {cant_bloqueadas} bloqueadas para cierre, {cant_muchos_estimados} con muchos estimados acumulados.")
 
 
 if __name__ == "__main__":

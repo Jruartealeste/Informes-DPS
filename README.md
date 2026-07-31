@@ -282,6 +282,20 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   `cerrar_ot.py` tiene permitido tocar (ver salvaguarda de solo-lectura en
   `CLAUDE.md`). La corrección de este tipo de desfasaje se hace a mano en
   Advertys.
+- **`listar-candidatos` (agregado 2026-07-30, skill `cerrar-pendientes`):**
+  `python -m modules.ordenes_trabajo.cerrar_ot listar-candidatos` arma de
+  un saque la propuesta de qué cerrar, en modo SOLO LECTURA (nunca clickea
+  "Editar" ni "Guardar"). Reusa el semáforo que ya calcula
+  `modules/pendientes/generate_html_report.py` (`_resumen_por_ot`) sobre
+  los datos locales de `advertys.db` para separar las OT con
+  `semaforo == "good"` (candidatas directas a `cerrar-ot`, sin chequeo
+  adicional) de los estimados no terminales, y para estos últimos corre
+  `chequear_estimado_completo` en vivo contra Advertys con un solo
+  login/browser para todos (a diferencia de invocar `chequear-estimado`
+  una vez por estimado). Sigue siendo cierto que `cerrar_ot.py` es el
+  único script de escritura del proyecto — esta acción no escribe nada,
+  solo arma la lista para que el flujo de `workflows/cerrar_pendientes.md`
+  se la presente a Javier antes de ejecutar cualquier cambio real.
 
 ### Notas del módulo Compras
 

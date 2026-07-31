@@ -22,6 +22,11 @@ workflow correspondiente:
 - `workflows/verificar_informe_visual.md` — el Screenshot Workflow:
   capturar claro/oscuro/print de un informe con Playwright antes de
   darlo por terminado.
+- `workflows/arquitectura_claude_code.md` — cómo mapear estas 3 capas a
+  los mecanismos reales de Claude Code (Skills, Subagents, Agent Teams) y
+  la regla de decisión para sumar automatización nueva. Leerlo cuando el
+  pedido sea sobre la configuración de Claude Code de este proyecto
+  mismo, no sobre un módulo de datos (ver skill `gestionar-claude-code`).
 
 **Capa 2 — Vos (el agente):** coordinás. Leés el workflow que aplica,
 corrés las tools en el orden correcto, manejás errores (muchos ya están

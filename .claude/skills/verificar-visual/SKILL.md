@@ -16,6 +16,18 @@ manualmente. Fuente de verdad completa:
 Un simple refresh de datos sobre un informe que ya se verificó
 visualmente y no cambió de estructura no necesita repetir este paso.
 
+## Un informe vs. varios en la misma pasada
+
+Para **un solo informe**, seguir los pasos de abajo inline (el overhead de
+arrancar un subagent nuevo no se justifica para 3 capturas). Para **2 o
+más informes en la misma pasada** (típicamente disparado desde el skill
+`refresh-dashboard` después de un cambio de CSS/layout compartido),
+delegar al subagent `informe-visual-qa` (uno por informe, o pasándole la
+lista completa) para mantener las capturas fuera de la conversación
+principal — devuelve un veredicto corto por informe en vez de volcar los
+PNG crudos acá. Ver `workflows/arquitectura_claude_code.md` para el
+criterio general de cuándo usar un subagent en este proyecto.
+
 ## Pasos
 
 1. Si el HTML no está regenerado con los últimos cambios:
