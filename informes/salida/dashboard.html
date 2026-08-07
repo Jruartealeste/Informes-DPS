@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dashboard ALESTE ADS</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-1:      #fcfcfb;
+  --page-plane:     #f1f0eb;
+  --text-primary:   #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted:     #898781;
+  --gridline:       #e1e0d9;
+  --baseline:       #c3c2b7;
+  --border:         rgba(11,11,11,0.10);
+  --brand:          #f63200;
+  --brand-tint:     rgba(246,50,0,0.08);
+  --series-1:       #f63200;
+}
+/* El tema por defecto sigue el prefers-color-scheme del SO. data-theme en
+   <html> (seteado por THEME_INIT_JS/THEME_JS al togglear el boton) fuerza
+   un tema explicito que gana por sobre la preferencia del SO en cualquier
+   direccion -- por eso el bloque de "dark" de mas abajo se excluye con
+   :not([data-theme="light"]) en vez de repetir logica en JS. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --brand-tint:     rgba(255,122,69,0.14);
+    --series-1:       #ff7a45;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1:      #1a1a19;
+  --page-plane:     #0d0d0d;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --gridline:       #2c2c2a;
+  --baseline:       #383835;
+  --border:         rgba(255,255,255,0.10);
+  --brand-tint:     rgba(255,122,69,0.14);
+  --series-1:       #ff7a45;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--page-plane);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 40px 64px;
+}
+/* Grid de secciones: por defecto cada .report-section ocupa una columna
+   (quedan de a 2 lado a lado en pantallas anchas); .report-section--full
+   (charts de serie temporal, comparaciones y tablas) fuerza el ancho
+   completo. minmax(480px,1fr) esta calibrado para que .page a 1440px de
+   max-width resuelva siempre en exactamente 2 columnas, no 3 -- asi los
+   pares de charts "half" (Estado/Tipo, Proveedores/Clientes, etc.) quedan
+   prolijos en vez de dejar un hueco vacio en la fila. */
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.section-grid > .stat-grid,
+.section-grid > .filter-bar,
+.section-grid > .report-section--full {
+  grid-column: 1 / -1;
+}
+.section-grid > .report-section { margin-bottom: 0; }
+@media print {
+  .section-grid { display: block; }
+  .section-grid > .report-section { margin-bottom: 20px; }
+}
+header.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--text-primary);
+}
+header.report-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+header.report-header .brand-logo {
+  width: 46px;
+  height: auto;
+  flex-shrink: 0;
+  color: var(--brand);
+}
+header.report-header .brand-logo svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+header.report-header .eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+header.report-header h1 {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+}
+header.report-header .meta {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.header-actions { display: flex; align-items: center; gap: 8px; }
+
+button.print-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+button.print-btn:hover { background: var(--page-plane); border-color: var(--brand); color: var(--brand); }
+
+button.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+}
+button.theme-toggle:hover { background: var(--page-plane); border-color: var(--brand); color: var(--brand); }
+button.theme-toggle .icon { width: 18px; height: 18px; display: block; }
+button.theme-toggle .icon svg { display: block; width: 100%; height: 100%; }
+/* Por defecto (sin data-theme, SO en claro) se ve el sol -- clickear pasa a
+   oscuro. El icono espeja el tema activo, no cambia con JS: ver el bloque
+   :not([data-theme="light"]) / [data-theme="dark"] de mas arriba. */
+button.theme-toggle .icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) button.theme-toggle .icon-sun { display: none; }
+  :root:not([data-theme="light"]) button.theme-toggle .icon-moon { display: block; }
+}
+:root[data-theme="dark"] button.theme-toggle .icon-sun { display: none; }
+:root[data-theme="dark"] button.theme-toggle .icon-moon { display: block; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.stat-tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+.stat-tile .label {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.stat-tile .value {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-tile .sublabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+section.report-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+section.report-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0 0 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { fill: var(--text-muted); font-size: 11px; }
+svg.chart .gridline { stroke: var(--gridline); stroke-width: 1; }
+svg.chart .baseline { stroke: var(--baseline); stroke-width: 1; }
+svg.chart .hit { fill: transparent; cursor: pointer; }
+
+table.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.report-table th, table.report-table td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--gridline);
+}
+table.report-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--baseline);
+}
+table.report-table td.num, table.report-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+table.report-table tr { break-inside: avoid; }
+table.report-table tbody tr:hover { background: var(--page-plane); }
+table.report-table th.sortable { cursor: pointer; user-select: none; }
+table.report-table th.sortable:hover { color: var(--text-primary); }
+table.report-table tr.row-hidden { display: none; }
+
+/* Tabla agrupada con detalle desplegable (ver hr.dashboard_bundle /
+   DASHBOARD_JS renderGroupedTable) -- fila resumen (una por grupo,
+   clickeable) + fila de detalle (tabla anidada, oculta hasta expandir). */
+tr.group-row { cursor: pointer; }
+tr.group-row:hover { background: var(--page-plane); }
+tr.group-row td.group-toggle { width: 20px; text-align: center; color: var(--text-muted); }
+tr.group-detail-row { display: none; }
+tr.group-detail-row.open { display: table-row; }
+tr.group-detail-row > td { padding: 0 0 14px 14px; border-bottom: 1px solid var(--gridline); }
+table.report-table--nested { font-size: 12px; background: var(--page-plane); border-radius: 8px; }
+table.report-table--nested th, table.report-table--nested td { padding: 6px 10px; }
+
+#viz-tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transform: translate(-50%, calc(-100% - 10px));
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.08s ease;
+  z-index: 10;
+}
+#viz-tooltip.visible { opacity: 1; }
+
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+.legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+footer.report-footer {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 24px;
+}
+
+@media print {
+  /* Imprimir siempre en claro, sin importar el tema elegido en pantalla --
+     el selector repite [data-theme] para igualar la especificidad de los
+     bloques de arriba ({dark via prefers-color-scheme} y :root[data-theme]);
+     como este bloque va despues en el archivo, gana el empate. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    color-scheme: light;
+    --surface-1: #ffffff;
+    --page-plane: #ffffff;
+    --text-primary: #0b0b0b;
+    --text-secondary: #3a3936;
+    --text-muted: #6a6963;
+    --gridline: #d8d7d0;
+    --baseline: #9a988f;
+    --border: rgba(11,11,11,0.15);
+    --series-1: #f63200;
+  }
+  .no-print { display: none !important; }
+  .page { max-width: none; padding: 0; }
+  section.report-section { break-inside: avoid; border: 1px solid #ddd; box-shadow: none; }
+  .stat-tile { box-shadow: none; }
+  table.report-table tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+  /* El tope de TABLE_LIMIT filas (ver DASHBOARD_JS) es una limitacion de
+     pantalla: al imprimir/guardar PDF siempre va el detalle completo. */
+  table.report-table tr.row-hidden { display: table-row; }
+  /* Mismo criterio para la tabla agrupada: el detalle desplegable de cada
+     grupo va siempre visible al imprimir, sin importar que quedo
+     colapsado en pantalla. */
+  tr.group-detail-row { display: table-row !important; }
+}
+
+.shell-body { margin: 0; height: 100vh; overflow: hidden; }
+.shell-layout { display: flex; height: 100vh; }
+.shell-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.15s ease;
+}
+.shell-sidebar.collapsed { width: 68px; }
+.shell-sidebar .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 20px; }
+.shell-sidebar .brand-logo { width: 34px; flex-shrink: 0; color: var(--brand); }
+.shell-sidebar .brand-logo svg { display: block; width: 100%; height: auto; }
+.shell-sidebar .brand-title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.shell-sidebar .brand-subtitle { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.shell-sidebar.collapsed .brand { justify-content: center; padding: 0 0 20px; }
+.shell-sidebar.collapsed .brand-text { display: none; }
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sidebar-toggle:hover { background: var(--page-plane); color: var(--text-primary); }
+.sidebar-toggle .icon { width: 16px; height: 16px; flex-shrink: 0; transition: transform 0.15s ease; }
+.sidebar-toggle .icon svg { display: block; width: 100%; height: 100%; }
+.sidebar-toggle-label { white-space: nowrap; }
+.shell-sidebar.collapsed .sidebar-toggle { justify-content: center; padding: 8px 0; }
+.shell-sidebar.collapsed .sidebar-toggle .icon { transform: rotate(180deg); }
+.shell-sidebar.collapsed .sidebar-toggle-label { display: none; }
+.shell-nav { display: flex; flex-direction: column; gap: 2px; }
+.shell-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: none;
+  border-right: 2px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.shell-nav-item:hover { background: var(--page-plane); }
+.shell-nav-item.active {
+  background: var(--brand-tint);
+  border-right-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+}
+.shell-nav-item .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85; }
+.shell-nav-item .nav-icon svg { display: block; width: 100%; height: 100%; }
+.shell-nav-item.active .nav-icon { opacity: 1; }
+.shell-nav-item .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shell-sidebar.collapsed .shell-nav-item { justify-content: center; padding: 9px 0; gap: 0; }
+.shell-sidebar.collapsed .nav-label { display: none; }
+.shell-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.shell-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.shell-topbar h1 { font-size: 15px; font-weight: 600; margin: 0; }
+.shell-frame-wrap { flex: 1; min-height: 0; }
+.shell-frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; background: var(--page-plane); }
+
+@media print {
+  .shell-sidebar, .shell-topbar { display: none !important; }
+  .shell-layout, .shell-main, .shell-frame-wrap { height: auto; display: block; }
+  .shell-frame-wrap iframe { height: 100vh; }
+}
+</style>
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('aleste-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
+</head>
+<body class="shell-body">
+<div class="shell-layout">
+  <nav class="shell-sidebar no-print">
+    <div class="brand">
+      <div class="brand-logo"><svg viewBox="66 48 176 131" width="176" height="131" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ALESTE">
+  <path d="M120.184,87.073l-3.576-6.358h-30.943l-3.377,6.358h-12.119l19.172-34.817h23.344l20.314,34.817h-12.814ZM105.135,60.302h-8.444l-6.755,12.566h22.301l-7.103-12.566Z" fill="currentColor"/>
+  <path d="M135.829,52.405h11.871v26.075h26.324v8.642h-38.195v-34.718Z" fill="currentColor"/>
+  <path d="M73.198,96.203h112.448v7.897h-100.727v5.165h100.081v7.947h-100.081v5.712h101.223v8.096h-112.944v-34.817Z" fill="currentColor"/>
+  <path d="M212.268,131.666c-3.775-.034-7.07-.331-9.884-.894-2.815-.596-4.984-1.316-6.507-2.16-1.523-.845-2.74-1.863-3.651-3.055s-1.482-2.285-1.713-3.278c-.265-.96-.398-1.987-.398-3.08v-.496h12.367c.199,2.55,1.705,4.205,4.52,4.967,1.49.365,3.378.546,5.662.546h2.732c1.788,0,3.443-.099,4.967-.298,1.556-.199,2.698-.48,3.427-.844.696-.397,1.158-.795,1.391-1.192.231-.397.364-.845.398-1.341,0-.761-.216-1.358-.646-1.788-.43-.43-1.374-.811-2.831-1.142-1.523-.331-3.675-.529-6.457-.596l-3.725-.05-2.831-.099c-12.317-.298-18.476-3.692-18.476-10.182v-.397c.033-1.125.182-2.168.447-3.129.331-.927.951-1.87,1.863-2.831.91-.96,2.111-1.755,3.601-2.384,1.49-.662,3.477-1.208,5.96-1.639,2.516-.43,5.447-.646,8.792-.646h3.477c3.477,0,6.539.224,9.189.67,2.649.447,4.76,1.01,6.333,1.689,1.572.679,2.855,1.515,3.849,2.508,1.026,1.027,1.722,2.02,2.086,2.98.364.993.546,2.037.546,3.129v.497h-12.318c-.066-.397-.166-.712-.298-.944-.099-.265-.372-.621-.819-1.068-.447-.447-1.018-.803-1.713-1.068-.762-.298-1.821-.547-3.179-.745-1.458-.231-2.914-.348-4.371-.348h-1.788c-2.582,0-4.636.166-6.159.497-1.523.331-2.451.679-2.782,1.043-.331.331-.496.812-.496,1.44.033.596.215,1.076.546,1.44.364.397,1.216.754,2.557,1.068,1.341.315,3.236.472,5.687.472l2.781.05,3.576.05c7.053.133,12.152,1.018,15.298,2.657,3.145,1.639,4.719,4.197,4.719,7.674v.645c0,1.291-.149,2.451-.447,3.477-.331.993-.968,2.02-1.912,3.079-.944,1.06-2.203,1.946-3.775,2.657-1.573.712-3.734,1.3-6.482,1.763-2.749.463-5.944.695-9.586.695h-3.527Z" fill="currentColor"/>
+  <path d="M87.006,174.918v-26.523h-16.291v-8.195h44.602v8.195h-16.341v26.523h-11.97Z" fill="currentColor"/>
+  <path d="M118.843,140.051h40.032v7.897h-28.311v5.165h27.616v7.947h-27.616v5.712h28.807v8.096h-40.529v-34.817Z" fill="currentColor"/>
+</svg></div>
+      <div class="brand-text">
+        <div class="brand-title">ALESTE ADS</div>
+        <div class="brand-subtitle">Dashboard Advertys</div>
+      </div>
+    </div>
+    <button type="button" class="sidebar-toggle" id="shell-sidebar-toggle" title="Contraer menu" aria-label="Contraer menu">
+      <span class="icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="sidebar-toggle-label">Contraer</span>
+    </button>
+    <div class="shell-nav"><button type="button" class="shell-nav-item" data-id="pendientes" data-src="informe_pendientes.html" data-label="Pendientes" title="Pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Pendientes</span></button><button type="button" class="shell-nav-item" data-id="ordenes_trabajo" data-src="informe_dinamico.html" data-label="Ordenes de Trabajo" title="Ordenes de Trabajo"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="4" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 11.5h7M8.5 15h7M8.5 18.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Ordenes de Trabajo</span></button><button type="button" class="shell-nav-item" data-id="compras" data-src="informe_compras.html" data-label="Compras" title="Compras"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 8h10l-1 12a2 2 0 01-2 2H10a2 2 0 01-2-2L7 8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 8V6a3 3 0 016 0v2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Compras</span></button><button type="button" class="shell-nav-item" data-id="facturas" data-src="informe_facturas.html" data-label="Facturas" title="Facturas"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3v4a1 1 0 001 1h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12.5h6M9 15.5h6M9 18.5h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Facturas</span></button><button type="button" class="shell-nav-item" data-id="iibb" data-src="informe_iibb.html" data-label="IIBB (recupero OC/OP)" title="IIBB (recupero OC/OP)"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">IIBB (recupero OC/OP)</span></button><button type="button" class="shell-nav-item" data-id="cobranza_proveedores" data-src="informe_cobranza_proveedores.html" data-label="Cobranza x Proveedores" title="Cobranza x Proveedores"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Cobranza x Proveedores</span></button></div>
+  </nav>
+  <div class="shell-main">
+    <div class="shell-topbar no-print">
+      <h1 id="shell-title">Dashboard</h1>
+      <div class="header-actions">
+        <button type="button" class="theme-toggle no-print" data-theme-toggle title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro"><span class="icon icon-sun"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="icon icon-moon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button type="button" class="print-btn" id="shell-print">Imprimir / Guardar PDF</button>
+      </div>
+    </div>
+    <div class="shell-frame-wrap">
+      <iframe id="shell-frame" title="Informe"></iframe>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.shell-nav-item'));
+  var frame = document.getElementById('shell-frame');
+  var titleEl = document.getElementById('shell-title');
+  var STORAGE_KEY = 'aleste-dashboard-modulo';
+  var COLLAPSE_KEY = 'aleste-dashboard-sidebar-collapsed';
+
+  var sidebar = document.querySelector('.shell-sidebar');
+  var toggleBtn = document.getElementById('shell-sidebar-toggle');
+  var toggleLabel = toggleBtn ? toggleBtn.querySelector('.sidebar-toggle-label') : null;
+
+  function setCollapsed(collapsed) {
+    if (!sidebar) return;
+    sidebar.classList.toggle('collapsed', collapsed);
+    if (toggleLabel) toggleLabel.textContent = collapsed ? 'Expandir' : 'Contraer';
+    if (toggleBtn) {
+      var text = collapsed ? 'Expandir menu' : 'Contraer menu';
+      toggleBtn.title = text;
+      toggleBtn.setAttribute('aria-label', text);
+    }
+    try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0'); } catch (e) {}
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function () {
+      setCollapsed(!sidebar.classList.contains('collapsed'));
+    });
+  }
+  var storedCollapsed = null;
+  try { storedCollapsed = localStorage.getItem(COLLAPSE_KEY); } catch (e) {}
+  setCollapsed(storedCollapsed === '1');
+
+  function activate(id) {
+    var item = items.filter(function (it) { return it.dataset.id === id; })[0];
+    if (!item || !frame) return;
+    items.forEach(function (it) { it.classList.toggle('active', it === item); });
+    frame.src = item.dataset.src;
+    if (titleEl) titleEl.textContent = item.dataset.label;
+    try { localStorage.setItem(STORAGE_KEY, id); } catch (e) {}
+  }
+
+  items.forEach(function (it) {
+    it.addEventListener('click', function () { activate(it.dataset.id); });
+  });
+
+  var stored = null;
+  try { stored = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+  var initial = (stored && items.some(function (it) { return it.dataset.id === stored; }))
+    ? stored
+    : (items[0] && items[0].dataset.id);
+  if (initial) activate(initial);
+
+  var printBtn = document.getElementById('shell-print');
+  if (printBtn) printBtn.addEventListener('click', function () {
+    // iframes de otro archivo local (file://) a veces bloquean el acceso a
+    // contentWindow segun el navegador -- si tira SecurityError, se cae a
+    // imprimir el shell (mejor eso que un boton roto).
+    try {
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        return;
+      }
+    } catch (e) {}
+    window.print();
+  });
+})();
+
+(function () {
+  var STORAGE_KEY = 'aleste-theme';
+  var root = document.documentElement;
+
+  function currentTheme() {
+    var explicit = root.getAttribute('data-theme');
+    if (explicit === 'light' || explicit === 'dark') return explicit;
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
+  }
+
+  function setTheme(theme, opts) {
+    opts = opts || {};
+    root.setAttribute('data-theme', theme);
+    if (opts.persist !== false) {
+      try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) {}
+    }
+    if (opts.propagate !== false) {
+      var frame = document.getElementById('shell-frame');
+      if (frame && frame.contentWindow) {
+        try { frame.contentWindow.postMessage({ type: 'aleste-theme', theme: theme }, '*'); } catch (e) {}
+      }
+      if (window.parent && window.parent !== window) {
+        try { window.parent.postMessage({ type: 'aleste-theme', theme: theme }, '*'); } catch (e) {}
+      }
+    }
+  }
+
+  setTheme(currentTheme(), { persist: false, propagate: false });
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-theme-toggle]');
+    if (!btn) return;
+    setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+  });
+
+  window.addEventListener('message', function (e) {
+    var data = e.data;
+    if (data && data.type === 'aleste-theme' && (data.theme === 'light' || data.theme === 'dark')) {
+      // No persistir: esto es al shell empujando SU tema al iframe que
+      // recien cargo (o viceversa), no una eleccion del usuario en este
+      // documento puntual -- persistirlo pisaba para siempre el "seguir al
+      // SO" del informe standalone con lo ultimo que mostro el shell.
+      setTheme(data.theme, { persist: false, propagate: false });
+    }
+  });
+
+  // dashboard_shell: al cambiar de modulo (nuevo src en el iframe) le avisa
+  // el tema activo al informe recien cargado, que arranca sin saberlo.
+  var shellFrame = document.getElementById('shell-frame');
+  if (shellFrame) {
+    shellFrame.addEventListener('load', function () {
+      try { shellFrame.contentWindow.postMessage({ type: 'aleste-theme', theme: currentTheme() }, '*'); } catch (e) {}
+    });
+  }
+})();
+</script>
+</body>
+</html>

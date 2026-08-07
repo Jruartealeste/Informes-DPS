@@ -1,0 +1,73 @@
+<div id="tabla-tareas" class="table-scroll">
+  <div class="table-card {{ 'table-card--agrupada' if agrupado else 'table-card--plana' }}">
+
+    {% if agrupado %}
+    <div class="table-head table-head--agrupada">
+      <div></div><div>Pedido</div><div>Tipo</div><div>Detalle</div><div>Pidió</div>
+      <div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
+    </div>
+    {% for g in grupos %}
+    <div class="group">
+      <div class="group-row" onclick="var g=this.closest('.group');g.classList.toggle('is-collapsed');this.querySelector('.group-row__caret').classList.toggle('is-open');">
+        <span class="group-row__caret is-open">▸</span>
+        <span class="group-row__n">OT {{ g.n }}</span>
+        {% if not g.amb %}
+        <span class="badge {{ 'badge--ot-abierta' if g.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ g.ot_estado }}</span>
+        {% endif %}
+        <span class="badge badge--dps {{ 'has-dps' if g.dps else 'no-dps' }}">{{ g.dps_label }}</span>
+        {% if g.amb %}
+        <span class="badge--warn">⚠ Revisar: OT ambigua</span>
+        {% endif %}
+        <div class="group-row__spacer"></div>
+        <span class="group-row__antiguedad">{{ g.apertura_label }}</span>
+        <div class="group-progress">
+          <div class="group-progress__track"><div class="group-progress__fill" style="width:{{ g.pct }}%"></div></div>
+          <span class="group-progress__label">{{ g.progreso }}</span>
+        </div>
+      </div>
+      <div class="group__tareas">
+        {% for t in g.tareas %}
+        <div class="row-tarea" hx-get="/tareas/{{ t.id }}" hx-target="#drawer-root" hx-swap="innerHTML">
+          <div class="cell-glifo">↳</div>
+          <div class="cell-mono">{{ t.fecha_pedido }}</div>
+          <div class="cell-muted">{{ t.tipos_label }}</div>
+          <div class="cell-detalle">{{ t.detalle }}</div>
+          <div class="cell-muted">{{ t.pedido_por }}</div>
+          <div class="cell-muted">{{ t.responsables_label }}</div>
+          <div class="cell-drive {{ 'is-linked' if t.link_drive }}">↗</div>
+          <div class="cell-presup {{ 'is-si' if t.presup_label == 'Si' }}">{{ t.presup_label }}</div>
+          <div><span class="chip-estado" data-valor="{{ t.estado_tarea }}">{{ t.estado_tarea_label }}</span></div>
+          <div><span class="chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</span></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="table-head table-head--plana">
+      <div>Pedido</div><div>OT</div><div>OT DPS</div><div>Tipo</div><div>Detalle</div><div>Pidió</div>
+      <div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
+    </div>
+    {% for t in filas %}
+    <div class="row-tarea row-tarea--plana" hx-get="/tareas/{{ t.id }}" hx-target="#drawer-root" hx-swap="innerHTML">
+      <div class="cell-mono">{{ t.fecha_pedido }}</div>
+      <div class="cell-ot">{{ t.otN }}{% if t.necesita_revision and t.ot_ambigua %}<span class="cell-ot__warn" title="OT ambigua — revisar">⚠</span>{% endif %}</div>
+      <div class="cell-dps">—</div>
+      <div class="cell-muted">{{ t.tipos_label }}</div>
+      <div class="cell-detalle">{{ t.detalle }}</div>
+      <div class="cell-muted">{{ t.pedido_por }}</div>
+      <div class="cell-muted">{{ t.responsables_label }}</div>
+      <div class="cell-drive {{ 'is-linked' if t.link_drive }}">↗</div>
+      <div class="cell-presup {{ 'is-si' if t.presup_label == 'Si' }}">{{ t.presup_label }}</div>
+      <div><span class="chip-estado" data-valor="{{ t.estado_tarea }}">{{ t.estado_tarea_label }}</span></div>
+      <div><span class="chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</span></div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+  </div>
+  {% if vacio %}
+  <p class="empty-state">Ninguna tarea coincide con los filtros.</p>
+  {% endif %}
+</div>
+{% include "tareas/_controles.html" %}

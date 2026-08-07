@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --font:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+    --bg:#14161a; --surface:#1b1e24; --surface2:#22262e; --raised:#1f232a;
+    --line:#2a2e36; --line-soft:#22262e; --line-strong:#3a4048;
+    --text:#e8e6e1; --muted:#9aa0a8; --faint:#6b7280; --ghost:#4a5058;
+    --accent:#d99a3f; --accent-ink:#14161a; --accent-soft:rgba(217,154,63,.16); --accent-text:#e7b463; --accent-hover:#e5aa54;
+    --ok:#7fa87a; --ok-soft:rgba(127,168,122,.2); --ok-text:#9dc298;
+    --warn:#c95a3a; --warn-soft:rgba(201,90,58,.18); --warn-text:#e08f6d; --warn-line:rgba(201,90,58,.5);
+    --hover:rgba(232,230,225,.045); --sel:rgba(217,154,63,.1);
+    --overlay:rgba(0,0,0,.55); --shadow:0 10px 34px rgba(0,0,0,.45);
+    --chrome:#0f1114; --chrome-text:#e8e6e1;
+  }
+  [data-tema="light"]{
+    --bg:#f4f4f2; --surface:#ffffff; --surface2:#ececeA; --raised:#fafaf9;
+    --line:#dcdcd7; --line-soft:#eeeeea; --line-strong:#c9c9c3;
+    --text:#1b1d20; --muted:#5f636a; --faint:#8d9299; --ghost:#bcbfc4;
+    --accent:#9a6a1c; --accent-ink:#ffffff; --accent-soft:#f7ecd8; --accent-text:#7d5413; --accent-hover:#7d5413;
+    --ok:#4f7a4a; --ok-soft:#e4ece2; --ok-text:#33512f;
+    --warn:#a8442a; --warn-soft:#f7e4dd; --warn-text:#8a3620; --warn-line:#ddb3a3;
+    --hover:rgba(27,29,32,.04); --sel:#f9f1e2;
+    --overlay:rgba(27,29,32,.35); --shadow:0 10px 30px rgba(27,29,32,.16);
+    --chrome:#1b1d20; --chrome-text:#f4f4f2;
+  }
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-text);text-underline-offset:3px}
+  a:hover{color:var(--accent)}
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  ::selection{background:var(--accent-soft)}
+  input,select,button,textarea{font:inherit;color:inherit}
+  select option{background:var(--surface);color:var(--text)}
+</style>
+</helmet>
+
+<div data-tema="{{ tema }}" style="height:100vh;background:var(--bg);color:var(--text)">
+
+<sc-if value="{{ esLogin }}" hint-placeholder-val="{{ false }}">
+  <div style="height:100%;display:grid;place-items:center;padding:40px">
+    <div style="width:404px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:36px 34px 30px">
+      <div style="width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--mono);font-size:13px;font-weight:600;margin-bottom:22px">OT</div>
+      <h1 style="font-size:23px;font-weight:600;letter-spacing:-.015em;line-height:1.2;margin:0 0 8px">Órdenes de trabajo</h1>
+      <p style="margin:0 0 26px;color:var(--muted);font-size:13px">Entrá con tu cuenta de la agencia. El acceso está restringido al dominio <strong style="font-weight:600;color:var(--text)">@aleste.ar</strong>.</p>
+      <button type="button" onClick="{{ entrar }}" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;font-size:14px;font-weight:600;background:var(--accent);color:var(--accent-ink);border:1px solid transparent;padding:11px 18px;border-radius:8px" style-hover="background:var(--accent-hover)">
+        <span style="width:18px;height:18px;border-radius:4px;background:var(--accent-ink);color:var(--accent);display:grid;place-items:center;font-size:11px;font-weight:700">G</span>
+        Continuar con Google
+      </button>
+      <div style="display:flex;align-items:center;gap:9px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
+        <div style="width:6px;height:6px;border-radius:999px;background:var(--ok);flex:none"></div>
+        <p style="margin:0;font-family:var(--mono);font-size:11px;color:var(--faint)">Se valida el claim hd del id_token en el servidor.</p>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ esApp }}" hint-placeholder-val="{{ true }}">
+<div style="height:100%;display:flex;flex-direction:column;overflow:hidden">
+
+  <div style="flex:none;display:flex;align-items:center;gap:18px;height:40px;padding:0 14px;background:var(--chrome);color:var(--chrome-text);font-size:12px">
+    <span style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.6">Prototipo</span>
+    <div style="display:flex;align-items:center;gap:7px">
+      <span style="opacity:.5">Navegación</span>
+      <div style="display:flex;gap:2px;background:rgba(255,255,255,.08);border-radius:6px;padding:2px">
+        <button type="button" onClick="{{ verA }}" style="{{ tabAStyle }}">A · Secciones</button>
+        <button type="button" onClick="{{ verB }}" style="{{ tabBStyle }}">B · Cliente primero</button>
+        <button type="button" onClick="{{ verC }}" style="{{ tabCStyle }}">C · Bandeja única</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px">
+      <span style="opacity:.5">Rol</span>
+      <div style="display:flex;gap:2px;background:rgba(255,255,255,.08);border-radius:6px;padding:2px">
+        <button type="button" onClick="{{ rolMiembro }}" style="{{ tabMiembroStyle }}">Miembro</button>
+        <button type="button" onClick="{{ rolGestion }}" style="{{ tabGestionStyle }}">Gestión</button>
+      </div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;gap:2px;background:rgba(255,255,255,.08);border-radius:6px;padding:2px">
+      <button type="button" onClick="{{ temaOscuro }}" style="{{ tabOscuroStyle }}">Dark</button>
+      <button type="button" onClick="{{ temaClaro }}" style="{{ tabClaroStyle }}">Light</button>
+    </div>
+    <button type="button" onClick="{{ toggleDensa }}" style="cursor:pointer;background:transparent;border:1px solid rgba(255,255,255,.22);color:inherit;border-radius:6px;padding:4px 10px;font-size:12px" style-hover="background:rgba(255,255,255,.1)">{{ labelDensidad }}</button>
+    <button type="button" onClick="{{ salir }}" style="cursor:pointer;background:transparent;border:1px solid rgba(255,255,255,.22);color:inherit;border-radius:6px;padding:4px 10px;font-size:12px" style-hover="background:rgba(255,255,255,.1)">Ver login</button>
+  </div>
+
+  <sc-if value="{{ esB }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:none;background:var(--surface);border-bottom:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:14px;padding:11px 18px">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div style="width:22px;height:22px;border-radius:6px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:600">OT</div>
+          <span style="font-size:14px;font-weight:600">Órdenes de trabajo</span>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
+          <div style="width:22px;height:22px;border-radius:6px;background:var(--ok-soft);color:var(--ok-text);display:grid;place-items:center;font-family:var(--mono);font-size:10px;font-weight:600">JS</div>
+          javier@aleste.ar
+        </div>
+      </div>
+      <div style="display:flex;gap:3px;padding:0 18px">
+        <sc-for list="{{ clientes }}" as="c" hint-placeholder-count="5">
+          <button type="button" onClick="{{ c.abrir }}" style="{{ c.tabStyle }}">{{ c.nombre }}<span style="{{ c.pillStyle }}">{{ c.pill }}</span></button>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:20px;padding:0 18px;background:var(--bg);border-top:1px solid var(--line)">
+        <sc-for list="{{ secciones }}" as="s" hint-placeholder-count="5">
+          <button type="button" onClick="{{ s.abrir }}" style="{{ s.tabStyle }}">{{ s.nombre }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="flex:1;min-height:0;display:flex">
+
+    <sc-if value="{{ esA }}" hint-placeholder-val="{{ true }}">
+      <aside style="flex:none;width:218px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px">
+        <div style="display:flex;align-items:center;gap:9px;padding:0 5px 16px">
+          <div style="width:26px;height:26px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:600">OT</div>
+          <span style="font-size:14px;font-weight:600">Órdenes de trabajo</span>
+        </div>
+        <div style="padding:0 5px 14px">
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Cliente</div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{ clientes }}" as="c" hint-placeholder-count="5">
+              <button type="button" onClick="{{ c.abrir }}" style="{{ c.filaStyle }}">{{ c.nombre }}<span style="{{ c.pillStyle }}">{{ c.pill }}</span></button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding:0 5px">
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Secciones</div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{ secciones }}" as="s" hint-placeholder-count="5">
+              <button type="button" onClick="{{ s.abrir }}" style="{{ s.filaStyle }}">{{ s.nombre }}<span style="{{ s.badgeStyle }}">{{ s.badge }}</span></button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:9px;padding:13px 5px 0;border-top:1px solid var(--line);font-size:12px;color:var(--muted)">
+          <div style="width:26px;height:26px;border-radius:7px;background:var(--ok-soft);color:var(--ok-text);display:grid;place-items:center;font-family:var(--mono);font-size:10px;font-weight:600">JS</div>
+          <div style="min-width:0">
+            <div style="color:var(--text);font-weight:600;font-size:12px">Javier S.</div>
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">{{ rolLabel }}</div>
+          </div>
+        </div>
+      </aside>
+    </sc-if>
+
+    <sc-if value="{{ esC }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;width:52px;background:var(--chrome);display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 0">
+        <div style="width:28px;height:28px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:600;margin-bottom:8px">OT</div>
+        <sc-for list="{{ secciones }}" as="s" hint-placeholder-count="5">
+          <button type="button" onClick="{{ s.abrir }}" title="{{ s.nombre }}" style="{{ s.railStyle }}">{{ s.inicial }}</button>
+        </sc-for>
+        <div style="flex:1"></div>
+        <div style="width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.1);color:var(--chrome-text);display:grid;place-items:center;font-family:var(--mono);font-size:10px;font-weight:600">JS</div>
+      </div>
+      <aside style="flex:none;width:256px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:auto;padding:16px 14px">
+        <div style="font-size:15px;font-weight:600;margin-bottom:2px">Bandeja</div>
+        <p style="margin:0 0 16px;font-size:12px;color:var(--muted)">Todo es una vista sobre la misma tabla.</p>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Vistas guardadas</div>
+        <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:18px">
+          <sc-for list="{{ vistas }}" as="v" hint-placeholder-count="5">
+            <button type="button" onClick="{{ v.abrir }}" style="{{ v.filaStyle }}">{{ v.nombre }}<span style="{{ v.pillStyle }}">{{ v.n }}</span></button>
+          </sc-for>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Cliente</div>
+        <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:18px">
+          <sc-for list="{{ clientes }}" as="c" hint-placeholder-count="5">
+            <button type="button" onClick="{{ c.abrir }}" style="{{ c.filaStyle }}">{{ c.nombre }}<span style="{{ c.pillStyle }}">{{ c.pill }}</span></button>
+          </sc-for>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Estado</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:18px">
+          <sc-for list="{{ facetasEstado }}" as="f" hint-placeholder-count="6">
+            <button type="button" onClick="{{ f.abrir }}" style="{{ f.chipStyle }}">{{ f.nombre }} <span style="opacity:.6">{{ f.n }}</span></button>
+          </sc-for>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Facturación</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          <sc-for list="{{ facetasFac }}" as="f" hint-placeholder-count="5">
+            <button type="button" onClick="{{ f.abrir }}" style="{{ f.chipStyle }}">{{ f.nombre }} <span style="opacity:.6">{{ f.n }}</span></button>
+          </sc-for>
+        </div>
+      </aside>
+    </sc-if>
+
+    <main style="flex:1;min-width:0;position:relative;display:flex;flex-direction:column;overflow:hidden">
+
+      <div style="flex:none;padding:18px 20px 0">
+        <div style="display:flex;align-items:flex-end;gap:16px">
+          <div style="min-width:0">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:4px">{{ kicker }}</div>
+            <h1 style="font-size:22px;font-weight:600;letter-spacing:-.015em;line-height:1.15;margin:0">{{ titulo }}</h1>
+          </div>
+          <div style="flex:1"></div>
+          <sc-if value="{{ esTareas }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:7px">
+              <button type="button" onClick="{{ toggleAgrupado }}" style="cursor:pointer;font-size:13px;background:transparent;border:1px solid var(--line-strong);border-radius:7px;padding:7px 13px" style-hover="background:var(--hover)">{{ labelAgrupado }}</button>
+              <button type="button" onClick="{{ nuevaTarea }}" style="cursor:pointer;font-size:13px;font-weight:600;background:var(--accent);color:var(--accent-ink);border:1px solid transparent;border-radius:7px;padding:7px 15px" style-hover="background:var(--accent-hover)">Nueva tarea</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ mostrarFiltros }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:none;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:14px 20px 12px">
+          <input type="text" value="{{ q }}" onChange="{{ setQ }}" placeholder="Buscar en detalle, OT, responsable…" style="width:266px;font-size:13px;background:var(--surface);border:1px solid var(--line-strong);border-radius:7px;padding:7px 12px" style-focus="border-color:var(--accent)">
+          <select value="{{ fEst }}" onChange="{{ setEst }}" style="font-size:13px;background:var(--surface);border:1px solid var(--line-strong);border-radius:7px;padding:7px 11px;cursor:pointer">
+            <sc-for list="{{ optEstado }}" as="o" hint-placeholder-count="7"><option value="{{ o }}">{{ o }}</option></sc-for>
+          </select>
+          <select value="{{ fFac }}" onChange="{{ setFac }}" style="font-size:13px;background:var(--surface);border:1px solid var(--line-strong);border-radius:7px;padding:7px 11px;cursor:pointer">
+            <sc-for list="{{ optFac }}" as="o" hint-placeholder-count="6"><option value="{{ o }}">{{ o }}</option></sc-for>
+          </select>
+          <select value="{{ fResp }}" onChange="{{ setResp }}" style="font-size:13px;background:var(--surface);border:1px solid var(--line-strong);border-radius:7px;padding:7px 11px;cursor:pointer">
+            <sc-for list="{{ optResp }}" as="o" hint-placeholder-count="8"><option value="{{ o }}">{{ o }}</option></sc-for>
+          </select>
+          <button type="button" onClick="{{ toggleRevision }}" style="{{ revisionStyle }}">⚠ Necesitan revisión <span style="font-weight:600">{{ nRevision }}</span></button>
+          <div style="flex:1"></div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--faint)">{{ resumenFiltro }}</div>
+          <sc-if value="{{ hayFiltros }}" hint-placeholder-val="{{ false }}">
+            <button type="button" onClick="{{ limpiar }}" style="cursor:pointer;font-size:12px;background:transparent;border:0;border-bottom:1px solid var(--line-strong);padding:0 0 1px;color:var(--muted)" style-hover="color:var(--accent-text);border-color:var(--accent)">Limpiar</button>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esTareas }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;min-height:0;overflow:auto;padding:0 20px 24px">
+          <div style="{{ cardTablaStyle }}">
+
+            <sc-if value="{{ agrupado }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <div style="display:grid;grid-template-columns:26px 56px 120px minmax(200px,1fr) 74px 112px 40px 52px 112px 124px;gap:10px;padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);position:sticky;top:0;z-index:2">
+                  <div></div><div>Pedido</div><div>Tipo</div><div>Detalle</div><div>Pidió</div><div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
+                </div>
+                <sc-for list="{{ grupos }}" as="g" hint-placeholder-count="6">
+                  <div style="border-bottom:1px solid var(--line)">
+                    <div style="display:flex;align-items:center;gap:11px;padding:8px 14px;background:var(--raised);cursor:pointer" onClick="{{ g.toggle }}" style-hover="background:var(--surface2)">
+                      <span style="{{ g.caretStyle }}">▸</span>
+                      <span style="font-family:var(--mono);font-size:13px;font-weight:500;color:var(--accent-text)">OT {{ g.n }}</span>
+                      <span style="{{ g.otEstadoStyle }}">{{ g.otEstado }}</span>
+                      <span style="{{ g.dpsStyle }}">{{ g.dpsLabel }}</span>
+                      <sc-if value="{{ g.amb }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:11px;font-weight:600;background:var(--warn-soft);color:var(--warn-text);border:1px solid var(--warn-line);border-radius:4px;padding:1px 8px;white-space:nowrap">⚠ Revisar: OT ambigua</span>
+                      </sc-if>
+                      <div style="flex:1"></div>
+                      <span style="font-size:11px;color:var(--faint);white-space:nowrap">{{ g.antiguedad }}</span>
+                      <div style="display:flex;align-items:center;gap:7px;width:146px">
+                        <div style="flex:1;height:4px;border-radius:2px;background:var(--line);overflow:hidden">
+                          <div style="height:100%;border-radius:2px;background:var(--ok);width:{{ g.pct }}%"></div>
+                        </div>
+                        <span style="font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap">{{ g.progreso }}</span>
+                      </div>
+                      <button type="button" onClick="{{ g.abrir }}" style="cursor:pointer;font-size:12px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;padding:4px 10px;white-space:nowrap" style-hover="background:var(--hover);border-color:var(--accent)">Ver OT</button>
+                    </div>
+                    <sc-if value="{{ g.abierta }}" hint-placeholder-val="{{ true }}">
+                      <div>
+                        <sc-for list="{{ g.tareas }}" as="t" hint-placeholder-count="2">
+                          <div onClick="{{ t.abrir }}" style="{{ t.filaAgrupadaStyle }}" style-hover="background:var(--hover)">
+                            <div style="color:var(--ghost);text-align:center">↳</div>
+                            <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">{{ t.f }}</div>
+                            <div style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.tipos }}</div>
+                            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.det }}</div>
+                            <div style="color:var(--muted)">{{ t.por }}</div>
+                            <div style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.resp }}</div>
+                            <div style="{{ t.driveStyle }}">↗</div>
+                            <div style="{{ t.presupStyle }}">{{ t.presup }}</div>
+                            <div><span style="{{ t.estStyle }}">{{ t.est }}</span></div>
+                            <div><span style="{{ t.facStyle }}">{{ t.fac }}</span></div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ plano }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="display:grid;grid-template-columns:56px 76px 72px 120px minmax(190px,1fr) 74px 112px 40px 52px 112px 124px;gap:10px;padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);position:sticky;top:0;z-index:2">
+                  <div>Pedido</div><div>OT</div><div>OT DPS</div><div>Tipo</div><div>Detalle</div><div>Pidió</div><div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
+                </div>
+                <sc-for list="{{ filas }}" as="t" hint-placeholder-count="14">
+                  <div onClick="{{ t.abrir }}" style="{{ t.filaPlanaStyle }}" style-hover="background:var(--hover)">
+                    <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">{{ t.f }}</div>
+                    <div style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:12px;font-weight:500">{{ t.otN }}<sc-if value="{{ t.amb }}" hint-placeholder-val="{{ false }}"><span title="OT ambigua — revisar" style="color:var(--warn-text)">⚠</span></sc-if></div>
+                    <div style="font-family:var(--mono);font-size:12px;color:var(--faint)">{{ t.dps }}</div>
+                    <div style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.tipos }}</div>
+                    <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.det }}</div>
+                    <div style="color:var(--muted)">{{ t.por }}</div>
+                    <div style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.resp }}</div>
+                    <div style="{{ t.driveStyle }}">↗</div>
+                    <div style="{{ t.presupStyle }}">{{ t.presup }}</div>
+                    <div><span style="{{ t.estStyle }}">{{ t.est }}</span></div>
+                    <div><span style="{{ t.facStyle }}">{{ t.fac }}</span></div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+          </div>
+          <sc-if value="{{ vacio }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:18px 2px;font-size:13px;color:var(--muted)">Ninguna tarea coincide con los filtros.</p>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esOt }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;overflow:auto;padding:16px 20px 24px">
+          <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+            <div style="flex:1;min-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:18px 20px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+                <span style="{{ ot.otEstadoStyle }}">{{ ot.otEstado }}</span>
+                <span style="font-size:12px;color:var(--faint)">{{ ot.antiguedad }}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;margin-bottom:18px">
+                <div>
+                  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:3px">OT interna</div>
+                  <div style="font-family:var(--mono);font-size:20px;font-weight:500;color:var(--accent-text)">{{ ot.n }}</div>
+                </div>
+                <div>
+                  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:3px">Cliente</div>
+                  <div style="font-size:14px;font-weight:600">ALUAR</div>
+                  <div style="font-size:11px;color:var(--faint)">Anunciante Advertys: ALUAR ALUMINIO ARG.</div>
+                </div>
+              </div>
+              <div style="border-top:1px solid var(--line);padding-top:16px">
+                <div style="font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:8px">OT de sistema (Advertys)</div>
+                <sc-if value="{{ ot.tieneDps }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+                    <span style="font-family:var(--mono);font-size:20px;font-weight:500">{{ ot.dps }}</span>
+                    <span style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;background:var(--ok-soft);color:var(--ok-text);border-radius:4px;padding:3px 8px">SINCRONIZADA</span>
+                    <span style="font-size:12px;color:var(--faint)">{{ ot.compartida }}</span>
+                    <div style="flex:1"></div>
+                    <button type="button" style="cursor:pointer;font-size:12px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;padding:6px 11px" style-hover="background:var(--hover);border-color:var(--accent)">Reasignar OT de sistema</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ ot.sinDps }}" hint-placeholder-val="{{ true }}">
+                  <div style="background:var(--accent-soft);border:1px solid var(--line-strong);border-radius:8px;padding:13px 15px">
+                    <div style="font-size:13px;font-weight:600;color:var(--accent-text);margin-bottom:3px">Todavía no tiene OT de sistema</div>
+                    <p style="margin:0 0 12px;font-size:12px;color:var(--muted)">Se puede dar de alta el encabezado en Advertys desde acá, o agruparla con otras OT internas y generar una sola.</p>
+                    <div style="display:flex;gap:7px;flex-wrap:wrap">
+                      <button type="button" onClick="{{ irAgrupar }}" style="cursor:pointer;font-size:13px;font-weight:600;background:var(--accent);color:var(--accent-ink);border:1px solid transparent;border-radius:7px;padding:8px 14px" style-hover="background:var(--accent-hover)">Generar OT en Advertys</button>
+                      <button type="button" onClick="{{ irAgrupar }}" style="cursor:pointer;font-size:13px;background:transparent;border:1px solid var(--accent);color:var(--accent-text);border-radius:7px;padding:8px 14px" style-hover="background:var(--hover)">Agrupar con otras OT</button>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <div style="flex:none;width:288px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:18px 20px">
+              <div style="font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:8px">Facturación de la OT</div>
+              <div style="font-family:var(--mono);font-size:26px;font-weight:500;line-height:1;margin-bottom:6px">{{ ot.progreso }}</div>
+              <p style="margin:0 0 12px;font-size:12px;color:var(--muted)">tareas facturadas. Se factura de a partes; la OT sigue abierta.</p>
+              <div style="height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:14px">
+                <div style="height:100%;border-radius:3px;background:var(--ok);width:{{ ot.pct }}%"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ ot.desglose }}" as="d" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px">
+                    <span style="{{ d.chipStyle }}">{{ d.nombre }}</span>
+                    <span style="font-family:var(--mono);font-weight:500">{{ d.n }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:14px;min-width:1010px;background:var(--surface);border:1px solid var(--line);border-radius:9px">
+            <div style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-bottom:1px solid var(--line)">
+              <span style="font-size:14px;font-weight:600">Tareas de la OT</span>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--faint)">{{ ot.nTareas }}</span>
+              <div style="flex:1"></div>
+              <button type="button" onClick="{{ nuevaTarea }}" style="cursor:pointer;font-size:12px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;padding:5px 11px" style-hover="background:var(--hover);border-color:var(--accent)">Sumar tarea</button>
+            </div>
+            <sc-for list="{{ ot.tareas }}" as="t" hint-placeholder-count="3">
+              <div onClick="{{ t.abrir }}" style="display:grid;grid-template-columns:56px 120px minmax(200px,1fr) 74px 112px 40px 52px 112px 124px;gap:10px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line-soft);font-size:13px;cursor:pointer" style-hover="background:var(--hover)">
+                <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">{{ t.f }}</div>
+                <div style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.tipos }}</div>
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.det }}</div>
+                <div style="color:var(--muted)">{{ t.por }}</div>
+                <div style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.resp }}</div>
+                <div style="{{ t.driveStyle }}">↗</div>
+                <div style="{{ t.presupStyle }}">{{ t.presup }}</div>
+                <div><span style="{{ t.estStyle }}">{{ t.est }}</span></div>
+                <div><span style="{{ t.facStyle }}">{{ t.fac }}</span></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esAgrupar }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;overflow:auto;padding:16px 20px 24px">
+          <p style="margin:0 0 16px;font-size:13px;color:var(--muted);max-width:660px">Elegí las OT internas que van a compartir una misma OT de sistema. Se da de alta un solo encabezado en Advertys y todas quedan apuntando ahí — se puede reasignar después.</p>
+          <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+            <div style="flex:1;min-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:9px;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">
+                <span>OT internas sin OT de sistema</span><div style="flex:1"></div><span>{{ nSinDps }}</span>
+              </div>
+              <sc-for list="{{ sinDps }}" as="g" hint-placeholder-count="7">
+                <div onClick="{{ g.toggleSel }}" style="{{ g.selFilaStyle }}" style-hover="background:var(--hover)">
+                  <div style="{{ g.checkStyle }}">✓</div>
+                  <div style="font-family:var(--mono);font-size:13px;font-weight:500;color:var(--accent-text)">{{ g.n }}</div>
+                  <div style="min-width:0;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.resumen }}</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap">{{ g.nTareas }}</div>
+                  <sc-if value="{{ g.amb }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:11px;font-weight:600;background:var(--warn-soft);color:var(--warn-text);border:1px solid var(--warn-line);border-radius:4px;padding:1px 8px;white-space:nowrap">⚠ Ambigua</span>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:none;width:326px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:18px 20px">
+              <div style="font-size:15px;font-weight:600;margin-bottom:2px">Alta en Advertys</div>
+              <p style="margin:0 0 14px;font-size:12px;color:var(--muted)">Solo el encabezado de la OT. No se crean Estimados de Costo ni Órdenes de Compra.</p>
+              <div style="background:var(--surface2);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+                <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:7px">Agrupa</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;min-height:24px">
+                  <sc-for list="{{ seleccionadas }}" as="s" hint-placeholder-count="2">
+                    <span style="font-family:var(--mono);font-size:12px;font-weight:500;background:var(--accent-soft);color:var(--accent-text);border-radius:4px;padding:2px 8px">OT {{ s }}</span>
+                  </sc-for>
+                  <sc-if value="{{ sinSeleccion }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-size:12px;color:var(--faint)">Ninguna seleccionada todavía</span>
+                  </sc-if>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:16px">
+                <div>
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Cliente / anunciante</div>
+                  <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">ALUAR ALUMINIO ARG.</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Marca</div>
+                    <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">Institucional</div>
+                  </div>
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Producto</div>
+                    <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">Varios</div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Resumen</div>
+                  <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px;min-height:50px;color:var(--muted)">{{ resumenAlta }}</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Responsable</div>
+                    <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">Javier S.</div>
+                  </div>
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Equipo</div>
+                    <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">Cuentas</div>
+                  </div>
+                </div>
+              </div>
+              <button type="button" style="{{ btnAltaStyle }}">Generar 1 OT en Advertys</button>
+              <p style="margin:9px 0 0;font-size:11px;color:var(--faint);text-align:center">Pide confirmación antes de escribir. La numeración la asigna Advertys.</p>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esFacturacion }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;overflow:auto;padding:16px 20px 24px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+            <sc-for list="{{ kpisFac }}" as="k" hint-placeholder-count="4">
+              <div style="flex:1;min-width:168px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:14px 16px">
+                <div style="font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">{{ k.nombre }}</div>
+                <div style="font-family:var(--mono);font-size:24px;font-weight:500;line-height:1">{{ k.n }}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:3px">{{ k.nota }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:9px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:11px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--line)">
+              <span style="font-size:14px;font-weight:600">Listas para facturar</span>
+              <div style="flex:1"></div>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">{{ nColaSel }}</span>
+              <button type="button" style="{{ btnFacturarStyle }}">Preparar factura</button>
+            </div>
+            <sc-for list="{{ cola }}" as="g" hint-placeholder-count="5">
+              <div style="border-bottom:1px solid var(--line)">
+                <div style="display:flex;align-items:center;gap:11px;padding:8px 16px;background:var(--raised)">
+                  <span style="font-family:var(--mono);font-size:13px;font-weight:500;color:var(--accent-text)">OT {{ g.n }}</span>
+                  <span style="{{ g.dpsStyle }}">{{ g.dpsLabel }}</span>
+                  <div style="flex:1"></div>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--faint)">{{ g.nCola }}</span>
+                </div>
+                <sc-for list="{{ g.tareas }}" as="t" hint-placeholder-count="2">
+                  <div onClick="{{ t.toggleCola }}" style="{{ t.colaFilaStyle }}" style-hover="background:var(--hover)">
+                    <div style="{{ t.checkStyle }}">✓</div>
+                    <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">{{ t.f }}</div>
+                    <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.det }}</div>
+                    <div style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.resp }}</div>
+                    <div><span style="{{ t.estStyle }}">{{ t.est }}</span></div>
+                    <div><span style="{{ t.facStyle }}">{{ t.fac }}</span></div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:14px 16px">
+            <div style="width:7px;height:7px;border-radius:999px;background:var(--accent);margin-top:6px;flex:none"></div>
+            <p style="margin:0;font-size:12px;color:var(--muted);max-width:720px">Fase 2: al aprobar, Advertys crea la factura en <strong style="font-weight:600;color:var(--text)">borrador</strong>. El CAE se pide recién después de la revisión humana, y el número resultante vuelve acá pegado a estas tareas.</p>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esCliente }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;overflow:auto;padding:16px 20px 24px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+            <sc-for list="{{ kpisCliente }}" as="k" hint-placeholder-count="4">
+              <div style="flex:1;min-width:158px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:14px 16px">
+                <div style="font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">{{ k.nombre }}</div>
+                <div style="font-family:var(--mono);font-size:24px;font-weight:500;line-height:1">{{ k.n }}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:3px">{{ k.nota }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+            <div style="flex:1;min-width:340px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:18px 20px">
+              <div style="font-size:14px;font-weight:600;margin-bottom:14px">Tareas por estado</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ barrasEstado }}" as="b" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:11px">
+                    <div style="width:126px;flex:none"><span style="{{ b.chipStyle }}">{{ b.nombre }}</span></div>
+                    <div style="flex:1;height:7px;border-radius:4px;background:var(--line);overflow:hidden">
+                      <div style="height:100%;border-radius:4px;background:{{ b.color }};width:{{ b.pct }}%"></div>
+                    </div>
+                    <div style="width:26px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:500">{{ b.n }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="flex:none;width:310px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:18px 20px">
+              <div style="font-size:14px;font-weight:600;margin-bottom:3px">OT que piden atención</div>
+              <p style="margin:0 0 12px;font-size:12px;color:var(--muted)">Sin OT de sistema o con datos a revisar.</p>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <sc-for list="{{ atencion }}" as="a" hint-placeholder-count="5">
+                  <button type="button" onClick="{{ a.abrir }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;cursor:pointer;background:var(--raised);border:1px solid var(--line);border-radius:7px;padding:8px 11px" style-hover="border-color:var(--accent)">
+                    <span style="font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent-text)">OT {{ a.n }}</span>
+                    <span style="min-width:0;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.motivo }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hayDetalle }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;background:var(--overlay);display:flex;justify-content:flex-end;z-index:5" onClick="{{ cerrarDetalle }}">
+          <div onClick="{{ stop }}" style="width:436px;max-width:100%;height:100%;background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden">
+            <div style="flex:none;display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--line)">
+              <div style="min-width:0">
+                <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:4px">Tarea · fila {{ det.fila }} del Sheet</div>
+                <div style="font-size:17px;font-weight:600;line-height:1.25">{{ det.det }}</div>
+              </div>
+              <div style="flex:1"></div>
+              <button type="button" onClick="{{ cerrarDetalle }}" style="flex:none;cursor:pointer;width:28px;height:28px;border-radius:7px;background:transparent;border:1px solid var(--line-strong);display:grid;place-items:center;font-size:13px" style-hover="background:var(--hover)">✕</button>
+            </div>
+            <div style="flex:1;min-height:0;overflow:auto;padding:16px 20px 22px">
+              <div style="display:flex;flex-direction:column;gap:13px">
+                <div>
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:5px">OT interna</div>
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">
+                      <span style="font-family:var(--mono);font-weight:500;color:var(--accent-text)">{{ det.otLabel }}</span>
+                      <span style="font-size:12px;color:var(--faint)">{{ det.otCliente }}</span>
+                    </div>
+                    <button type="button" onClick="{{ verOtDeTarea }}" style="cursor:pointer;font-size:12px;background:transparent;border:1px solid var(--line-strong);border-radius:7px;padding:8px 11px;white-space:nowrap" style-hover="background:var(--hover);border-color:var(--accent)">Ver OT</button>
+                  </div>
+                  <sc-if value="{{ det.amb }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;gap:8px;align-items:flex-start;margin-top:7px;background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:7px;padding:9px 12px">
+                      <span style="color:var(--warn-text)">⚠</span>
+                      <div style="font-size:12px;color:var(--warn-text)">Valor crudo del Sheet: <strong style="font-family:var(--mono);font-weight:600">{{ det.ambTexto }}</strong>. Puede ser dos OT internas reales agrupadas — resolver a mano, no descartar.</div>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;gap:10px">
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Fecha de pedido</div>
+                    <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">{{ det.fLargo }}</div>
+                  </div>
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Pedido por</div>
+                    <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">{{ det.porLabel }}</div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Detalle</div>
+                  <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:9px 12px;line-height:1.5">{{ det.det }}</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Tipo de tarea</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:5px">
+                    <sc-for list="{{ det.tiposList }}" as="x" hint-placeholder-count="2">
+                      <span style="font-family:var(--mono);font-size:11px;background:var(--ok-soft);color:var(--ok-text);border-radius:4px;padding:3px 9px">{{ x }}</span>
+                    </sc-for>
+                    <button type="button" style="cursor:pointer;font-size:11px;background:transparent;border:1px dashed var(--line-strong);border-radius:4px;padding:3px 9px;color:var(--muted)" style-hover="border-color:var(--accent);color:var(--accent-text)">+ tipo</button>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Responsables</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:5px">
+                    <sc-for list="{{ det.respList }}" as="x" hint-placeholder-count="2">
+                      <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--raised);border:1px solid var(--line-strong);border-radius:6px;padding:2px 9px 2px 3px">
+                        <span style="width:18px;height:18px;border-radius:4px;background:var(--ok-soft);color:var(--ok-text);display:grid;place-items:center;font-family:var(--mono);font-size:9px;font-weight:600">{{ x.ini }}</span>{{ x.nombre }}
+                      </span>
+                    </sc-for>
+                    <button type="button" style="cursor:pointer;font-size:11px;background:transparent;border:1px dashed var(--line-strong);border-radius:4px;padding:3px 9px;color:var(--muted)" style-hover="border-color:var(--accent);color:var(--accent-text)">+ responsable</button>
+                  </div>
+                </div>
+                <div style="display:flex;gap:10px">
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Estado</div>
+                    <select value="{{ det.est }}" onChange="{{ cambiarEstado }}" style="width:100%;font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px;cursor:pointer">
+                      <sc-for list="{{ estados }}" as="o" hint-placeholder-count="6"><option value="{{ o }}">{{ o }}</option></sc-for>
+                    </select>
+                    <sc-if value="{{ det.tieneTypo }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size:11px;color:var(--faint);margin-top:5px">En el Sheet decía «{{ det.estOriginal }}»</div>
+                    </sc-if>
+                  </div>
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Facturación</div>
+                    <select value="{{ det.fac }}" onChange="{{ cambiarFac }}" style="width:100%;font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px;cursor:pointer">
+                      <sc-for list="{{ facturaciones }}" as="o" hint-placeholder-count="5"><option value="{{ o }}">{{ o }}</option></sc-for>
+                    </select>
+                  </div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:flex-end">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Link Drive</div>
+                    <div style="font-family:var(--mono);font-size:12px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:9px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:{{ det.driveColor }}">{{ det.driveLabel }}</div>
+                  </div>
+                  <div style="flex:none;width:112px">
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Presupuestado</div>
+                    <div style="font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px">{{ det.presupLabel }}</div>
+                  </div>
+                </div>
+                <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+                  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:4px">Número de factura</div>
+                  <div style="font-size:12px;color:var(--muted)">Se completa en Fase 2, cuando Advertys devuelve el CAE.</div>
+                </div>
+                <div>
+                  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:9px">Historial</div>
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ det.historial }}" as="h" hint-placeholder-count="3">
+                      <div style="display:flex;gap:9px;font-size:12px">
+                        <div style="width:5px;height:5px;border-radius:999px;background:var(--accent);margin-top:6px;flex:none"></div>
+                        <div><span style="font-weight:600">{{ h.quien }}</span> <span style="color:var(--muted)">{{ h.que }}</span> <span style="color:var(--faint)">· {{ h.cuando }}</span></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="flex:none;display:flex;gap:7px;padding:12px 20px;border-top:1px solid var(--line);background:var(--surface2)">
+              <button type="button" onClick="{{ cerrarDetalle }}" style="cursor:pointer;font-size:13px;font-weight:600;background:var(--accent);color:var(--accent-ink);border:1px solid transparent;border-radius:7px;padding:9px 17px" style-hover="background:var(--accent-hover)">Guardar</button>
+              <button type="button" onClick="{{ cerrarDetalle }}" style="cursor:pointer;font-size:13px;background:transparent;border:1px solid var(--line-strong);border-radius:7px;padding:9px 15px" style-hover="background:var(--hover)">Cancelar</button>
+              <div style="flex:1"></div>
+              <button type="button" onClick="{{ cerrarDetalle }}" style="cursor:pointer;font-size:13px;background:transparent;border:0;color:var(--accent-text);padding:9px 4px" style-hover="text-decoration:underline">Duplicar</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </main>
+  </div>
+</div>
+</sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tema&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Apariencia&quot;},&quot;navegacion&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A&quot;,&quot;B&quot;,&quot;C&quot;],&quot;default&quot;:&quot;A&quot;,&quot;tsType&quot;:&quot;'A'|'B'|'C'&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;rol&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Miembro&quot;,&quot;Gestión&quot;],&quot;default&quot;:&quot;Gestión&quot;,&quot;tsType&quot;:&quot;'Miembro'|'Gestión'&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+// Estado → [fondo, texto]; en dark y light se resuelven por variables CSS.
+const EST = {
+  'PARA INICIAR': ['var(--surface2)', 'var(--muted)', 'var(--faint)'],
+  'EN PROCESO': ['var(--accent-soft)', 'var(--accent-text)', 'var(--accent)'],
+  'PAUSADO': ['var(--surface2)', 'var(--faint)', 'var(--ghost)'],
+  'PENDIENTE OK': ['var(--warn-soft)', 'var(--warn-text)', 'var(--warn)'],
+  'FINALIZADO': ['var(--ok-soft)', 'var(--ok-text)', 'var(--ok)'],
+  'APROBADO': ['var(--ok-soft)', 'var(--ok-text)', 'var(--ok)'],
+  'SIN ESTADO': ['var(--surface2)', 'var(--faint)', 'var(--ghost)']
+};
+const FAC = {
+  'SIN FACTURAR': ['transparent', 'var(--faint)', 'var(--line-strong)'],
+  'PARA FACTURAR': ['var(--accent)', 'var(--accent-ink)', 'var(--accent)'],
+  'FALTA OK CLIENTE': ['var(--warn-soft)', 'var(--warn-text)', 'var(--warn-line)'],
+  'FACTURADO': ['var(--ok-soft)', 'var(--ok-text)', 'var(--ok)'],
+  'NO CORRESPONDE': ['transparent', 'var(--ghost)', 'transparent']
+};
+const MESES = { '01': 'ene', '02': 'feb', '03': 'mar', '04': 'abr', '05': 'may', '06': 'jun', '07': 'jul', '08': 'ago', '09': 'sep', '10': 'oct', '11': 'nov', '12': 'dic' };
+
+// OT internas de la pestaña ALUAR (últimas ~30 filas del Sheet real).
+// t: [fecha, tipos, detalle, pidió, responsables, drive, presup, estado, facturación, fila]
+const OTS = [
+  { n: '4082', dps: '', ap: '18/09', t: [['—', 'diseños', 'Interiorismo > 01. sanfer', 'marina', 'pil', 1, 'Si', 'FINALIZADO', 'SIN FACTURAR', 172]] },
+  { n: '4085', dps: '', ap: '22/09', t: [
+    ['17/07', 'diseños', 'diseño version ingles catalogo productos', 'mica', 'wan / pil', 1, 'Si', 'PENDIENTE OK', 'SIN FACTURAR', 169],
+    ['17/07', 'diseños', 'adaptar imágenes novedades', 'mica', 'wan / pil', 1, 'Si', 'FINALIZADO', 'PARA FACTURAR', 170]] },
+  { n: '4086/4110', dps: '', ap: '23/12', amb: '4086/4110', t: [['23/12', '—', 'Video x2 / Brindis Empresas para Conecta', 'cecilia', 'wan', 1, 'Si', 'FINALIZADO', 'SIN FACTURAR', 108]] },
+  { n: '4119', dps: '', ap: '02/02', t: [
+    ['02/07', 'diseños', 'Tarjetas personales - Diseño María Victoria Canullo', 'marina', 'pili', 0, '', 'FINALIZADO', 'PARA FACTURAR', 158],
+    ['—', 'diseños', 'Tarjetas personales corporativas con todos los logos / nuevo diseño!', 'marina', 'pili', 0, '', 'PENDIENTE OK', 'SIN FACTURAR', 159]] },
+  { n: '4127', dps: '', ap: '04/03', t: [['04/03', 'diseños', 'FAA - FLYER', 'marina', 'fer', 1, '', 'PENDIENTE OK', 'SIN FACTURAR', 130]] },
+  { n: '4128', dps: '', ap: '10/03', t: [['26/06', 'producción', 'parque solar Abasto / video', 'marina', 'juli', 0, 'No', 'FINALIZADO', 'NO CORRESPONDE', 156]] },
+  { n: '4132', dps: '258', ap: '26/03', t: [['26/03', 'diseños', 'lineamientos de comunicacion y diseño // ver de cobrar mas que una press', 'maru', 'todos', 0, '', 'FINALIZADO', 'PARA FACTURAR', 133]] },
+  { n: '4133', dps: '259', ap: '27/03', t: [['27/03', 'diseños', 'reporte de sostenibilidad 2025/2026', 'mica', 'fer', 0, '', 'PENDIENTE OK', 'SIN FACTURAR', 134]] },
+  { n: '4134', dps: '260', ap: '—', t: [
+    ['16/07', 'producción', 'Video final Mundial / conecta mp4 + pantallas avi // no se uso pero hay que cobrarlo', 'ceci', 'juli', 1, 'Si', 'FINALIZADO', 'PARA FACTURAR', 167],
+    ['22/07', '—', 'Video RECAP Mundial 2026', 'ceci', '—', 0, 'Si', 'PARA INICIAR', 'SIN FACTURAR', 174]] },
+  { n: '4135', dps: '263', ap: '17/04', t: [['23/06', 'diseños', 'Feria de empleo > reentrega originales cambio qr', 'juli', 'fer', 1, '', 'FINALIZADO', 'PARA FACTURAR', 153]] },
+  { n: '4144', dps: '', ap: '12/06', t: [['12/06', 'diseños', 'cv pia', 'juli', '—', 0, '', 'FINALIZADO', 'SIN FACTURAR', 146]] },
+  { n: '4148', dps: '', ap: '—', t: [['—', 'producción', 'Reglas que Salvan Vidas / pausado', 'maru', '—', 0, '', 'PAUSADO', 'SIN FACTURAR', 150]] },
+  { n: '4149', dps: '', ap: '—', t: [['—', 'estrategias, diseños', 'Optimizacion redes', '—', '—', 0, '', 'EN PROCESO', 'SIN FACTURAR', 151]] },
+  { n: '4150', dps: '', ap: '—', t: [
+    ['—', 'diseños', 'PEAL > activaciones octubre', '—', '—', 0, 'Si', 'EN PROCESO', 'SIN FACTURAR', 154],
+    ['—', 'diseños', 'Stickers', 'marina', 'javi / juli / fer', 0, 'Si', 'PENDIENTE OK', 'SIN FACTURAR', 155],
+    ['—', 'producción', 'produccion testimoniales > sanfer + pm // presupuestar!!', 'marina', '—', 0, 'Si', 'EN PROCESO', 'SIN FACTURAR', 157]] },
+  { n: '4151', dps: '', ap: '—', t: [['—', '—', 'fin de año ?? que se hace??', '—', '—', 0, '', 'PARA INICIAR', 'SIN FACTURAR', 152]] },
+  { n: '4152', dps: '', ap: '29/06', t: [['29/06', 'diseños', 'Simil manual de marca para elaborados', 'juli', 'fer', 0, 'Si', 'FINALIZADO', 'PARA FACTURAR', 155]] },
+  { n: '4153', dps: '', ap: '02/07', t: [['02/07', 'redacción', 'Guía ESG / Apertura: textos', 'juli', 'flor / gato', 0, '', 'FINALIZADO', 'NO CORRESPONDE', 157]] },
+  { n: '4154', dps: '285', ap: '07/07', t: [['07/07', 'producción', 'Edicion video auspicio de programa TN / 8 seg', 'maru', 'juli', 0, 'Si', 'FINALIZADO', 'PARA FACTURAR', 161]] },
+  { n: '4155', dps: '', ap: '06/07', t: [['06/07', 'gestión', 'Métricas para reporte de sostenibilidad - comunicaciones', 'juli', 'javi / flor', 0, 'Si', 'FINALIZADO', 'SIN FACTURAR', 162]] },
+  { n: '4156', dps: '', ap: '07/07', t: [['07/07', 'redacción, diseños', 'adjudicacion licitación ALMASADI: conecta / nota web / gacetillas x2 / ig + in', 'juli / maru', 'flor / gato / fer', 0, 'Si', 'FINALIZADO', 'SIN FACTURAR', 163]] },
+  { n: '4157', dps: '', ap: '14/07', t: [['14/07', 'estrategias', 'Clipping Gabriel Vendrell', 'juli', 'bau', 0, '', 'EN PROCESO', 'SIN FACTURAR', 164]] },
+  { n: '4158', dps: '', ap: '17/07', t: [['17/07', 'redacción, diseños', 'Anuncio 1/2pag en diario papel / aniversario Puerto Madryn', 'pablo', 'fer / gato / flor', 1, 'Si', 'FINALIZADO', 'PARA FACTURAR', 165]] },
+  { n: '4159', dps: '', ap: '14/07', t: [['14/07', 'producción', 'Realización de retratos en la planta de San Fernando', 'marina', 'vero', 0, 'Si', 'EN PROCESO', 'SIN FACTURAR', 166]] },
+  { n: '4160', dps: '', ap: '20/07', t: [['20/07', 'diseños', 'Pedido pieza interna', 'juli', 'pil', 1, 'Si', 'FINALIZADO', 'PARA FACTURAR', 168]] },
+  { n: '4161', dps: '', ap: '24/07', t: [
+    ['—', 'producción', 'produccion retratos san fer', 'marina', '—', 0, 'Si', 'PENDIENTE OK', 'SIN FACTURAR', 171],
+    ['24/07', '—', 'Eventos - nuevos lineamientos', 'maru', 'emi / bauti', 0, 'Si', 'EN PROCESO', 'SIN FACTURAR', 175]] },
+  { n: '4162', dps: '', ap: '27/07', t: [['27/07', '—', 'grupo aluar', '—', '—', 0, 'Si', 'EN PROCESO', 'SIN FACTURAR', 176]] },
+  { n: '4163', dps: '', ap: '29/07', t: [['29/07', '—', 'logo lapicera', 'mari', 'fer', 0, 'No', 'FINALIZADO', 'NO CORRESPONDE', 177]] },
+  { n: 'sin número', dps: '', ap: '03/07', amb: '(celda vacía)', t: [['03/07', 'producción', 'Edicion video conecta 9 de julio / 1 hs', 'juli', 'juli / flor', 0, '', 'FINALIZADO', 'NO CORRESPONDE', 160]] }
+];
+
+const CLIENTES = [
+  { nombre: 'ALUAR', pill: '32', activo: true },
+  { nombre: 'FATE', pill: 'pronto', activo: false },
+  { nombre: 'Consultatio', pill: 'pronto', activo: false },
+  { nombre: 'Nordelta', pill: 'pronto', activo: false },
+  { nombre: 'FAA', pill: 'pronto', activo: false }
+];
+
+class Component extends DCLogic {
+  state = {
+    screen: 'tareas', q: '', fEst: 'Todos los estados', fFac: 'Toda la facturación', fResp: 'Todos los responsables',
+    revision: false, agrupado: true, densa: true, sel: null, selOt: null,
+    cerradas: {}, grupo: {}, cola: {}, vOver: null, rolOver: null, temaOver: null, vista: 'Todas las tareas'
+  };
+
+  get variante() { return this.state.vOver || this.props.navegacion || 'A'; }
+  get rol() { return this.state.rolOver || this.props.rol || 'Gestión'; }
+  get tema() { return this.state.temaOver || this.props.tema || 'dark'; }
+
+  build() {
+    const st = this.state;
+    return OTS.map((o) => {
+      const tareas = o.t.map((r, i) => {
+        const est = r[7], fac = r[8];
+        const e = EST[est] || EST['SIN ESTADO'], f = FAC[fac] || FAC['SIN FACTURAR'];
+        const t = {
+          id: o.n + '-' + i, otN: o.n, dps: o.dps || '—', amb: !!o.amb, ambTexto: o.amb || '',
+          f: r[0], tipos: r[1], det: r[2], por: r[3], resp: r[4], drive: !!r[5],
+          presup: r[6] || '—', est, fac, fila: r[9]
+        };
+        const chipBase = 'display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:10px;letter-spacing:.04em;border-radius:4px;padding:3px 8px;';
+        t.estStyle = chipBase + 'background:' + e[0] + ';color:' + e[1];
+        t.facStyle = chipBase + 'background:' + f[0] + ';color:' + f[1] + ';border:1px solid ' + f[2];
+        t.driveStyle = 'text-align:center;font-size:13px;color:' + (t.drive ? 'var(--accent-text)' : 'var(--ghost)');
+        t.presupStyle = 'font-size:12px;color:' + (t.presup === 'Si' ? 'var(--text)' : 'var(--ghost)');
+        t.abrir = (ev) => { if (ev) ev.stopPropagation(); this.setState({ sel: t }); };
+        t.toggleCola = () => this.setState((s) => ({ cola: Object.assign({}, s.cola, { [t.id]: !s.cola[t.id] }) }));
+        t.enCola = !!st.cola[t.id];
+        return t;
+      });
+      const fact = tareas.filter((t) => t.fac === 'FACTURADO' || t.fac === 'NO CORRESPONDE').length;
+      const abiertaOt = tareas.some((t) => t.est !== 'FINALIZADO' && t.est !== 'APROBADO') || tareas.some((t) => t.fac === 'SIN FACTURAR' || t.fac === 'PARA FACTURAR' || t.fac === 'FALTA OK CLIENTE');
+      const g = {
+        n: o.n, dps: o.dps, amb: !!o.amb, ap: o.ap, tareas,
+        tieneDps: !!o.dps, sinDps: !o.dps,
+        otEstado: abiertaOt ? 'ABIERTA' : 'CERRADA',
+        pct: Math.round((fact / tareas.length) * 100),
+        progreso: fact + '/' + tareas.length,
+        nTareas: tareas.length + (tareas.length === 1 ? ' tarea' : ' tareas'),
+        abierta: !st.cerradas[o.n],
+        seleccionada: !!st.grupo[o.n]
+      };
+      g.dpsLabel = o.dps ? 'OT sistema ' + o.dps : 'sin OT de sistema';
+      g.dpsStyle = 'font-family:var(--mono);font-size:11px;border-radius:4px;padding:1px 7px;white-space:nowrap;' + (o.dps
+        ? 'background:var(--ok-soft);color:var(--ok-text)'
+        : 'background:transparent;color:var(--faint);border:1px dashed var(--line-strong)');
+      g.otEstadoStyle = 'font-family:var(--mono);font-size:10px;letter-spacing:.07em;border-radius:4px;padding:2px 7px;' + (abiertaOt
+        ? 'background:var(--accent-soft);color:var(--accent-text)' : 'background:var(--surface2);color:var(--faint)');
+      g.caretStyle = 'display:inline-block;font-size:10px;color:var(--faint);transition:transform .12s;transform:rotate(' + (g.abierta ? 90 : 0) + 'deg)';
+      g.antiguedad = o.ap === '—' ? 'sin fecha de apertura' : 'abierta el ' + o.ap;
+      g.apertura = o.ap;
+      g.resumen = tareas.map((t) => t.det).join(' · ');
+      g.toggle = () => this.setState((s) => ({ cerradas: Object.assign({}, s.cerradas, { [o.n]: !s.cerradas[o.n] }) }));
+      g.abrir = (ev) => { if (ev) ev.stopPropagation(); this.setState({ screen: 'ot', selOt: o.n, sel: null }); };
+      g.toggleSel = () => this.setState((s) => ({ grupo: Object.assign({}, s.grupo, { [o.n]: !s.grupo[o.n] }) }));
+      return g;
+    });
+  }
+
+  chip(nombre, mapa) {
+    const c = mapa[nombre] || ['var(--surface2)', 'var(--faint)', 'var(--line-strong)'];
+    return 'display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.04em;border-radius:4px;padding:3px 8px;background:' + c[0] + ';color:' + c[1] + (mapa === FAC ? ';border:1px solid ' + c[2] : '');
+  }
+
+  navBtn(activo, tipo) {
+    if (tipo === 'top') return 'cursor:pointer;border:0;border-radius:5px;padding:3px 9px;font-size:12px;' + (activo ? 'background:rgba(255,255,255,.16);color:inherit;font-weight:600' : 'background:transparent;color:inherit;opacity:.6');
+    if (tipo === 'fila') return 'display:flex;align-items:center;gap:8px;width:100%;text-align:left;cursor:pointer;border:0;border-radius:6px;padding:6px 9px;font-size:13px;' + (activo ? 'background:var(--accent-soft);color:var(--accent-text);font-weight:600' : 'background:transparent;color:var(--text)');
+    if (tipo === 'tab') return 'cursor:pointer;background:transparent;border:0;border-bottom:2px solid ' + (activo ? 'var(--accent)' : 'transparent') + ';padding:10px 2px;font-size:13px;font-weight:' + (activo ? '600' : '400') + ';color:' + (activo ? 'var(--text)' : 'var(--muted)');
+    return '';
+  }
+
+  renderVals() {
+    const st = this.state, v = this.variante, rol = this.rol;
+    const grupos = this.build();
+    let todas = [];
+    grupos.forEach((g) => { todas = todas.concat(g.tareas); });
+
+    const respSet = new Set();
+    todas.forEach((t) => t.resp.split('/').forEach((r) => { const x = r.trim(); if (x && x !== '—') respSet.add(x); }));
+    const optResp = ['Todos los responsables'].concat(Array.from(respSet).sort());
+    const optEstado = ['Todos los estados'].concat(Object.keys(EST).slice(0, 6));
+    const optFac = ['Toda la facturación'].concat(Object.keys(FAC));
+
+    const q = st.q.trim().toLowerCase();
+    const pasa = (t) => {
+      if (q && (t.det + ' ' + t.otN + ' ' + t.resp + ' ' + t.por + ' ' + t.tipos).toLowerCase().indexOf(q) < 0) return false;
+      if (st.fEst !== 'Todos los estados' && t.est !== st.fEst) return false;
+      if (st.fFac !== 'Toda la facturación' && t.fac !== st.fFac) return false;
+      if (st.fResp !== 'Todos los responsables' && t.resp.split('/').map((x) => x.trim()).indexOf(st.fResp) < 0) return false;
+      if (st.revision && !(t.amb || t.f === '—' || t.tipos === '—')) return false;
+      return true;
+    };
+    const filas = todas.filter(pasa);
+    const gruposF = grupos.map((g) => Object.assign({}, g, { tareas: g.tareas.filter(pasa) })).filter((g) => g.tareas.length);
+    const nRevision = todas.filter((t) => t.amb || t.f === '—' || t.tipos === '—').length;
+
+    const pad = st.densa ? '6px 14px' : '11px 14px';
+    const gridAgr = 'display:grid;grid-template-columns:26px 56px 120px minmax(200px,1fr) 74px 112px 40px 52px 112px 124px;gap:10px;align-items:center;font-size:13px;cursor:pointer;border-top:1px solid var(--line-soft);padding:' + pad;
+    const gridPlano = 'display:grid;grid-template-columns:56px 76px 72px 120px minmax(190px,1fr) 74px 112px 40px 52px 112px 124px;gap:10px;align-items:center;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line-soft);padding:' + pad;
+    gruposF.forEach((g) => g.tareas.forEach((t) => { t.filaAgrupadaStyle = gridAgr; }));
+    filas.forEach((t) => { t.filaPlanaStyle = gridPlano; });
+
+    const secDefs = [
+      { id: 'tareas', nombre: 'Tareas', badge: String(todas.length) },
+      { id: 'ot', nombre: 'OT internas', badge: String(grupos.length) },
+      { id: 'agrupar', nombre: 'Agrupar OT', badge: String(grupos.filter((g) => g.sinDps).length) },
+      { id: 'facturacion', nombre: 'Facturación', badge: String(todas.filter((t) => t.fac === 'PARA FACTURAR' || t.fac === 'FALTA OK CLIENTE').length), soloGestion: true },
+      { id: 'cliente', nombre: 'Cliente', badge: '' }
+    ];
+    const secciones = secDefs.filter((s) => !(s.soloGestion && rol === 'Miembro')).map((s) => {
+      const activo = st.screen === s.id;
+      return {
+        nombre: s.nombre, badge: s.badge, inicial: s.nombre[0],
+        filaStyle: this.navBtn(activo, 'fila'),
+        tabStyle: this.navBtn(activo, 'tab'),
+        railStyle: 'cursor:pointer;width:32px;height:32px;border-radius:7px;border:0;font-family:var(--mono);font-size:12px;font-weight:600;' + (activo ? 'background:var(--accent);color:var(--accent-ink)' : 'background:rgba(255,255,255,.08);color:var(--chrome-text);opacity:.7'),
+        badgeStyle: 'margin-left:auto;font-family:var(--mono);font-size:11px;opacity:' + (activo ? '.9' : '.45'),
+        pillStyle: 'margin-left:auto;font-family:var(--mono);font-size:11px;opacity:.55',
+        abrir: () => this.setState({ screen: s.id, sel: null, selOt: s.id === 'ot' ? (st.selOt || grupos[0].n) : st.selOt })
+      };
+    });
+
+    const clientes = CLIENTES.map((c) => ({
+      nombre: c.nombre, pill: c.pill,
+      filaStyle: this.navBtn(c.activo, 'fila') + (c.activo ? '' : ';opacity:.38;cursor:not-allowed'),
+      tabStyle: 'cursor:' + (c.activo ? 'pointer' : 'not-allowed') + ';display:inline-flex;align-items:center;gap:7px;border:1px solid ' + (c.activo ? 'var(--line)' : 'transparent') + ';border-bottom:0;border-radius:7px 7px 0 0;padding:7px 13px;font-size:13px;font-weight:' + (c.activo ? '600' : '400') + ';background:' + (c.activo ? 'var(--bg)' : 'transparent') + ';color:' + (c.activo ? 'var(--text)' : 'var(--faint)'),
+      pillStyle: 'font-family:var(--mono);font-size:11px;opacity:.55;margin-left:auto',
+      abrir: () => {}
+    }));
+
+    const vistasDefs = [
+      { nombre: 'Todas las tareas', n: todas.length, f: {} },
+      { nombre: 'En curso', n: todas.filter((t) => t.est === 'EN PROCESO').length, f: { fEst: 'EN PROCESO' } },
+      { nombre: 'Esperando OK', n: todas.filter((t) => t.est === 'PENDIENTE OK').length, f: { fEst: 'PENDIENTE OK' } },
+      { nombre: 'Para facturar', n: todas.filter((t) => t.fac === 'PARA FACTURAR').length, f: { fFac: 'PARA FACTURAR' } },
+      { nombre: 'Necesitan revisión', n: nRevision, f: { revision: true } }
+    ];
+    const vistas = vistasDefs.map((x) => ({
+      nombre: x.nombre, n: x.n,
+      filaStyle: this.navBtn(st.vista === x.nombre, 'fila'),
+      pillStyle: 'margin-left:auto;font-family:var(--mono);font-size:11px;opacity:.55',
+      abrir: () => this.setState(Object.assign({ vista: x.nombre, screen: 'tareas', fEst: 'Todos los estados', fFac: 'Toda la facturación', revision: false }, x.f))
+    }));
+
+    const facetasEstado = Object.keys(EST).slice(0, 6).map((k) => ({
+      nombre: k, n: todas.filter((t) => t.est === k).length,
+      chipStyle: 'cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.04em;border-radius:4px;padding:4px 8px;border:1px solid ' + (st.fEst === k ? 'var(--accent)' : 'transparent') + ';background:' + EST[k][0] + ';color:' + EST[k][1],
+      abrir: () => this.setState({ fEst: st.fEst === k ? 'Todos los estados' : k, screen: 'tareas' })
+    }));
+    const facetasFac = Object.keys(FAC).map((k) => ({
+      nombre: k, n: todas.filter((t) => t.fac === k).length,
+      chipStyle: 'cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.04em;border-radius:4px;padding:4px 8px;background:' + FAC[k][0] + ';color:' + FAC[k][1] + ';border:1px solid ' + (st.fFac === k ? 'var(--accent)' : FAC[k][2]),
+      abrir: () => this.setState({ fFac: st.fFac === k ? 'Toda la facturación' : k, screen: 'tareas' })
+    }));
+
+    const otG = grupos.filter((g) => g.n === (st.selOt || grupos[0].n))[0] || grupos[0];
+    const desgloseKeys = ['PARA FACTURAR', 'FALTA OK CLIENTE', 'FACTURADO', 'SIN FACTURAR', 'NO CORRESPONDE'];
+    const ot = Object.assign({}, otG, {
+      compartida: otG.dps ? 'compartida con ' + (grupos.filter((x) => x.dps === otG.dps).length - 1) + ' OT interna(s) más' : '',
+      desglose: desgloseKeys.map((k) => ({ nombre: k, n: otG.tareas.filter((t) => t.fac === k).length, chipStyle: this.chip(k, FAC) })).filter((d) => d.n)
+    });
+
+    const sinDps = grupos.filter((g) => g.sinDps);
+    sinDps.forEach((g) => {
+      g.selFilaStyle = 'display:grid;grid-template-columns:20px 82px minmax(0,1fr) 74px auto;gap:11px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer;background:' + (g.seleccionada ? 'var(--sel)' : 'transparent');
+      g.checkStyle = 'width:18px;height:18px;border-radius:4px;display:grid;place-items:center;font-size:11px;border:1px solid ' + (g.seleccionada ? 'var(--accent)' : 'var(--line-strong)') + ';background:' + (g.seleccionada ? 'var(--accent)' : 'transparent') + ';color:' + (g.seleccionada ? 'var(--accent-ink)' : 'transparent');
+    });
+    const seleccionadas = sinDps.filter((g) => g.seleccionada).map((g) => g.n);
+    const puedeAlta = seleccionadas.length > 0;
+
+    const cola = grupos.map((g) => Object.assign({}, g, { tareas: g.tareas.filter((t) => t.fac === 'PARA FACTURAR' || t.fac === 'FALTA OK CLIENTE') })).filter((g) => g.tareas.length);
+    cola.forEach((g) => {
+      g.nCola = g.tareas.length + ' en cola';
+      g.tareas.forEach((t) => {
+        t.colaFilaStyle = 'display:grid;grid-template-columns:20px 56px minmax(0,1fr) 112px 112px 124px;gap:11px;align-items:center;padding:8px 16px;border-top:1px solid var(--line-soft);cursor:pointer;font-size:13px;background:' + (t.enCola ? 'var(--sel)' : 'transparent');
+        t.checkStyle = 'width:18px;height:18px;border-radius:4px;display:grid;place-items:center;font-size:11px;border:1px solid ' + (t.enCola ? 'var(--accent)' : 'var(--line-strong)') + ';background:' + (t.enCola ? 'var(--accent)' : 'transparent') + ';color:' + (t.enCola ? 'var(--accent-ink)' : 'transparent');
+      });
+    });
+    const nSel = todas.filter((t) => t.enCola).length;
+
+    const maxEst = Math.max.apply(null, Object.keys(EST).slice(0, 6).map((k) => todas.filter((t) => t.est === k).length)) || 1;
+    const barrasEstado = Object.keys(EST).slice(0, 6).map((k) => {
+      const n = todas.filter((t) => t.est === k).length;
+      return { nombre: k, n, pct: Math.round((n / maxEst) * 100), color: EST[k][2], chipStyle: this.chip(k, EST) };
+    });
+    const atencion = grupos.filter((g) => g.amb || g.sinDps).slice(0, 7).map((g) => ({
+      n: g.n, motivo: g.amb ? 'OT ambigua en el Sheet' : 'sin OT de sistema',
+      abrir: () => this.setState({ screen: 'ot', selOt: g.n })
+    }));
+
+    const s = st.sel;
+    const det = s ? Object.assign({}, s, {
+      otLabel: s.amb ? 'Sin resolver' : 'OT ' + s.otN,
+      otCliente: 'ALUAR',
+      tiposList: s.tipos === '—' ? [] : s.tipos.split(',').map((x) => x.trim()).filter(Boolean),
+      respList: s.resp === '—' ? [] : s.resp.split('/').map((x) => x.trim()).filter(Boolean).map((x) => ({ nombre: x, ini: x.slice(0, 2).toUpperCase() })),
+      fLargo: s.f === '—' ? 'Sin fecha' : s.f + (MESES[s.f.split('/')[1]] ? ' (' + s.f.split('/')[0] + ' ' + MESES[s.f.split('/')[1]] + ')' : ''),
+      porLabel: s.por === '—' ? 'Sin dato' : s.por,
+      presupLabel: s.presup === '—' ? 'Sin dato' : s.presup,
+      driveLabel: s.drive ? 'drive.google.com/drive/folders/…' : 'Sin link',
+      driveColor: s.drive ? 'var(--accent-text)' : 'var(--faint)',
+      tieneTypo: s.est === 'PENDIENTE OK',
+      estOriginal: 'PENDIETE OK',
+      historial: [
+        { quien: 'juli', que: 'cambió Estado a ' + s.est, cuando: 'hace 2 días' },
+        { quien: 'javier', que: 'vinculó la tarea a OT ' + s.otN, cuando: 'hace 5 días' },
+        { quien: 'migración', que: 'importó la fila ' + s.fila + ' del Sheet', cuando: '31 jul 2026' }
+      ]
+    }) : {};
+
+    const titulos = {
+      tareas: ['ALUAR · ' + todas.length + ' tareas', 'Tareas del equipo'],
+      ot: ['ALUAR · OT interna', 'OT ' + otG.n],
+      agrupar: ['ALUAR · alta en Advertys', 'Agrupar OT internas'],
+      facturacion: ['ALUAR · cola de facturación', 'Listas para facturar'],
+      cliente: ['Cliente', 'ALUAR']
+    };
+    const tit = titulos[st.screen] || titulos.tareas;
+
+    return {
+      tema: this.tema,
+      esLogin: st.screen === 'login', esApp: st.screen !== 'login',
+      esA: v === 'A', esB: v === 'B', esC: v === 'C',
+      tabAStyle: this.navBtn(v === 'A', 'top'), tabBStyle: this.navBtn(v === 'B', 'top'), tabCStyle: this.navBtn(v === 'C', 'top'),
+      tabMiembroStyle: this.navBtn(rol === 'Miembro', 'top'), tabGestionStyle: this.navBtn(rol === 'Gestión', 'top'),
+      tabOscuroStyle: this.navBtn(this.tema === 'dark', 'top'), tabClaroStyle: this.navBtn(this.tema === 'light', 'top'),
+      temaOscuro: () => this.setState({ temaOver: 'dark' }), temaClaro: () => this.setState({ temaOver: 'light' }),
+      rolLabel: rol === 'Miembro' ? 'Miembro' : 'Aprobador facturación',
+      verA: () => this.setState({ vOver: 'A' }), verB: () => this.setState({ vOver: 'B' }), verC: () => this.setState({ vOver: 'C' }),
+      rolMiembro: () => this.setState({ rolOver: 'Miembro', screen: st.screen === 'facturacion' ? 'tareas' : st.screen }),
+      rolGestion: () => this.setState({ rolOver: 'Gestión' }),
+      labelDensidad: st.densa ? 'Densidad: compacta' : 'Densidad: cómoda',
+      toggleDensa: () => this.setState({ densa: !st.densa }),
+      salir: () => this.setState({ screen: 'login', sel: null }),
+      entrar: () => this.setState({ screen: 'tareas' }),
+
+      secciones, clientes, vistas, facetasEstado, facetasFac,
+      kicker: tit[0], titulo: tit[1],
+      esTareas: st.screen === 'tareas', esOt: st.screen === 'ot', esAgrupar: st.screen === 'agrupar',
+      esFacturacion: st.screen === 'facturacion', esCliente: st.screen === 'cliente',
+      mostrarFiltros: st.screen === 'tareas' && v !== 'C',
+
+      q: st.q, fEst: st.fEst, fFac: st.fFac, fResp: st.fResp,
+      optEstado, optFac, optResp,
+      setQ: (e) => this.setState({ q: e.target.value }),
+      setEst: (e) => this.setState({ fEst: e.target.value }),
+      setFac: (e) => this.setState({ fFac: e.target.value }),
+      setResp: (e) => this.setState({ fResp: e.target.value }),
+      toggleRevision: () => this.setState({ revision: !st.revision }),
+      revisionStyle: 'cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:13px;border-radius:7px;padding:7px 12px;border:1px solid ' + (st.revision ? 'var(--warn-line)' : 'var(--line-strong)') + ';background:' + (st.revision ? 'var(--warn-soft)' : 'transparent') + ';color:' + (st.revision ? 'var(--warn-text)' : 'var(--text)'),
+      nRevision,
+      hayFiltros: !!(q || st.fEst !== 'Todos los estados' || st.fFac !== 'Toda la facturación' || st.fResp !== 'Todos los responsables' || st.revision),
+      limpiar: () => this.setState({ q: '', fEst: 'Todos los estados', fFac: 'Toda la facturación', fResp: 'Todos los responsables', revision: false }),
+      resumenFiltro: filas.length + ' de ' + todas.length + ' tareas · ' + gruposF.length + ' OT',
+
+      cardTablaStyle: 'min-width:' + (st.agrupado ? '1040px' : '1160px') + ';background:var(--surface);border:1px solid var(--line);border-radius:9px',
+      agrupado: st.agrupado, plano: !st.agrupado,
+      labelAgrupado: st.agrupado ? 'Ver plana' : 'Agrupar por OT',
+      toggleAgrupado: () => this.setState({ agrupado: !st.agrupado }),
+      nuevaTarea: () => this.setState({ sel: todas[0] }),
+      grupos: gruposF, filas, vacio: filas.length === 0,
+
+      ot, irAgrupar: () => this.setState({ screen: 'agrupar' }),
+      sinDps, nSinDps: sinDps.length + ' OT', seleccionadas, sinSeleccion: seleccionadas.length === 0,
+      resumenAlta: puedeAlta ? sinDps.filter((g) => g.seleccionada).map((g) => g.resumen).join(' · ').slice(0, 150) : 'Se arma con el resumen de las OT elegidas.',
+      btnAltaStyle: 'width:100%;cursor:' + (puedeAlta ? 'pointer' : 'not-allowed') + ';font-size:13px;font-weight:600;border:1px solid transparent;border-radius:7px;padding:11px 16px;background:var(--accent);color:var(--accent-ink);opacity:' + (puedeAlta ? '1' : '.45'),
+
+      cola, nColaSel: nSel + ' tareas seleccionadas',
+      btnFacturarStyle: 'cursor:' + (nSel ? 'pointer' : 'not-allowed') + ';font-size:12px;font-weight:600;border:1px solid transparent;border-radius:6px;padding:7px 14px;background:var(--accent);color:var(--accent-ink);opacity:' + (nSel ? '1' : '.45'),
+      kpisFac: [
+        { nombre: 'Para facturar', n: todas.filter((t) => t.fac === 'PARA FACTURAR').length, nota: 'tareas cerradas sin factura' },
+        { nombre: 'Falta OK cliente', n: todas.filter((t) => t.fac === 'FALTA OK CLIENTE').length, nota: 'trabadas del lado del cliente' },
+        { nombre: 'OT involucradas', n: cola.length, nota: 'de ' + grupos.length + ' OT internas' },
+        { nombre: 'Sin OT de sistema', n: cola.filter((g) => g.sinDps).length, nota: 'hay que darlas de alta antes' }
+      ],
+      kpisCliente: [
+        { nombre: 'OT internas', n: grupos.length, nota: grupos.filter((g) => g.otEstado === 'ABIERTA').length + ' abiertas' },
+        { nombre: 'Tareas', n: todas.length, nota: todas.filter((t) => t.est === 'EN PROCESO').length + ' en proceso' },
+        { nombre: 'Para facturar', n: todas.filter((t) => t.fac === 'PARA FACTURAR').length, nota: 'listas para cobrar' },
+        { nombre: 'A revisar', n: nRevision, nota: 'datos sucios del Sheet' }
+      ],
+      barrasEstado, atencion,
+
+      estados: Object.keys(EST).slice(0, 6), facturaciones: Object.keys(FAC),
+      hayDetalle: !!s, det,
+      cerrarDetalle: () => this.setState({ sel: null }),
+      stop: (e) => e.stopPropagation(),
+      verOtDeTarea: () => this.setState({ screen: 'ot', selOt: s ? s.otN : null, sel: null }),
+      cambiarEstado: () => {}, cambiarFac: () => {}
+    };
+  }
+}
+
+</script>
+</body>
+</html>

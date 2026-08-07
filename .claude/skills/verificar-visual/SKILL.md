@@ -9,7 +9,7 @@ argument-hint: [informe.html] [modulo/label]
 Confirma visualmente (claro/oscuro/print) que un informe HTML quedó bien
 después de tocar CSS o layout, sin depender de que Javier lo detecte
 manualmente. Fuente de verdad completa:
-[workflows/verificar_informe_visual.md](../../../workflows/verificar_informe_visual.md).
+[workflows/verificar_informe_visual.md](../../../informes/workflows/verificar_informe_visual.md).
 
 ## Cuándo NO hace falta
 
@@ -52,6 +52,9 @@ criterio general de cuándo usar un subagent en este proyecto.
 
 ## Notas
 
+- Comandos parados en `informes/` (la raíz del pipeline, no la raíz del
+  repo — que también contiene `ot/`): `cd informes` primero si la sesión
+  arrancó en la raíz del repo.
 - Los informes no tienen toggle de tema en la UI — el modo oscuro sale
   puro de `@media (prefers-color-scheme: dark)`. Por eso `screenshot.py`
   no clickea nada, emula media features directo vía Playwright. Si en

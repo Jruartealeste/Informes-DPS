@@ -1,0 +1,131 @@
+<div class="drawer-overlay" onclick="cerrarDrawer(event)">
+  <div class="drawer" onclick="event.stopPropagation()">
+    <form
+      {% if det %}hx-patch="/tareas/{{ det.id }}"{% else %}hx-post="/tareas"{% endif %}
+      hx-target="#tabla-tareas" hx-swap="outerHTML">
+
+      <div class="drawer__header">
+        <div style="min-width:0">
+          <div class="drawer__kicker">
+            {% if det %}Tarea · fila {{ det.fila_sheet_original or "s/d" }} del Sheet{% else %}Tarea nueva{% endif %}
+          </div>
+          <div class="drawer__title">{{ det.detalle if det else "Sin detalle todavía" }}</div>
+        </div>
+        <div class="page-header__spacer"></div>
+        <button type="button" class="drawer__close" onclick="cerrarDrawer(event)">✕</button>
+      </div>
+
+      <div class="drawer__body">
+        <div class="field">
+          <div class="field__label">OT interna</div>
+          {% with ot_numero = det.ot_numero_form if det else '', ot_bloqueada = det.ot_bloqueada if det else False, ot_cliente = det.ot_cliente if det else '' %}
+          {% include "tareas/_campo_ot.html" %}
+          {% endwith %}
+          <datalist id="ot-catalogo">
+            {% for n in todos_ot_numeros %}<option value="{{ n }}">{% endfor %}
+          </datalist>
+          {% if det and det.ot_ambigua %}
+          <div class="field-warn">
+            <span>⚠</span>
+            <div>Valor crudo del Sheet: <strong style="font-family:var(--mono)">{{ det.ot_ambigua }}</strong>. Puede ser dos OT internas reales agrupadas — resolver a mano, no descartar.</div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <div class="field__label">Fecha de pedido</div>
+            <input type="date" name="fecha_pedido" value="{{ det.fecha_pedido_iso if det else '' }}">
+          </div>
+          <div class="field">
+            <div class="field__label">Pedido por</div>
+            <input type="text" name="pedido_por" value="{{ '' if not det or det.pedido_por == '—' else det.pedido_por }}">
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field__label">Detalle</div>
+          <textarea name="detalle" rows="3" required>{{ det.detalle if det else '' }}</textarea>
+        </div>
+
+        <div class="field">
+          <div class="field__label">Tipo de tarea</div>
+          <input type="text" name="tipos" list="tipos-catalogo"
+                 value="{{ det.tipos | join(', ') if det else '' }}"
+                 placeholder="diseño, redacción">
+          <datalist id="tipos-catalogo">
+            {% for nombre in todos_tipos %}<option value="{{ nombre }}">{% endfor %}
+          </datalist>
+        </div>
+
+        <div class="field">
+          <div class="field__label">Responsables</div>
+          <input type="text" name="responsables"
+                 value="{{ det.responsables | join(' / ') if det else '' }}"
+                 placeholder="nombre / nombre">
+        </div>
+
+        {% if det and det.ot_asignada %}
+        <div class="field-row">
+          <div class="field">
+            <div class="field__label">Estado</div>
+            <select name="estado_tarea">
+              <option value="" {{ "selected" if det and det.estado_tarea == "SIN_ESTADO" }}>—</option>
+              {% for valor, label in estados %}
+              <option value="{{ valor }}" {{ "selected" if det and det.estado_tarea == valor }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <div class="field__label">Facturación</div>
+            <select name="estado_facturacion">
+              {% for valor, label in facturaciones %}
+              <option value="{{ valor }}" {{ "selected" if det and det.estado_facturacion == valor }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        {% else %}
+        <div class="field-hint">Asigná una OT arriba para poder fijar estado y facturación.</div>
+        {% endif %}
+
+        <div class="field-row">
+          <div class="field">
+            <div class="field__label">Link Drive</div>
+            <input type="text" name="link_drive" style="font-family:var(--mono)"
+                   value="{{ '' if not det or not det.link_drive else det.link_drive }}"
+                   placeholder="Sin link">
+          </div>
+          <div class="field field--fixed">
+            <div class="field__label">Presupuestado</div>
+            <select name="presupuestado">
+              <option value="" {{ "selected" if det and det.presupuestado is none }}>—</option>
+              <option value="si" {{ "selected" if det and det.presupuestado == true }}>Si</option>
+              <option value="no" {{ "selected" if det and det.presupuestado == false }}>No</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="factura-block">
+          <div class="factura-block__label">Número de factura</div>
+          <div class="factura-block__nota">Se completa en Fase 2, cuando Advertys devuelve el CAE.</div>
+        </div>
+      </div>
+
+      <div class="drawer__footer">
+        <button type="submit" class="btn btn--primary">Guardar</button>
+        <button type="button" class="btn" onclick="cerrarDrawer(event)">Cancelar</button>
+        <div class="drawer__footer-spacer"></div>
+        {% if det %}
+        <button type="button" class="btn btn--peligro"
+                {% if not det.puede_anular %}disabled title="{{ 'Ya anulada' if det.estado_tarea == 'ANULADA' else 'No se puede anular: ya finalizada o facturada' }}"{% endif %}
+                hx-post="/tareas/{{ det.id }}/anular" hx-target="#tabla-tareas" hx-swap="outerHTML"
+                hx-confirm="¿Anular esta tarea? No se puede deshacer.">
+          Anular
+        </button>
+        {% endif %}
+        <button type="button" class="link-btn" disabled title="Próximamente" style="opacity:.45;cursor:not-allowed">Duplicar</button>
+      </div>
+    </form>
+  </div>
+</div>

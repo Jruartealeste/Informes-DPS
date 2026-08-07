@@ -9,7 +9,7 @@ Revisa el semáforo del informe de Pendientes, arma una propuesta de qué
 Estimados de Costo se pueden pasar a `Finalizado` y qué Órdenes de Trabajo
 se pueden `Cerrar` en Advertys, te la presenta, y **solo después de tu
 confirmación explícita** ejecuta esos cambios uno por uno. Fuente de verdad
-completa: [workflows/cerrar_pendientes.md](../../../workflows/cerrar_pendientes.md)
+completa: [workflows/cerrar_pendientes.md](../../../informes/workflows/cerrar_pendientes.md)
 — si algo acá y el workflow difieren, gana el workflow (releerlo).
 
 Este flujo escribe en Advertys (a diferencia de casi todo el resto del
@@ -38,6 +38,9 @@ OT→Cerrada, un paso por vez con revisión intermedia.
 
 ## Notas
 
+- Comandos parados en `informes/` (la raíz del pipeline, no la raíz del
+  repo — que también contiene `ot/`): `cd informes` primero si la sesión
+  arrancó en la raíz del repo.
 - Nunca amplíes el alcance de escritura más allá de Estimado→Finalizado /
   OT→Cerrada — cualquier otra cosa (reasignar OC, corregir imputaciones)
   es manual en Advertys.

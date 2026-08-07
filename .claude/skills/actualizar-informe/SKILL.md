@@ -7,8 +7,8 @@ argument-hint: [modulo] [ruta-al-xlsx]
 ## Qué hace
 
 Carga un export `.xlsx` nuevo de Advertys en un módulo ya armado y regenera
-`informes/informe_<modulo>.html`. Fuente de verdad completa:
-[workflows/actualizar_informe.md](../../../workflows/actualizar_informe.md)
+`salida/informe_<modulo>.html`. Fuente de verdad completa:
+[workflows/actualizar_informe.md](../../../informes/workflows/actualizar_informe.md)
 — si algo acá y el workflow difieren, gana el workflow (releerlo).
 
 ## Pasos
@@ -32,14 +32,14 @@ Carga un export `.xlsx` nuevo de Advertys en un módulo ya armado y regenera
 4. `python -m modules.<modulo>.generate_html_report`
 5. Solo si hubo cambios de CSS/layout en esta sesión (no un refresh de
    datos puro): invocar el skill `verificar-visual` sobre
-   `informes/informe_<modulo>.html`.
+   `salida/informe_<modulo>.html`.
 6. Reportar filas cargadas y el rango de fechas cubierto por el informe
    resultante.
 
 ## Manejo de errores
 
 Ver la sección "Manejo de errores" de
-[workflows/actualizar_informe.md](../../../workflows/actualizar_informe.md):
+[workflows/actualizar_informe.md](../../../informes/workflows/actualizar_informe.md):
 `KeyError` de columna (Advertys cambió un nombre o usa "N°"/"Nº" con byte
 distinto) o conteo de filas sospechosamente bajo (filtro de vista no
 ampliado antes de exportar). No inventar una causa genérica — la causa
@@ -47,8 +47,10 @@ real casi siempre es una de esas dos.
 
 ## Notas
 
-- Siempre parado en la raíz del proyecto: `python -m modules.<modulo>.<script>`,
-  nunca `python archivo.py` directo.
+- Siempre parado en `informes/` (la raíz del pipeline, no la raíz del
+  repo — que también contiene `ot/`): `python -m modules.<modulo>.<script>`,
+  nunca `python archivo.py` directo. Si la sesión arrancó en la raíz del
+  repo, `cd informes` primero.
 - `python`/`py` en esta terminal apuntan al alias de Microsoft Store — si
   falla, usar la ruta completa indicada en CLAUDE.md.
 - El informe se sobrescribe en cada corrida — no se acumulan versiones

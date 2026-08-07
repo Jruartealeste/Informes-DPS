@@ -10,9 +10,11 @@ es diagnosticar, nunca corregir.
 
 ## Checklist (misma que `workflows/verificar_informe_visual.md`)
 
-Para cada informe que te pasen (ruta a `informes/informe_<modulo>.html` +
+Para cada informe que te pasen (ruta a `salida/informe_<modulo>.html` +
 label del módulo):
 
+0. Parado en `informes/` (la raíz del pipeline dentro del repo, hermana
+   de `ot/`) — `cd informes` primero si arrancás en la raíz del repo.
 1. Si te avisan que el HTML no está regenerado con los últimos cambios,
    correr `python -m modules.<modulo>.generate_html_report` primero.
 2. Capturar las 3 variantes de una sola vez:

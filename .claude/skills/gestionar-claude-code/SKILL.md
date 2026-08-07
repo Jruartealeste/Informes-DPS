@@ -9,7 +9,7 @@ argument-hint: [descripción de lo que se quiere agregar/ajustar]
 Aplica la regla de decisión de este proyecto para extender su propia
 configuración de Claude Code (skill nuevo, subagent nuevo, o ninguno de
 los dos). Fuente de verdad completa:
-[workflows/arquitectura_claude_code.md](../../../workflows/arquitectura_claude_code.md)
+[workflows/arquitectura_claude_code.md](../../../informes/workflows/arquitectura_claude_code.md)
 — si algo acá y el workflow difieren, gana el workflow (releerlo).
 
 ## Regla de decisión (resumen)

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es" data-tema="{{ tema | default('dark') }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Órdenes de trabajo{% endblock %}</title>
+  <script>
+    (function () {
+      var m = document.cookie.match(/(?:^|; )tema=([^;]+)/);
+      var tema = m ? m[1] : (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-tema', tema);
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/js/htmx.min.js"></script>
+</head>
+<body class="{{ 'densa' if densidad | default(true) else 'comoda' }}">
+<div class="app-shell">
+  <div class="app-body">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <div class="sidebar__mark">OT</div>
+        <span class="sidebar__brand-name">Órdenes de trabajo</span>
+      </div>
+
+      <div class="sidebar__group">
+        <div class="sidebar__group-label">Cliente</div>
+        <div class="sidebar__list">
+          <button type="button" class="sidebar__item is-active">
+            ALUAR
+            <span class="sidebar__pill">{{ total_tareas | default(0) }}</span>
+          </button>
+          {% for nombre in ["FATE", "Consultatio", "Nordelta", "FAA"] %}
+          <button type="button" class="sidebar__item is-disabled" disabled title="Todavía no migrado">
+            {{ nombre }}
+            <span class="sidebar__pill">pronto</span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="sidebar__group">
+        <div class="sidebar__group-label">Secciones</div>
+        <div class="sidebar__list">
+          <a href="/tareas" class="sidebar__item is-active">
+            Tareas
+            <span class="sidebar__badge">{{ total_tareas | default(0) }}</span>
+          </a>
+          {% for nombre in ["OT internas", "Agrupar OT", "Facturación", "Cliente"] %}
+          <button type="button" class="sidebar__item is-disabled" disabled title="Todavía no construido">
+            {{ nombre }}
+            <span class="sidebar__badge">pronto</span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="sidebar__spacer"></div>
+
+      <div class="sidebar__footer">
+        <div class="sidebar__avatar">JS</div>
+        <div class="sidebar__user">
+          <div class="sidebar__user-name">Javier S.</div>
+          <div class="sidebar__user-role">Sin login todavía</div>
+        </div>
+      </div>
+      <div class="sidebar__prefs">
+        <button type="button" class="theme-switch" id="toggle-tema" role="switch" aria-checked="false" aria-label="Cambiar tema claro/oscuro">
+          <span class="theme-switch__icon theme-switch__icon--sun">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2"></path><path d="M12 20v2"></path>
+              <path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path>
+              <path d="M2 12h2"></path><path d="M20 12h2"></path>
+              <path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>
+            </svg>
+          </span>
+          <span class="theme-switch__icon theme-switch__icon--moon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+          </span>
+          <span class="theme-switch__thumb"></span>
+        </button>
+        <button type="button" class="sidebar__pref-btn" id="toggle-densidad">Densidad: —</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      {% block content %}{% endblock %}
+      <div id="drawer-root"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+  function cerrarDrawer(ev) {
+    if (ev) ev.stopPropagation();
+    document.getElementById('drawer-root').innerHTML = '';
+  }
+
+  (function () {
+    var html = document.documentElement;
+    var body = document.body;
+    var btnTema = document.getElementById('toggle-tema');
+    var btnDensidad = document.getElementById('toggle-densidad');
+
+    function pintarTema() {
+      btnTema.setAttribute('aria-checked', html.getAttribute('data-tema') === 'dark' ? 'true' : 'false');
+    }
+    function pintarDensidad() {
+      btnDensidad.textContent = 'Densidad: ' + (body.classList.contains('densa') ? 'compacta' : 'cómoda');
+    }
+    pintarTema();
+    pintarDensidad();
+
+    btnTema.addEventListener('click', function () {
+      var next = html.getAttribute('data-tema') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-tema', next);
+      document.cookie = 'tema=' + next + '; path=/; max-age=31536000';
+      pintarTema();
+    });
+
+    btnDensidad.addEventListener('click', function () {
+      var densa = body.classList.contains('densa');
+      body.classList.toggle('densa', !densa);
+      body.classList.toggle('comoda', densa);
+      document.cookie = 'densidad=' + (densa ? '0' : '1') + '; path=/; max-age=31536000';
+      pintarDensidad();
+    });
+  })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

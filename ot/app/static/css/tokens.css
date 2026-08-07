@@ -1,0 +1,98 @@
+/* Design tokens — portados tal cual de design/Seguimiento de OTs.dc.html.
+   Ningún componente debe hardcodear un hex; todo pasa por estas variables. */
+
+:root {
+  --font: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --bg: #14161a;
+  --surface: #1b1e24;
+  --surface2: #22262e;
+  --raised: #1f232a;
+  --line: #2a2e36;
+  --line-soft: #22262e;
+  --line-strong: #3a4048;
+  --text: #e8e6e1;
+  --muted: #9aa0a8;
+  --faint: #6b7280;
+  --ghost: #4a5058;
+  --accent: #d99a3f;
+  --accent-ink: #14161a;
+  --accent-soft: rgba(217, 154, 63, 0.16);
+  --accent-text: #e7b463;
+  --accent-hover: #e5aa54;
+  --ok: #7fa87a;
+  --ok-soft: rgba(127, 168, 122, 0.2);
+  --ok-text: #9dc298;
+  --warn: #c95a3a;
+  --warn-soft: rgba(201, 90, 58, 0.18);
+  --warn-text: #e08f6d;
+  --warn-line: rgba(201, 90, 58, 0.5);
+  --hover: rgba(232, 230, 225, 0.045);
+  --sel: rgba(217, 154, 63, 0.1);
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+  --chrome: #0f1114;
+  --chrome-text: #e8e6e1;
+}
+
+:root[data-tema="light"] {
+  --bg: #f4f4f2;
+  --surface: #ffffff;
+  --surface2: #ececea;
+  --raised: #fafaf9;
+  --line: #dcdcd7;
+  --line-soft: #eeeeea;
+  --line-strong: #c9c9c3;
+  --text: #1b1d20;
+  --muted: #5f636a;
+  --faint: #8d9299;
+  --ghost: #bcbfc4;
+  --accent: #9a6a1c;
+  --accent-ink: #ffffff;
+  --accent-soft: #f7ecd8;
+  --accent-text: #7d5413;
+  --accent-hover: #7d5413;
+  --ok: #4f7a4a;
+  --ok-soft: #e4ece2;
+  --ok-text: #33512f;
+  --warn: #a8442a;
+  --warn-soft: #f7e4dd;
+  --warn-text: #8a3620;
+  --warn-line: #ddb3a3;
+  --hover: rgba(27, 29, 32, 0.04);
+  --sel: #f9f1e2;
+  --overlay: rgba(27, 29, 32, 0.35);
+  --shadow: 0 10px 30px rgba(27, 29, 32, 0.16);
+  --chrome: #1b1d20;
+  --chrome-text: #f4f4f2;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/ibm-plex-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/ibm-plex-mono-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/fonts/ibm-plex-mono-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/static/fonts/ibm-plex-sans-var.woff2") format("woff2");
+}

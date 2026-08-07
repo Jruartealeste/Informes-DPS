@@ -1,0 +1,19 @@
+<!-- Mantener en sync con los mismos 4 elementos en list.html (id, name, hx-vals):
+     esto sólo se usa para el oob-swap post-toggle; el render inicial de la página
+     vive en list.html porque estos elementos no son hermanos entre sí (uno va en
+     el header, dos en el form de filtros) y un include único los pondría
+     todos en el mismo lugar. -->
+<button type="button" id="btn-agrupado" class="btn" hx-swap-oob="true"
+  hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
+  hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='f_resp']"
+  hx-vals='{"agrupado": "{{ agrupado_next }}", "revision": "{{ 1 if revision else 0 }}"}'>
+  {{ "Ver plana" if agrupado else "Agrupar por OT" }}
+</button>
+<input type="hidden" id="input-agrupado" name="agrupado" hx-swap-oob="true" value="{{ '1' if agrupado else '0' }}">
+<button type="button" id="btn-revision" class="filters__revision {{ 'is-active' if revision }}" hx-swap-oob="true"
+  hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
+  hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='f_resp']"
+  hx-vals='{"revision": "{{ revision_next }}", "agrupado": "{{ 1 if agrupado else 0 }}"}'>
+  ⚠ Necesitan revisión <strong>{{ n_revision }}</strong>
+</button>
+<input type="hidden" id="input-revision" name="revision" hx-swap-oob="true" value="{{ '1' if revision else '0' }}">

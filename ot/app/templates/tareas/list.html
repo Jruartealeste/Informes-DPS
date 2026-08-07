@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block titulo %}Tareas del equipo · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <div class="page-header__kicker">ALUAR · {{ total_tareas }} tareas</div>
+      <h1 class="page-header__title">Tareas del equipo</h1>
+    </div>
+    <div class="page-header__spacer"></div>
+    <div class="page-header__actions">
+      <!-- Mantener en sync con _controles.html (id, name, hx-vals) -- ver nota ahí. -->
+      <button type="button" id="btn-agrupado" class="btn"
+        hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
+        hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='f_resp']"
+        hx-vals='{"agrupado": "{{ agrupado_next }}", "revision": "{{ 1 if revision else 0 }}"}'>
+        {{ "Ver plana" if agrupado else "Agrupar por OT" }}
+      </button>
+      <button type="button" class="btn btn--primary"
+        hx-get="/tareas-nuevo" hx-target="#drawer-root" hx-swap="innerHTML">
+        Nueva OT/tarea
+      </button>
+    </div>
+  </div>
+</div>
+
+<form id="filtros-form" class="filters"
+      hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
+      hx-trigger="change, keyup changed delay:300ms">
+  <input type="hidden" id="input-agrupado" name="agrupado" value="{{ '1' if agrupado else '0' }}">
+  <input type="hidden" id="input-revision" name="revision" value="{{ '1' if revision else '0' }}">
+  <div class="filters__search">
+    <input type="text" name="q" value="{{ q }}" placeholder="Buscar en detalle, OT, responsable…">
+  </div>
+  <select name="f_est">
+    <option value="">Todos los estados</option>
+    {% for valor, label in opt_estado %}
+    <option value="{{ valor }}" {{ "selected" if valor == f_est }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="f_fac">
+    <option value="">Toda la facturación</option>
+    {% for valor, label in opt_fac %}
+    <option value="{{ valor }}" {{ "selected" if valor == f_fac }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="f_resp">
+    <option value="">Todos los responsables</option>
+    {% for nombre in opt_resp %}
+    <option value="{{ nombre }}" {{ "selected" if nombre == f_resp }}>{{ nombre }}</option>
+    {% endfor %}
+  </select>
+  <button type="button" id="btn-revision" class="filters__revision {{ 'is-active' if revision }}"
+    hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
+    hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='f_resp']"
+    hx-vals='{"revision": "{{ revision_next }}", "agrupado": "{{ 1 if agrupado else 0 }}"}'>
+    ⚠ Necesitan revisión <strong>{{ n_revision }}</strong>
+  </button>
+  <div class="filters__spacer"></div>
+  <div class="filters__summary">{{ resumen_filtro }}</div>
+  {% if hay_filtros %}
+  <a href="/tareas" class="filters__clear">Limpiar</a>
+  {% endif %}
+</form>
+
+{% include "tareas/_tabla.html" %}
+
+{% endblock %}

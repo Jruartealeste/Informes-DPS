@@ -10,8 +10,8 @@ Exporta en vivo desde Advertys (login + navegar + descargar XLSX vía
 Playwright) y carga en `advertys.db` los 7 módulos que tienen
 `modules/<modulo>/export.py` — `compras`, `facturas`, `estimados_costos`,
 `ordenes_compra`, `oc_pendientes_generar`, `estimados_pendientes_facturar`,
-`ordenes_trabajo` — y después regenera todos los `informes/informe_<modulo>.html`
-y el `informes/dashboard.html` que los agrupa, en una sola pasada. El
+`ordenes_trabajo` — y después regenera todos los `salida/informe_<modulo>.html`
+y el `salida/dashboard.html` que los agrupa, en una sola pasada. El
 export ya no es manual para estos 7 módulos (era el comportamiento viejo
 de este skill; `tools/actualizar_todo.py` es el que reemplaza ese paso).
 
@@ -22,7 +22,8 @@ minutos"). Sigue actualizándose con el flujo manual de siempre.
 
 ## Pasos
 
-1. Correr `python -m tools.actualizar_todo` (desde la raíz del proyecto,
+1. Correr `python -m tools.actualizar_todo` (parado en `informes/` — la
+   raíz del pipeline, no la raíz del repo que también contiene `ot/` —
    con `-m` para que `modules` sea importable) — hace login a Advertys una
    vez por módulo, exporta y carga los 7 módulos de arriba, y al final
    regenera los 4 `generate_html_report.py` existentes
@@ -47,7 +48,7 @@ minutos"). Sigue actualizándose con el flujo manual de siempre.
    tarda unos minutos) si Javier pide específicamente refrescar ese dato o
    pasó bastante tiempo desde la última corrida.
 5. Si hubo cambios de CSS/layout en esta sesión, verificar visualmente
-   `informes/dashboard.html` y los informes que cambiaron: si es uno solo,
+   `salida/dashboard.html` y los informes que cambiaron: si es uno solo,
    con el skill `verificar-visual` inline; si son 2+ (lo típico cuando el
    cambio fue en `html_report.py` compartido), delegar al subagent
    `informe-visual-qa` para no inflar el hilo principal con capturas de

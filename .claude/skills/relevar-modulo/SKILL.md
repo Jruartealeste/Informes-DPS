@@ -10,7 +10,7 @@ Arma el pipeline completo (`config.py`, `ingest.py`,
 `generate_html_report.py`, `explore.py`) para relevar una sección de
 Advertys que todavía no tiene informe. Receta validada 3/3 veces (Órdenes
 de Trabajo, Compras, Facturas). Fuente de verdad completa:
-[workflows/relevar_modulo_nuevo.md](../../../workflows/relevar_modulo_nuevo.md).
+[workflows/relevar_modulo_nuevo.md](../../../informes/workflows/relevar_modulo_nuevo.md).
 
 ## Salvaguarda — Advertys es de solo lectura
 
@@ -59,6 +59,9 @@ ejecutar ese click**. No se asume, no se prueba "para ver qué hace".
 
 ## Notas
 
+- Comandos parados en `informes/` (la raíz del pipeline, no la raíz del
+  repo — que también contiene `ot/`): `cd informes` primero si la sesión
+  arrancó en la raíz del repo.
 - No construir un framework genérico multi-módulo — duplicar el patrón
   simple por módulo es la decisión ya tomada (ver workflow), reevaluar
   solo si esto crece a 4-5 módulos.
