@@ -135,7 +135,7 @@ def _todos_ot_numeros(db: Session) -> list[str]:
 
 def _tabla_y_cerrar_drawer(db: Session, request: Request) -> HTMLResponse:
     ctx = _contexto_tabla(db, request)
-    tabla_html = templates.env.get_template("tareas/_tabla.html").render(ctx)
+    tabla_html = templates.env.get_template("tareas/_tabla_swap.html").render(ctx)
     return HTMLResponse(tabla_html + '<div id="drawer-root" hx-swap-oob="true"></div>')
 
 
@@ -155,7 +155,7 @@ def tareas_home(request: Request, db: Session = Depends(get_db)):
 @router.get("/tareas/partial")
 def tareas_partial(request: Request, db: Session = Depends(get_db)):
     ctx = _contexto_tabla(db, request)
-    return templates.TemplateResponse(request, "tareas/_tabla.html", ctx)
+    return templates.TemplateResponse(request, "tareas/_tabla_swap.html", ctx)
 
 
 @router.get("/tareas/{tarea_id}")
@@ -307,6 +307,34 @@ def anular_tarea(tarea_id: int, request: Request, db: Session = Depends(get_db))
     if puede_anular(tarea):
         tarea.estado_tarea = EstadoTarea.ANULADA
         db.commit()
+
+    return _tabla_y_cerrar_drawer(db, request)
+
+
+@router.post("/tareas/{tarea_id}/estado")
+def actualizar_estado(
+    tarea_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    estado_tarea: str = Form(""),
+):
+    tarea = db.get(Tarea, tarea_id)
+    tarea.estado_tarea = EstadoTarea[estado_tarea] if estado_tarea else None
+    db.commit()
+
+    return _tabla_y_cerrar_drawer(db, request)
+
+
+@router.post("/tareas/{tarea_id}/facturacion")
+def actualizar_facturacion(
+    tarea_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    estado_facturacion: str = Form(...),
+):
+    tarea = db.get(Tarea, tarea_id)
+    tarea.estado_facturacion = EstadoFacturacion[estado_facturacion]
+    db.commit()
 
     return _tabla_y_cerrar_drawer(db, request)
 

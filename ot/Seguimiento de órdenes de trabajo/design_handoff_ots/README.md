@@ -22,6 +22,8 @@ Lo que **no** está resuelto y hay que definir en implementación: responsive/mo
 
 Todo el tema se resuelve con CSS custom properties sobre `[data-tema="dark"|"light"]`. Dark es el default. Copiar estas dos paletas tal cual; ningún componente debe hardcodear un hex.
 
+**Enmienda (2026-08-07):** el acento se recalibró de ámbar a azul (pedido explícito de Javier, tomando como referencia un dashboard genérico que le gustó). Se mantiene toda la disciplina "Consola" del prototipo original — mismo rol semántico de cada token, radios ≤9px, sin pills, sombra sólo en drawer/login, `--ok`/`--warn` intactos — sólo cambió el hue del acento. Las tablas de abajo ya reflejan los valores nuevos; el `.dc.html` original queda como referencia histórica para todo lo que no sea color de acento.
+
 ### Dark (default)
 
 | Token | Valor | Uso |
@@ -37,11 +39,11 @@ Todo el tema se resuelve con CSS custom properties sobre `[data-tema="dark"|"lig
 | `--muted` | `#9aa0a8` | texto secundario, celdas de apoyo |
 | `--faint` | `#6b7280` | labels, metadatos, contadores |
 | `--ghost` | `#4a5058` | iconos deshabilitados, glifos vacíos |
-| `--accent` | `#d99a3f` | acento único (ámbar) |
-| `--accent-ink` | `#14161a` | texto sobre acento sólido |
-| `--accent-soft` | `rgba(217,154,63,.16)` | fondos tintados de acento |
-| `--accent-text` | `#e7b463` | texto/números en acento |
-| `--accent-hover` | `#e5aa54` | hover de botón primario |
+| `--accent` | `#5b9df9` | acento único (azul) |
+| `--accent-ink` | `#0b1220` | texto sobre acento sólido |
+| `--accent-soft` | `rgba(91,157,249,.16)` | fondos tintados de acento |
+| `--accent-text` | `#8fbdfb` | texto/números en acento |
+| `--accent-hover` | `#74acfa` | hover de botón primario |
 | `--ok` | `#7fa87a` | barras de progreso, verde |
 | `--ok-soft` | `rgba(127,168,122,.2)` | chip FINALIZADO / FACTURADO |
 | `--ok-text` | `#9dc298` | texto sobre ok-soft |
@@ -60,9 +62,9 @@ Todo el tema se resuelve con CSS custom properties sobre `[data-tema="dark"|"lig
 
 Mismos nombres, distintos valores:
 
-`--bg #f4f4f2` · `--surface #ffffff` · `--surface2 #ececea` · `--raised #fafaf9` · `--line #dcdcd7` · `--line-soft #eeeeea` · `--line-strong #c9c9c3` · `--text #1b1d20` · `--muted #5f636a` · `--faint #8d9299` · `--ghost #bcbfc4` · `--accent #9a6a1c` · `--accent-ink #ffffff` · `--accent-soft #f7ecd8` · `--accent-text #7d5413` · `--accent-hover #7d5413` · `--ok #4f7a4a` · `--ok-soft #e4ece2` · `--ok-text #33512f` · `--warn #a8442a` · `--warn-soft #f7e4dd` · `--warn-text #8a3620` · `--warn-line #ddb3a3` · `--hover rgba(27,29,32,.04)` · `--sel #f9f1e2` · `--overlay rgba(27,29,32,.35)` · `--shadow 0 10px 30px rgba(27,29,32,.16)` · `--chrome #1b1d20` · `--chrome-text #f4f4f2`
+`--bg #f4f4f2` · `--surface #ffffff` · `--surface2 #ececea` · `--raised #fafaf9` · `--line #dcdcd7` · `--line-soft #eeeeea` · `--line-strong #c9c9c3` · `--text #1b1d20` · `--muted #5f636a` · `--faint #8d9299` · `--ghost #bcbfc4` · `--accent #2f6fd1` · `--accent-ink #ffffff` · `--accent-soft #e3edfb` · `--accent-text #1f4f9e` · `--accent-hover #1f4f9e` · `--ok #4f7a4a` · `--ok-soft #e4ece2` · `--ok-text #33512f` · `--warn #a8442a` · `--warn-soft #f7e4dd` · `--warn-text #8a3620` · `--warn-line #ddb3a3` · `--hover rgba(27,29,32,.04)` · `--sel #f9f1e2` · `--overlay rgba(27,29,32,.35)` · `--shadow 0 10px 30px rgba(27,29,32,.16)` · `--chrome #1b1d20` · `--chrome-text #f4f4f2`
 
-Nota: en light el acento baja a `#9a6a1c` para mantener contraste de texto sobre blanco. No usar `#d99a3f` sobre fondo claro.
+Nota: en light el acento baja a `#2f6fd1` para mantener contraste de texto sobre blanco. No usar `#5b9df9` (el azul de dark) sobre fondo claro.
 
 ### Tipografía
 
@@ -77,7 +79,8 @@ Nota: en light el acento baja a `#9a6a1c` para mantener contraste de texto sobre
 - Radios: cards y paneles `9px` · botones e inputs `7px` · chips, badges y checkboxes `4px` · avatares e iconos cuadrados `6–7px` · barras de progreso `2–4px`. **Nada de pills.** Nada de radios > 10px.
 - Espaciado: padding de pantalla `18px 20px` · padding de card `14px 16px` (KPI) a `18px 20px` (paneles) · celda de tabla `6px 14px` en densidad compacta, `11px 14px` en cómoda · gap de columnas de tabla `10px` · gap de filtros `7px` · gap de cards `10–14px`.
 - Sombras: sólo `--shadow`, y sólo en el panel de detalle y el card de login. Las cards de contenido usan `1px solid var(--line)`, no sombra.
-- Focus: `:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }`. Nunca el anillo azul del browser.
+- Focus: `:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }`. Nunca el anillo azul del browser (el acento del sistema ahora también es azul — igual se mantiene como `outline`, nunca el ring nativo de Chrome/Firefox).
+- Botones (agregado 2026-08-07): `font-weight:500` en `.btn` (antes heredaba 400 del body; `.btn--primary` sigue en 600). Transición `background-color/border-color/color .15s ease` en botones, inputs de texto y selects — no en filas de tabla ni en el caret de grupo, que siguen sin transición de color por la regla "la tabla tiene que sentirse instantánea".
 - Links: `a { color: var(--accent-text) }`, `a:hover { color: var(--accent) }`.
 
 ## Screens / Views
@@ -195,7 +198,8 @@ Sólo entran a la cola las tareas con facturación `PARA FACTURAR` o `FALTA OK C
 
 Hay que **elegir una**. El prototipo las trae las tres para decidir.
 
-- **A · Secciones (default recomendado).** Sidebar de 218px `--surface` con borde derecho: marca, grupo "Cliente" (lista de clientes, sólo ALUAR activo, el resto `opacity:.38` y `cursor:not-allowed` con pill "pronto"), grupo "Secciones" con badges de conteo, y al pie el usuario con su rol. Ítem activo: fondo `--accent-soft`, texto `--accent-text`, 600. La más obvia para un equipo no técnico.
+- **A · Secciones (default recomendado, implementada).** Sidebar de 218px `--surface` con borde derecho: marca, grupo "Cliente" (lista de clientes, sólo ALUAR activo, el resto `opacity:.38` y `cursor:not-allowed` con pill "pronto"), grupo "Secciones" con badges de conteo, y al pie el usuario con su rol. Ítem activo: fondo `--accent-soft`, texto `--accent-text`, 600. La más obvia para un equipo no técnico.
+  - **Colapsable a íconos (agregado 2026-08-07).** Botón "Contraer"/"Expandir" al pie (`border-top`, mismo trazo `chevrons-right` que gira 180° al abrir/cerrar). Colapsada, el sidebar baja a 60px: los ítems de "Secciones" muestran sólo su ícono lucide-style (`--muted`, `--accent-text` si el ítem está activo); los de "Cliente" muestran una caja de 20px con las dos primeras letras del nombre en mono (mismo patrón que `sidebar__avatar`/`sidebar__mark`), no un ícono genérico, porque un nombre de cliente no tiene un glifo natural. Texto, badges/pills y el nombre de usuario del footer se ocultan (`display:none`); el `title` del botón queda como tooltip nativo. Estado persistido en cookie `sidebar` (`expanded`/`collapsed`), mismo patrón que `tema`/`densidad`: se lee en un script inline en el `<head>` seteando `data-sidebar` en `<html>` antes del primer paint, para no parpadear.
 - **B · Cliente primero.** Sin sidebar: topbar con marca y usuario, fila de tabs de cliente (radio `7px 7px 0 0`, la activa con fondo `--bg` y borde sin base), y debajo tabs de sección con subrayado `2px solid var(--accent)`. Escala mejor cuando entren las otras pestañas del Sheet.
 - **C · Bandeja única.** Rail de iconos de 52px `--chrome` (cuadrados 32px, activo `--accent`/`--accent-ink`) + panel de 256px con "Vistas guardadas" (Todas / En curso / Esperando OK / Para facturar / Necesitan revisión, con conteo) y facetas clickeables de Estado y Facturación (el chip activo gana `border-color: var(--accent)`). En esta variante **la barra de filtros de arriba se oculta**: el filtrado vive en el panel. Es lo más rápido para quien carga todo el día.
 
@@ -228,6 +232,7 @@ Datos (servidor): tareas, OT internas, clientes, catálogos de estado / facturac
 - **Scroll horizontal**: el contenedor scrollea, la card lleva `min-width`. Si se le pone `overflow:hidden` a la card (por el radio) se clipean Estado y Facturación y no hay forma de llegar a ellas. Ya se cometió ese error una vez.
 - El header de columnas es `position:sticky; top:0` dentro del scroller vertical.
 - Los `<select>` nativos necesitan `option { background: var(--surface); color: var(--text) }` para no romperse en dark.
+- **Chevron de los `<select>` (agregado 2026-08-07):** `appearance:none` + un chevron propio (mismo trazo lucide que los íconos de sidebar y el theme-switch) vía `background-image` en SVG data-URI, `background-size:14px`, `padding-right:30px`. Un data-URI no puede leer custom properties, así que el color del trazo está hardcodeado dos veces — una vez para dark (`#9aa0a8`, ≈`--muted`) y una vez bajo `:root[data-tema="light"] select` (`#5f636a`). Si algún día cambia `--muted`, hay que actualizar ambos SVG a mano.
 - Accesibilidad pendiente: las filas clickeables tienen que ser accesibles por teclado (`role="row"` + `tabIndex` o un botón real), los checkboxes tienen que ser `<input type="checkbox">` reales con label, y el drawer necesita foco atrapado + `Esc`.
 - Contraste: los chips en dark rondan 4.5:1; los `--faint` sobre `--surface` quedan justos para texto chico. Verificar con la implementación real y subir un paso de la rampa si hace falta.
 

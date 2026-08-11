@@ -1,0 +1,8 @@
+<select class="chip-estado" data-valor="{{ t.estado_tarea }}" name="estado_tarea"
+  hx-post="/tareas/{{ t.id }}/estado" hx-trigger="change" hx-target="#tabla-tareas" hx-swap="outerHTML"
+  onclick="event.stopPropagation()">
+  <option value="" {{ "selected" if t.estado_tarea == "SIN_ESTADO" }}>—</option>
+  {% for valor, label in opt_estado %}
+  <option value="{{ valor }}" {{ "selected" if t.estado_tarea == valor }}>{{ label }}</option>
+  {% endfor %}
+</select>

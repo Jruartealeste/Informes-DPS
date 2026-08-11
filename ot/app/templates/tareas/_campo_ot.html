@@ -7,8 +7,11 @@
 </div>
 {% else %}
 <div class="field-ot">
-  <input type="text" name="ot_numero" class="field-ot__box" style="font-family:var(--mono)"
-         list="ot-catalogo" value="{{ ot_numero }}" placeholder="Buscar OT interna existente">
+  <div class="combo">
+    <input type="text" name="ot_numero" class="field-ot__box combo__input" style="font-family:var(--mono)"
+           autocomplete="off" value="{{ ot_numero }}" placeholder="Buscar OT interna existente">
+    <div class="combo__menu"></div>
+  </div>
   <button type="button" class="btn btn--small" title="Generar número de OT interna nuevo"
           hx-get="/api/ordenes-trabajo/nuevo-numero" hx-target="closest .field-ot" hx-swap="outerHTML">
     + Nueva

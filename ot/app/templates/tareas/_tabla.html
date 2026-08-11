@@ -36,8 +36,8 @@
           <div class="cell-muted">{{ t.responsables_label }}</div>
           <div class="cell-drive {{ 'is-linked' if t.link_drive }}">↗</div>
           <div class="cell-presup {{ 'is-si' if t.presup_label == 'Si' }}">{{ t.presup_label }}</div>
-          <div><span class="chip-estado" data-valor="{{ t.estado_tarea }}">{{ t.estado_tarea_label }}</span></div>
-          <div><span class="chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</span></div>
+          <div>{% include "tareas/_select_estado.html" %}</div>
+          <div>{% include "tareas/_select_facturacion.html" %}</div>
         </div>
         {% endfor %}
       </div>
@@ -59,8 +59,8 @@
       <div class="cell-muted">{{ t.responsables_label }}</div>
       <div class="cell-drive {{ 'is-linked' if t.link_drive }}">↗</div>
       <div class="cell-presup {{ 'is-si' if t.presup_label == 'Si' }}">{{ t.presup_label }}</div>
-      <div><span class="chip-estado" data-valor="{{ t.estado_tarea }}">{{ t.estado_tarea_label }}</span></div>
-      <div><span class="chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</span></div>
+      <div>{% include "tareas/_select_estado.html" %}</div>
+      <div>{% include "tareas/_select_facturacion.html" %}</div>
     </div>
     {% endfor %}
     {% endif %}
@@ -70,4 +70,3 @@
   <p class="empty-state">Ninguna tarea coincide con los filtros.</p>
   {% endif %}
 </div>
-{% include "tareas/_controles.html" %}

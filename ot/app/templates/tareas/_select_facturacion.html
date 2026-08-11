@@ -1,0 +1,7 @@
+<select class="chip-fac" data-valor="{{ t.estado_facturacion }}" name="estado_facturacion"
+  hx-post="/tareas/{{ t.id }}/facturacion" hx-trigger="change" hx-target="#tabla-tareas" hx-swap="outerHTML"
+  onclick="event.stopPropagation()">
+  {% for valor, label in opt_fac %}
+  <option value="{{ valor }}" {{ "selected" if t.estado_facturacion == valor }}>{{ label }}</option>
+  {% endfor %}
+</select>

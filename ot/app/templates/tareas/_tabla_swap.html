@@ -1,0 +1,9 @@
+<!-- Usado solo por las respuestas htmx (GET /tareas/partial y el post-guardar
+     que cierra el drawer): _tabla.html + los oob-swaps de _controles.html.
+     El render de página completa (list.html) incluye _tabla.html solo, sin
+     esto, porque hx-swap-oob no se procesa en un document load normal — si
+     _controles.html se incluyera ahí también, sus botones quedarían
+     visibles y duplicados al pie de la página en vez de ser absorbidos por
+     el swap. -->
+{% include "tareas/_tabla.html" %}
+{% include "tareas/_controles.html" %}

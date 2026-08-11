@@ -9,16 +9,19 @@
       var m = document.cookie.match(/(?:^|; )tema=([^;]+)/);
       var tema = m ? m[1] : (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
       document.documentElement.setAttribute('data-tema', tema);
+
+      var ms = document.cookie.match(/(?:^|; )sidebar=([^;]+)/);
+      document.documentElement.setAttribute('data-sidebar', ms ? ms[1] : 'expanded');
     })();
   </script>
-  <link rel="stylesheet" href="/static/css/tokens.css">
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/tokens.css?v={{ static_version('css/tokens.css') }}">
+  <link rel="stylesheet" href="/static/css/app.css?v={{ static_version('css/app.css') }}">
   <script src="/static/js/htmx.min.js"></script>
 </head>
 <body class="{{ 'densa' if densidad | default(true) else 'comoda' }}">
 <div class="app-shell">
   <div class="app-body">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar__brand">
         <div class="sidebar__mark">OT</div>
         <span class="sidebar__brand-name">Órdenes de trabajo</span>
@@ -27,13 +30,15 @@
       <div class="sidebar__group">
         <div class="sidebar__group-label">Cliente</div>
         <div class="sidebar__list">
-          <button type="button" class="sidebar__item is-active">
-            ALUAR
+          <button type="button" class="sidebar__item is-active" title="ALUAR">
+            <span class="sidebar__item-icon">AL</span>
+            <span class="sidebar__item-label">ALUAR</span>
             <span class="sidebar__pill">{{ total_tareas | default(0) }}</span>
           </button>
           {% for nombre in ["FATE", "Consultatio", "Nordelta", "FAA"] %}
-          <button type="button" class="sidebar__item is-disabled" disabled title="Todavía no migrado">
-            {{ nombre }}
+          <button type="button" class="sidebar__item is-disabled" disabled title="{{ nombre }} · todavía no migrado">
+            <span class="sidebar__item-icon">{{ nombre[:2] | upper }}</span>
+            <span class="sidebar__item-label">{{ nombre }}</span>
             <span class="sidebar__pill">pronto</span>
           </button>
           {% endfor %}
@@ -43,16 +48,54 @@
       <div class="sidebar__group">
         <div class="sidebar__group-label">Secciones</div>
         <div class="sidebar__list">
-          <a href="/tareas" class="sidebar__item is-active">
-            Tareas
+          <a href="/tareas" class="sidebar__item is-active" title="Tareas">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m3 17 2 2 4-4"></path>
+              <path d="m3 7 2 2 4-4"></path>
+              <path d="M13 6h8"></path>
+              <path d="M13 12h8"></path>
+              <path d="M13 18h8"></path>
+            </svg>
+            <span class="sidebar__item-label">Tareas</span>
             <span class="sidebar__badge">{{ total_tareas | default(0) }}</span>
           </a>
-          {% for nombre in ["OT internas", "Agrupar OT", "Facturación", "Cliente"] %}
-          <button type="button" class="sidebar__item is-disabled" disabled title="Todavía no construido">
-            {{ nombre }}
+          <button type="button" class="sidebar__item is-disabled" disabled title="OT internas · todavía no construido">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" x2="20" y1="9" y2="9"></line>
+              <line x1="4" x2="20" y1="15" y2="15"></line>
+              <line x1="10" x2="8" y1="3" y2="21"></line>
+              <line x1="16" x2="14" y1="3" y2="21"></line>
+            </svg>
+            <span class="sidebar__item-label">OT internas</span>
             <span class="sidebar__badge">pronto</span>
           </button>
-          {% endfor %}
+          <button type="button" class="sidebar__item is-disabled" disabled title="Agrupar OT · todavía no construido">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="18" r="3"></circle>
+              <circle cx="6" cy="6" r="3"></circle>
+              <path d="M6 21V9a9 9 0 0 0 9 9"></path>
+            </svg>
+            <span class="sidebar__item-label">Agrupar OT</span>
+            <span class="sidebar__badge">pronto</span>
+          </button>
+          <button type="button" class="sidebar__item is-disabled" disabled title="Facturación · todavía no construido">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" x2="12" y1="2" y2="22"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            <span class="sidebar__item-label">Facturación</span>
+            <span class="sidebar__badge">pronto</span>
+          </button>
+          <button type="button" class="sidebar__item is-disabled" disabled title="Cliente · todavía no construido">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v18h18"></path>
+              <path d="M18 17V9"></path>
+              <path d="M13 17V5"></path>
+              <path d="M8 17v-3"></path>
+            </svg>
+            <span class="sidebar__item-label">Cliente</span>
+            <span class="sidebar__badge">pronto</span>
+          </button>
         </div>
       </div>
 
@@ -85,6 +128,14 @@
         </button>
         <button type="button" class="sidebar__pref-btn" id="toggle-densidad">Densidad: —</button>
       </div>
+
+      <button type="button" class="sidebar__collapse" id="toggle-sidebar" aria-label="Contraer barra lateral">
+        <svg class="sidebar__collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="13 17 18 12 13 7"></polyline>
+          <polyline points="6 17 11 12 6 7"></polyline>
+        </svg>
+        <span class="sidebar__collapse-label">Contraer</span>
+      </button>
     </aside>
 
     <main class="main">
@@ -100,11 +151,96 @@
     document.getElementById('drawer-root').innerHTML = '';
   }
 
+  // combo: buscador con sugerencias propio (reemplaza <input list> nativo,
+  // cuyo menu desplegable es UI del navegador/SO y no se puede alinear ni
+  // stylear para que quede debajo del recuadro como los <select>).
+  (function () {
+    function opcionesCatalogo() {
+      var dl = document.getElementById('ot-catalogo');
+      return dl ? Array.prototype.map.call(dl.options, function (o) { return o.value; }) : [];
+    }
+
+    function cerrarMenus(excepto) {
+      document.querySelectorAll('.combo__menu.is-abierto').forEach(function (menu) {
+        if (menu !== excepto) menu.classList.remove('is-abierto');
+      });
+    }
+
+    function pintarMenu(input) {
+      var menu = input.closest('.combo').querySelector('.combo__menu');
+      var q = input.value.trim().toLowerCase();
+      var opciones = opcionesCatalogo().filter(function (v) {
+        return !q || v.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 50);
+      if (!opciones.length) {
+        menu.classList.remove('is-abierto');
+        menu.innerHTML = '';
+        return;
+      }
+      menu.innerHTML = opciones.map(function (v) {
+        return '<div class="combo__item" role="option">' + v + '</div>';
+      }).join('');
+      menu.classList.add('is-abierto');
+    }
+
+    document.addEventListener('input', function (ev) {
+      if (ev.target.matches && ev.target.matches('.combo__input')) pintarMenu(ev.target);
+    });
+
+    document.addEventListener('focusin', function (ev) {
+      if (ev.target.matches && ev.target.matches('.combo__input')) pintarMenu(ev.target);
+    });
+
+    document.addEventListener('click', function (ev) {
+      var item = ev.target.closest && ev.target.closest('.combo__item');
+      if (item) {
+        var menu = item.closest('.combo__menu');
+        var input = menu.previousElementSibling;
+        input.value = item.textContent;
+        menu.classList.remove('is-abierto');
+        input.focus();
+        return;
+      }
+      if (!ev.target.closest || !ev.target.closest('.combo')) cerrarMenus();
+    });
+
+    document.addEventListener('keydown', function (ev) {
+      if (!ev.target.matches || !ev.target.matches('.combo__input')) return;
+      var menu = ev.target.closest('.combo').querySelector('.combo__menu');
+      if (!menu.classList.contains('is-abierto')) return;
+      var items = menu.querySelectorAll('.combo__item');
+      var activo = menu.querySelector('.combo__item.is-activo');
+      var idx = activo ? Array.prototype.indexOf.call(items, activo) : -1;
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        idx = Math.min(idx + 1, items.length - 1);
+      } else if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        idx = Math.max(idx - 1, 0);
+      } else if (ev.key === 'Enter') {
+        if (activo) {
+          ev.preventDefault();
+          ev.target.value = activo.textContent;
+          menu.classList.remove('is-abierto');
+        }
+        return;
+      } else if (ev.key === 'Escape') {
+        menu.classList.remove('is-abierto');
+        return;
+      } else {
+        return;
+      }
+      if (activo) activo.classList.remove('is-activo');
+      if (items[idx]) items[idx].classList.add('is-activo');
+    });
+  })();
+
   (function () {
     var html = document.documentElement;
     var body = document.body;
     var btnTema = document.getElementById('toggle-tema');
     var btnDensidad = document.getElementById('toggle-densidad');
+    var btnSidebar = document.getElementById('toggle-sidebar');
 
     function pintarTema() {
       btnTema.setAttribute('aria-checked', html.getAttribute('data-tema') === 'dark' ? 'true' : 'false');
@@ -112,8 +248,14 @@
     function pintarDensidad() {
       btnDensidad.textContent = 'Densidad: ' + (body.classList.contains('densa') ? 'compacta' : 'cómoda');
     }
+    function pintarSidebar() {
+      var colapsado = html.getAttribute('data-sidebar') === 'collapsed';
+      btnSidebar.querySelector('.sidebar__collapse-label').textContent = colapsado ? 'Expandir' : 'Contraer';
+      btnSidebar.setAttribute('aria-label', colapsado ? 'Expandir barra lateral' : 'Contraer barra lateral');
+    }
     pintarTema();
     pintarDensidad();
+    pintarSidebar();
 
     btnTema.addEventListener('click', function () {
       var next = html.getAttribute('data-tema') === 'dark' ? 'light' : 'dark';
@@ -128,6 +270,13 @@
       body.classList.toggle('comoda', densa);
       document.cookie = 'densidad=' + (densa ? '0' : '1') + '; path=/; max-age=31536000';
       pintarDensidad();
+    });
+
+    btnSidebar.addEventListener('click', function () {
+      var next = html.getAttribute('data-sidebar') === 'collapsed' ? 'expanded' : 'collapsed';
+      html.setAttribute('data-sidebar', next);
+      document.cookie = 'sidebar=' + next + '; path=/; max-age=31536000';
+      pintarSidebar();
     });
   })();
 </script>
