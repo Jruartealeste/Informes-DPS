@@ -839,64 +839,70 @@ button {
   letter-spacing: 0.04em;
   border-radius: 4px;
   padding: 3px 8px;
+  border: none;
 }
 .chip-fac {
   border: 1px solid transparent;
 }
 
+/* background-color (no el shorthand background) a proposito: en los
+   <select> de abajo el shorthand resetea background-image/position/size/
+   repeat a sus valores iniciales, lo que hace que el chevron propio (fijado
+   en el <select> global) se repita en mosaico sobre toda la caja en vez de
+   quedar como un icono chico a la derecha. */
 .chip-estado[data-valor="PARA_INICIAR"] {
-  background: var(--surface2);
+  background-color: var(--surface2);
   color: var(--muted);
 }
 .chip-estado[data-valor="EN_PROCESO"] {
-  background: var(--accent-soft);
+  background-color: var(--accent-soft);
   color: var(--accent-text);
 }
 .chip-estado[data-valor="PAUSADO"] {
-  background: var(--surface2);
+  background-color: var(--surface2);
   color: var(--faint);
 }
 .chip-estado[data-valor="PENDIENTE_OK"] {
-  background: var(--warn-soft);
+  background-color: var(--warn-soft);
   color: var(--warn-text);
 }
 .chip-estado[data-valor="FINALIZADO"],
 .chip-estado[data-valor="APROBADO"] {
-  background: var(--ok-soft);
+  background-color: var(--ok-soft);
   color: var(--ok-text);
 }
 .chip-estado[data-valor="SIN_ESTADO"] {
-  background: var(--surface2);
+  background-color: var(--surface2);
   color: var(--faint);
 }
 .chip-estado[data-valor="ANULADA"] {
-  background: var(--surface2);
+  background-color: var(--surface2);
   color: var(--ghost);
   text-decoration: line-through;
 }
 
 .chip-fac[data-valor="SIN_FACTURAR"] {
-  background: transparent;
+  background-color: transparent;
   color: var(--faint);
   border-color: var(--line-strong);
 }
 .chip-fac[data-valor="PARA_FACTURAR"] {
-  background: var(--accent);
+  background-color: var(--accent);
   color: var(--accent-ink);
   border-color: var(--accent);
 }
 .chip-fac[data-valor="FALTA_OK_CLIENTE"] {
-  background: var(--warn-soft);
+  background-color: var(--warn-soft);
   color: var(--warn-text);
   border-color: var(--warn-line);
 }
 .chip-fac[data-valor="FACTURADO"] {
-  background: var(--ok-soft);
+  background-color: var(--ok-soft);
   color: var(--ok-text);
   border-color: var(--ok);
 }
 .chip-fac[data-valor="NO_CORRESPONDE"] {
-  background: transparent;
+  background-color: transparent;
   color: var(--ghost);
   border-color: transparent;
 }
@@ -1045,6 +1051,26 @@ select.chip-fac {
 }
 .combo__input {
   width: 100%;
+  padding-right: 30px !important;
+}
+.combo__toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+}
+.combo__toggle:hover {
+  color: var(--text);
+}
+.combo__toggle svg {
+  width: 14px;
+  height: 14px;
 }
 .combo__menu {
   display: none;
@@ -1052,7 +1078,10 @@ select.chip-fac {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  max-height: 220px;
+  /* 6 filas completas (34px c/u: padding 7+7 + line-height 20) + padding
+     del menu (4px arriba/abajo) — evita cortar una fila a la mitad en el
+     borde inferior, que es lo que pasaba con un max-height arbitrario. */
+  max-height: 212px;
   overflow-y: auto;
   background: var(--raised);
   border: 1px solid var(--line-strong);
@@ -1068,12 +1097,42 @@ select.chip-fac {
   padding: 7px 10px;
   border-radius: 5px;
   font-size: 13px;
+  line-height: 20px;
   font-family: var(--mono);
   cursor: pointer;
 }
 .combo__item:hover,
 .combo__item.is-activo {
   background: var(--hover);
+}
+
+/* variante "select": mismo combo (input de busqueda con menu propio) pero
+   con un boton que solo muestra/elige entre opciones fijas, en vez de un
+   <input> de texto libre — reemplaza los <select> nativos de la sheet de
+   tarea para que compartan look con el combo de OT interna. */
+.combo--select {
+  width: 100%;
+}
+.combo__display {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  color: inherit;
+  background-color: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 8px 30px 8px 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.combo__display:focus-visible {
+  border-color: var(--accent);
+}
+.combo--select .combo__item {
+  font-family: inherit;
 }
 .field-ot__n {
   font-family: var(--mono);
@@ -1083,6 +1142,132 @@ select.chip-fac {
 .field-ot__cliente {
   font-size: 12px;
   color: var(--faint);
+}
+
+/* variante "multi": checklist con filtro + alta rápida (responsables) —
+   mismo combo--select de base, pero el menú es una lista tildable en vez de
+   un listado de opciones fijas de una sola elección. */
+.combo--multi {
+  width: 100%;
+}
+.combo__menu--multi.is-abierto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: none;
+  overflow: visible;
+}
+.combo__filtro {
+  width: 100%;
+  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+.combo__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 176px;
+  overflow-y: auto;
+}
+.combo__check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.combo__check-row:hover {
+  background: var(--hover);
+}
+.combo__check-row input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+.combo__check-row.is-inactivo {
+  color: var(--faint);
+}
+.combo__check-row__tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+.combo__vacio {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.combo__nuevo {
+  display: flex;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.combo__nuevo-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+.combo__gestionar {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+.combo__gestionar:hover {
+  color: var(--accent-text);
+}
+
+/* ---------- pantalla /responsables ---------- */
+
+.badge--activo {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.badge--inactivo {
+  background: var(--surface2);
+  color: var(--faint);
+}
+
+.resp-table {
+  min-width: 420px;
+}
+.resp-head {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 90px 110px;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.resp-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 90px 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.resp-row__nombre {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 8px;
+}
+.resp-row__nombre:hover,
+.resp-row__nombre:focus-visible {
+  background: var(--raised);
+  border-color: var(--line-strong);
 }
 
 .field-warn {

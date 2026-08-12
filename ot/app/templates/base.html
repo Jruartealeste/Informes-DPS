@@ -166,9 +166,9 @@
       });
     }
 
-    function pintarMenu(input) {
+    function pintarMenu(input, mostrarTodo) {
       var menu = input.closest('.combo').querySelector('.combo__menu');
-      var q = input.value.trim().toLowerCase();
+      var q = mostrarTodo ? '' : input.value.trim().toLowerCase();
       var opciones = opcionesCatalogo().filter(function (v) {
         return !q || v.toLowerCase().indexOf(q) !== -1;
       }).slice(0, 50);
@@ -183,30 +183,70 @@
       menu.classList.add('is-abierto');
     }
 
+    // el menu solo se abre por accion explicita (tipear o tocar el boton
+    // toggle) — nunca solo por hacer foco en el input, porque despues
+    // quedaba dificil de cerrar dentro de la sheet de nueva OT.
     document.addEventListener('input', function (ev) {
       if (ev.target.matches && ev.target.matches('.combo__input')) pintarMenu(ev.target);
     });
 
-    document.addEventListener('focusin', function (ev) {
-      if (ev.target.matches && ev.target.matches('.combo__input')) pintarMenu(ev.target);
-    });
+    // combo--select: variante de opciones fijas (reemplaza los <select>
+    // nativos de la sheet de tarea) — mismo menu propio, pero el "input" es
+    // un boton de solo lectura y las opciones ya vienen renderizadas por
+    // Jinja en vez de filtrarse desde un datalist.
+    function elegirOpcion(wrap, item) {
+      var display = wrap.querySelector('.combo__display');
+      var hidden = wrap.querySelector('.combo__hidden');
+      display.textContent = item.textContent;
+      hidden.value = item.getAttribute('data-valor') || '';
+    }
 
     document.addEventListener('click', function (ev) {
+      var toggle = ev.target.closest && (ev.target.closest('.combo__toggle') || ev.target.closest('.combo__display'));
+      if (toggle) {
+        var wrap = toggle.closest('.combo');
+        var menu = wrap.querySelector('.combo__menu');
+        var input = wrap.querySelector('.combo__input');
+        if (menu.classList.contains('is-abierto')) {
+          menu.classList.remove('is-abierto');
+        } else {
+          cerrarMenus(menu);
+          if (input) {
+            pintarMenu(input, true);
+            input.focus();
+          } else {
+            menu.classList.add('is-abierto');
+          }
+        }
+        return;
+      }
       var item = ev.target.closest && ev.target.closest('.combo__item');
       if (item) {
-        var menu = item.closest('.combo__menu');
-        var input = menu.previousElementSibling;
-        input.value = item.textContent;
-        menu.classList.remove('is-abierto');
-        input.focus();
+        var itemMenu = item.closest('.combo__menu');
+        var wrap = itemMenu.closest('.combo');
+        var itemInput = wrap.querySelector('.combo__input');
+        if (itemInput) {
+          itemInput.value = item.textContent;
+          itemMenu.classList.remove('is-abierto');
+          itemInput.focus();
+        } else {
+          elegirOpcion(wrap, item);
+          itemMenu.classList.remove('is-abierto');
+          wrap.querySelector('.combo__display').focus();
+        }
         return;
       }
       if (!ev.target.closest || !ev.target.closest('.combo')) cerrarMenus();
-    });
+    }, true); // captura: la sheet de tarea corta la propagacion del click
+    // en bubbling (onclick="event.stopPropagation()" en .drawer, para que
+    // clickear adentro no dispare el cierre por click-afuera del overlay)
 
     document.addEventListener('keydown', function (ev) {
-      if (!ev.target.matches || !ev.target.matches('.combo__input')) return;
-      var menu = ev.target.closest('.combo').querySelector('.combo__menu');
+      var esInput = ev.target.matches && ev.target.matches('.combo__input');
+      var esDisplay = ev.target.matches && ev.target.matches('.combo__display');
+      if (!esInput && !esDisplay) return;
+      var wrap = ev.target.closest('.combo');
+      var menu = wrap.querySelector('.combo__menu');
       if (!menu.classList.contains('is-abierto')) return;
       var items = menu.querySelectorAll('.combo__item');
       var activo = menu.querySelector('.combo__item.is-activo');
@@ -220,7 +260,11 @@
       } else if (ev.key === 'Enter') {
         if (activo) {
           ev.preventDefault();
-          ev.target.value = activo.textContent;
+          if (esInput) {
+            ev.target.value = activo.textContent;
+          } else {
+            elegirOpcion(wrap, activo);
+          }
           menu.classList.remove('is-abierto');
         }
         return;
@@ -232,6 +276,39 @@
       }
       if (activo) activo.classList.remove('is-activo');
       if (items[idx]) items[idx].classList.add('is-activo');
+    });
+
+    // combo--multi: variante con checkboxes (responsables) — a diferencia de
+    // combo--select (una opción fija), acá se tildan varias a la vez, así que
+    // el resumen del botón y el hidden que viaja al guardar se recalculan en
+    // el cliente en cada click de checkbox, sin ida y vuelta al servidor.
+    function pintarResumenMulti(wrap) {
+      var boton = wrap.querySelector('.combo__display');
+      var hidden = wrap.querySelector('.combo__hidden');
+      var marcados = Array.prototype.filter.call(
+        wrap.querySelectorAll('.combo__check-row input[type="checkbox"]'),
+        function (cb) { return cb.checked; }
+      );
+      hidden.value = marcados.map(function (cb) { return cb.value; }).join(',');
+      boton.textContent = marcados.length
+        ? marcados.map(function (cb) {
+            return cb.closest('.combo__check-row').querySelector('.combo__check-row__nombre').textContent;
+          }).join(' / ')
+        : 'Sin responsables';
+    }
+
+    document.addEventListener('change', function (ev) {
+      if (ev.target.matches && ev.target.matches('.combo--multi .combo__check-row input[type="checkbox"]')) {
+        pintarResumenMulti(ev.target.closest('.combo--multi'));
+      }
+    });
+
+    document.addEventListener('input', function (ev) {
+      if (!(ev.target.matches && ev.target.matches('.combo__filtro'))) return;
+      var q = ev.target.value.trim().toLowerCase();
+      ev.target.closest('.combo--multi').querySelectorAll('.combo__check-row').forEach(function (row) {
+        row.style.display = !q || row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+      });
     });
   })();
 

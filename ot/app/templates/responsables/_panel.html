@@ -1,0 +1,35 @@
+<div id="panel-responsables">
+  <form class="filters" hx-post="/responsables" hx-target="#panel-responsables" hx-swap="outerHTML">
+    <div class="filters__search">
+      <input type="text" name="nombre" placeholder="Nombre del responsable nuevo" required>
+    </div>
+    <button type="submit" class="btn btn--primary">+ Agregar</button>
+  </form>
+
+  <div class="table-scroll">
+    <div class="table-card resp-table">
+      <div class="table-head resp-head">
+        <div>Nombre</div><div>Estado</div><div></div>
+      </div>
+      {% for r in responsables %}
+      <div class="resp-row">
+        <input type="text" value="{{ r.nombre }}" class="field__value resp-row__nombre"
+               name="nombre" autocomplete="off"
+               hx-post="/responsables/{{ r.id }}/renombrar" hx-trigger="change"
+               hx-target="#panel-responsables" hx-swap="outerHTML">
+        <span class="badge {{ 'badge--activo' if r.activo else 'badge--inactivo' }}">
+          {{ 'Activo' if r.activo else 'Inactivo' }}
+        </span>
+        <button type="button" class="btn btn--small {{ 'btn--peligro' if r.activo else '' }}"
+                hx-post="/responsables/{{ r.id }}/toggle"
+                hx-target="#panel-responsables" hx-swap="outerHTML">
+          {{ 'Desactivar' if r.activo else 'Activar' }}
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+    {% if not responsables %}
+    <p class="empty-state">Todavía no hay responsables cargados.</p>
+    {% endif %}
+  </div>
+</div>

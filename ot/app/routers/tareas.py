@@ -17,6 +17,7 @@ from app.models import (
     TareaTipoTarea,
     TipoTarea,
 )
+from app.routers.responsables import combo_ctx, parse_ids
 from app.templating import templates
 from app.viewmodels import construir_grupos, puede_anular, tarea_vm
 
@@ -29,7 +30,7 @@ def _cargar_tareas(db: Session) -> list[Tarea]:
         .options(
             joinedload(Tarea.ot_interna),
             selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
-            selectinload(Tarea.responsables),
+            selectinload(Tarea.responsables).joinedload(TareaResponsable.responsable),
         )
         .order_by(Tarea.id)
     )
@@ -48,7 +49,7 @@ def _filtrar(
 
     def pasa(t: Tarea) -> bool:
         if ql:
-            responsables = " / ".join(r.nombre_libre for r in t.responsables)
+            responsables = " / ".join(r.responsable.nombre for r in t.responsables)
             tipos = ", ".join(tt.tipo_tarea.nombre for tt in t.tipos)
             haystack = " ".join(
                 [
@@ -65,7 +66,7 @@ def _filtrar(
             return False
         if f_fac and t.estado_facturacion.name != f_fac:
             return False
-        if f_resp and f_resp not in [r.nombre_libre for r in t.responsables]:
+        if f_resp and f_resp not in [r.responsable.nombre for r in t.responsables]:
             return False
         if revision:
             tiene_tipos = len(t.tipos) > 0
@@ -78,7 +79,7 @@ def _filtrar(
 
 
 def _opciones_responsables(tareas: list[Tarea]) -> list[str]:
-    nombres = {r.nombre_libre for t in tareas for r in t.responsables}
+    nombres = {r.responsable.nombre for t in tareas for r in t.responsables}
     return sorted(nombres)
 
 
@@ -166,19 +167,21 @@ def tarea_detalle(tarea_id: int, request: Request, db: Session = Depends(get_db)
         options=[
             joinedload(Tarea.ot_interna),
             selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
-            selectinload(Tarea.responsables),
+            selectinload(Tarea.responsables).joinedload(TareaResponsable.responsable),
         ],
     )
     todos_tipos = list(db.scalars(select(TipoTarea).order_by(TipoTarea.nombre)))
+    det = tarea_vm(t)
     return templates.TemplateResponse(
         request,
         "tareas/_detalle.html",
         {
-            "det": tarea_vm(t),
+            "det": det,
             "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
             "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
             "todos_tipos": [tt.nombre for tt in todos_tipos],
             "todos_ot_numeros": _todos_ot_numeros(db),
+            **combo_ctx(db, set(det["responsable_ids"])),
         },
     )
 
@@ -205,7 +208,7 @@ def _resolver_ot_interna(db: Session, numero: str) -> tuple[int | None, str | No
     return nueva.id, None
 
 
-def _guardar_tipos_responsables(db: Session, tarea: Tarea, tipos: list[str], responsables: list[str]):
+def _guardar_tipos_responsables(db: Session, tarea: Tarea, tipos: list[str], responsable_ids: set[int]):
     tarea.tipos.clear()
     for nombre in tipos:
         nombre = nombre.strip()
@@ -216,10 +219,8 @@ def _guardar_tipos_responsables(db: Session, tarea: Tarea, tipos: list[str], res
             tarea.tipos.append(TareaTipoTarea(tipo_tarea_id=tipo.id))
 
     tarea.responsables.clear()
-    for nombre in responsables:
-        nombre = nombre.strip()
-        if nombre:
-            tarea.responsables.append(TareaResponsable(nombre_libre=nombre))
+    for responsable_id in responsable_ids:
+        tarea.responsables.append(TareaResponsable(responsable_id=responsable_id))
 
 
 @router.post("/tareas")
@@ -235,7 +236,7 @@ def crear_tarea(
     estado_tarea: str = Form(""),
     estado_facturacion: str = Form(EstadoFacturacion.SIN_FACTURAR.name),
     tipos: str = Form(""),
-    responsables: str = Form(""),
+    responsable_ids: str = Form(""),
 ):
     ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero)
     tarea = Tarea(
@@ -255,7 +256,7 @@ def crear_tarea(
         db,
         tarea,
         [x for x in tipos.split(",") if x.strip()],
-        [x for x in responsables.split("/") if x.strip()],
+        parse_ids(responsable_ids),
     )
     db.commit()
 
@@ -276,7 +277,7 @@ def editar_tarea(
     estado_tarea: str = Form(""),
     estado_facturacion: str = Form(EstadoFacturacion.SIN_FACTURAR.name),
     tipos: str = Form(""),
-    responsables: str = Form(""),
+    responsable_ids: str = Form(""),
 ):
     tarea = db.get(Tarea, tarea_id)
     if tarea.ot_interna_id is None:
@@ -294,7 +295,7 @@ def editar_tarea(
         db,
         tarea,
         [x for x in tipos.split(",") if x.strip()],
-        [x for x in responsables.split("/") if x.strip()],
+        parse_ids(responsable_ids),
     )
     db.commit()
 
@@ -351,5 +352,6 @@ def form_nueva_tarea(request: Request, db: Session = Depends(get_db)):
             "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
             "todos_tipos": [tt.nombre for tt in todos_tipos],
             "todos_ot_numeros": _todos_ot_numeros(db),
+            **combo_ctx(db, set()),
         },
     )

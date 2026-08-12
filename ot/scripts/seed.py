@@ -18,6 +18,7 @@ from app.models import (
     EstadoOtInterna,
     EstadoTarea,
     OtInterna,
+    Responsable,
     Tarea,
     TareaResponsable,
     TareaTipoTarea,
@@ -148,6 +149,7 @@ def main() -> None:
         db.query(Tarea).delete()
         db.query(OtInterna).delete()
         db.query(TipoTarea).delete()
+        db.query(Responsable).delete()
         db.query(Cliente).delete()
         db.flush()
 
@@ -160,6 +162,19 @@ def main() -> None:
             tipo = TipoTarea(nombre=nombre)
             db.add(tipo)
             tipos_por_nombre[nombre] = tipo
+        db.flush()
+
+        nombres_responsables = {
+            nombre
+            for grupo in OTS
+            for f in grupo["t"]
+            for nombre in parse_responsables(f[4])
+        }
+        responsables_por_nombre = {}
+        for nombre in sorted(nombres_responsables):
+            responsable = Responsable(nombre=nombre, activo=True)
+            db.add(responsable)
+            responsables_por_nombre[nombre] = responsable
         db.flush()
 
         n_ots = 0
@@ -210,7 +225,8 @@ def main() -> None:
                         tarea.tipos.append(TareaTipoTarea(tipo_tarea_id=tipo.id))
 
                 for nombre_resp in parse_responsables(responsables_raw):
-                    tarea.responsables.append(TareaResponsable(nombre_libre=nombre_resp))
+                    responsable = responsables_por_nombre[nombre_resp]
+                    tarea.responsables.append(TareaResponsable(responsable_id=responsable.id))
 
                 n_tareas += 1
 

@@ -60,29 +60,51 @@
 
         <div class="field">
           <div class="field__label">Responsables</div>
-          <input type="text" name="responsables"
-                 value="{{ det.responsables | join(' / ') if det else '' }}"
-                 placeholder="nombre / nombre">
+          {% include "tareas/_campo_responsables.html" %}
         </div>
 
         {% if det and det.ot_asignada %}
         <div class="field-row">
           <div class="field">
             <div class="field__label">Estado</div>
-            <select name="estado_tarea">
-              <option value="" {{ "selected" if det and det.estado_tarea == "SIN_ESTADO" }}>—</option>
-              {% for valor, label in estados %}
-              <option value="{{ valor }}" {{ "selected" if det and det.estado_tarea == valor }}>{{ label }}</option>
-              {% endfor %}
-            </select>
+            {% set estado_actual = det.estado_tarea if det and det.estado_tarea != "SIN_ESTADO" else "" %}
+            {% set ns_estado = namespace(label="—") %}
+            {% for valor, label in estados %}{% if valor == estado_actual %}{% set ns_estado.label = label %}{% endif %}{% endfor %}
+            <div class="combo combo--select">
+              <button type="button" class="combo__display">{{ ns_estado.label }}</button>
+              <input type="hidden" class="combo__hidden" name="estado_tarea" value="{{ estado_actual }}">
+              <button type="button" class="combo__toggle" aria-label="Mostrar estados">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              <div class="combo__menu">
+                <div class="combo__item" data-valor="">—</div>
+                {% for valor, label in estados %}
+                <div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>
+                {% endfor %}
+              </div>
+            </div>
           </div>
           <div class="field">
             <div class="field__label">Facturación</div>
-            <select name="estado_facturacion">
-              {% for valor, label in facturaciones %}
-              <option value="{{ valor }}" {{ "selected" if det and det.estado_facturacion == valor }}>{{ label }}</option>
-              {% endfor %}
-            </select>
+            {% set facturacion_actual = det.estado_facturacion if det else facturaciones[0][0] %}
+            {% set ns_fac = namespace(label="") %}
+            {% for valor, label in facturaciones %}{% if valor == facturacion_actual %}{% set ns_fac.label = label %}{% endif %}{% endfor %}
+            <div class="combo combo--select">
+              <button type="button" class="combo__display">{{ ns_fac.label }}</button>
+              <input type="hidden" class="combo__hidden" name="estado_facturacion" value="{{ facturacion_actual }}">
+              <button type="button" class="combo__toggle" aria-label="Mostrar facturación">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              <div class="combo__menu">
+                {% for valor, label in facturaciones %}
+                <div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>
+                {% endfor %}
+              </div>
+            </div>
           </div>
         </div>
         {% else %}
@@ -98,11 +120,23 @@
           </div>
           <div class="field field--fixed">
             <div class="field__label">Presupuestado</div>
-            <select name="presupuestado">
-              <option value="" {{ "selected" if det and det.presupuestado is none }}>—</option>
-              <option value="si" {{ "selected" if det and det.presupuestado == true }}>Si</option>
-              <option value="no" {{ "selected" if det and det.presupuestado == false }}>No</option>
-            </select>
+            {% set presu_actual = det.presupuestado if det else none %}
+            {% set presu_valor = "" if presu_actual is none else ("si" if presu_actual else "no") %}
+            {% set presu_label = "—" if presu_actual is none else ("Si" if presu_actual else "No") %}
+            <div class="combo combo--select">
+              <button type="button" class="combo__display">{{ presu_label }}</button>
+              <input type="hidden" class="combo__hidden" name="presupuestado" value="{{ presu_valor }}">
+              <button type="button" class="combo__toggle" aria-label="Mostrar opciones">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              <div class="combo__menu">
+                <div class="combo__item" data-valor="">—</div>
+                <div class="combo__item" data-valor="si">Si</div>
+                <div class="combo__item" data-valor="no">No</div>
+              </div>
+            </div>
           </div>
         </div>
 

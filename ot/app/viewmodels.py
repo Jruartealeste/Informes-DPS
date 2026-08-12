@@ -15,7 +15,7 @@ def puede_anular(t: Tarea) -> bool:
 
 
 def tarea_vm(t: Tarea) -> dict:
-    responsables = [r.nombre_libre for r in t.responsables]
+    responsables = [r.responsable.nombre for r in t.responsables]
     tipos = [tt.tipo_tarea.nombre for tt in t.tipos]
     presup_label = "—"
     if t.presupuestado is True:
@@ -34,6 +34,7 @@ def tarea_vm(t: Tarea) -> dict:
         "pedido_por": t.pedido_por or "—",
         "responsables": responsables,
         "responsables_label": " / ".join(responsables) if responsables else "—",
+        "responsable_ids": [r.responsable_id for r in t.responsables],
         "link_drive": t.link_drive,
         "presup_label": presup_label,
         "estado_tarea": t.estado_tarea.name if t.estado_tarea else "SIN_ESTADO",

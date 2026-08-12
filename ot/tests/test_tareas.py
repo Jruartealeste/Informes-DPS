@@ -1,4 +1,4 @@
-from app.models import Cliente, EstadoFacturacion, EstadoOtInterna, EstadoTarea, OtInterna, Tarea
+from app.models import Cliente, EstadoFacturacion, EstadoOtInterna, EstadoTarea, OtInterna, Responsable, Tarea
 
 
 def test_lista_vacia(client):
@@ -8,6 +8,9 @@ def test_lista_vacia(client):
 
 
 def test_crear_tarea_nueva_ot(client, db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+    juli = db_session.query(Responsable).filter_by(nombre="juli").one()
+
     r = client.post(
         "/tareas",
         data={
@@ -16,7 +19,7 @@ def test_crear_tarea_nueva_ot(client, db_session):
             "fecha_pedido": "2026-08-01",
             "pedido_por": "marina",
             "tipos": "diseño",
-            "responsables": "fer / juli",
+            "responsable_ids": f"{fer.id},{juli.id}",
             "estado_facturacion": "SIN_FACTURAR",
         },
     )
@@ -27,7 +30,7 @@ def test_crear_tarea_nueva_ot(client, db_session):
     ot = db_session.query(OtInterna).filter_by(numero_interno="4200").one()
     assert ot.estado == EstadoOtInterna.ABIERTA
     tarea = db_session.query(Tarea).filter_by(ot_interna_id=ot.id).one()
-    assert [r.nombre_libre for r in tarea.responsables] == ["fer", "juli"]
+    assert sorted(r.responsable.nombre for r in tarea.responsables) == ["fer", "juli"]
 
 
 def test_tarea_con_ot_ambigua_no_crea_ot_interna(client, db_session):

@@ -47,6 +47,14 @@ class TipoTarea(Base):
     nombre: Mapped[str] = mapped_column(String(40), unique=True)
 
 
+class Responsable(Base):
+    __tablename__ = "responsables"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), unique=True)
+    activo: Mapped[bool] = mapped_column(default=True)
+
+
 class OtInterna(Base):
     __tablename__ = "ot_interna"
 
@@ -107,10 +115,11 @@ class TareaTipoTarea(Base):
 
 class TareaResponsable(Base):
     __tablename__ = "tarea_responsables"
-    __table_args__ = (UniqueConstraint("tarea_id", "nombre_libre"),)
+    __table_args__ = (UniqueConstraint("tarea_id", "responsable_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tarea_id: Mapped[int] = mapped_column(ForeignKey("tareas.id"))
-    nombre_libre: Mapped[str] = mapped_column(String(80))
+    responsable_id: Mapped[int] = mapped_column(ForeignKey("responsables.id"))
 
     tarea: Mapped["Tarea"] = relationship(back_populates="responsables")
+    responsable: Mapped["Responsable"] = relationship()

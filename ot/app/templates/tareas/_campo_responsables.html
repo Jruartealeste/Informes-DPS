@@ -1,0 +1,33 @@
+<div class="combo combo--select combo--multi">
+  <button type="button" class="combo__display">{{ resp_resumen }}</button>
+  <input type="hidden" class="combo__hidden" name="responsable_ids" value="{{ resp_sel_csv }}">
+  <button type="button" class="combo__toggle" aria-label="Mostrar responsables">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+  </button>
+  <div class="combo__menu combo__menu--multi{{ ' is-abierto' if abierto }}">
+    <input type="text" class="combo__filtro" placeholder="Buscar…" autocomplete="off">
+    <div class="combo__lista">
+      {% for r in responsables_todos %}
+      <label class="combo__check-row{{ ' is-inactivo' if not r.activo }}">
+        <input type="checkbox" value="{{ r.id }}" {{ "checked" if r.id in resp_sel }}>
+        <span class="combo__check-row__nombre">{{ r.nombre }}</span>
+        {% if not r.activo %}<span class="combo__check-row__tag">inactivo</span>{% endif %}
+      </label>
+      {% endfor %}
+      {% if not responsables_todos %}
+      <div class="combo__vacio">Sin responsables todavía — creá el primero abajo.</div>
+      {% endif %}
+    </div>
+    <div class="combo__nuevo">
+      <input type="text" name="nombre" class="combo__nuevo-input" placeholder="+ nuevo responsable" autocomplete="off">
+      <button type="button" class="btn btn--small"
+              hx-post="/api/responsables" hx-include="closest .combo--multi"
+              hx-target="closest .combo--multi" hx-swap="outerHTML">
+        Agregar
+      </button>
+    </div>
+    <a href="/responsables" target="_blank" class="combo__gestionar">Gestionar responsables →</a>
+  </div>
+</div>

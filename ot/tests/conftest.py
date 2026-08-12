@@ -9,12 +9,14 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_db
 from app.main import app
-from app.models import Cliente, TipoTarea
+from app.models import Cliente, Responsable, TipoTarea
 
 TIPOS_TAREA = [
     "diseño", "redaccion", "produccion", "estrategia",
     "campania", "gestion", "mant_web", "pautas_medios", "otro",
 ]
+
+RESPONSABLES = ["fer", "juli"]
 
 
 @pytest.fixture
@@ -31,6 +33,8 @@ def db_session():
     session.add(Cliente(nombre="ALUAR", anunciante_advertys="ALUAR ALUMINIO ARG."))
     for nombre in TIPOS_TAREA:
         session.add(TipoTarea(nombre=nombre))
+    for nombre in RESPONSABLES:
+        session.add(Responsable(nombre=nombre, activo=True))
     session.commit()
 
     def override_get_db():
