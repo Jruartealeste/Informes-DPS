@@ -720,11 +720,19 @@ compartido de `tools/advertys_session.py`), carga cada export en
 `generate_dashboard.py`. Un fallo puntual en un módulo no aborta el resto
 — el resumen final indica qué quedó OK y qué falló.
 
-**IIBB queda deliberadamente afuera** (sin `export.py` propio): su export
-es mucho más pesado (~22.700 filas vs. cientos en el resto) y tiene
-además su propio crawl lento (`crawl_oc_por_factura.py`). Se sigue
-actualizando a mano con `modules/iibb/ingest.py` + su
-`generate_html_report.py`, igual que siempre.
+**IIBB tiene su propio `export.py` (desde 2026-08-12) pero queda
+deliberadamente afuera de `tools.actualizar_todo`**: su export es mucho
+más pesado (~22.700 filas vs. cientos en el resto) y tiene además su
+propio crawl lento (`crawl_oc_por_factura.py`), así que no tiene sentido
+en el refresh diario de todo el resto. Se actualiza aparte, a demanda,
+con `python -m modules.iibb.export` (login + Consultas > Contabilidad >
+Imputaciones + filtro "Todos" + descarga, mismo patrón que los demás)
+seguido de `modules/iibb/ingest.py` + `generate_html_report.py` — ver el
+caso especial IIBB en `workflows/actualizar_informe.md`. El combo de
+Filtro de esta vista tiene un ID inestable entre corridas (cambió de
+`_a3_` a `_a5_` entre el 2026-07-23 y el 2026-08-12 sin aviso de
+Advertys); `export.py` corta con error en vez de exportar en silencio si
+no logra confirmar que el filtro quedó en "Todos".
 
 Si Advertys está caído o preferís cargar un Excel puntual a mano, el
 flujo manual de `ingest.py` + `generate_html_report.py` por módulo (ver

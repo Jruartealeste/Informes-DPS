@@ -42,14 +42,6 @@ from . import config
 
 MESES_VENTANA = 6
 
-# barChartSvg escala su viewBox a ancho variable (max(560, n*70)); hbarChartSvg
-# usa ancho fijo (760). A igual alto de viewBox, esa diferencia de ancho hace
-# que -una vez escalados al mismo ancho de card- el bar chart salga mas alto
-# que el hbar. Con la ventana fija de 6-7 meses de este informe el bar chart
-# siempre cae en el piso de ancho (560), asi que escalar el alto del hbar por
-# 760/560 iguala la altura renderizada de los dos charts que van lado a lado.
-HBAR_HEIGHT_MATCH_BAR = round(260 * 760 / 560)
-
 
 def _fmt_money(v: float) -> str:
     return f"$ {v:,.0f}".replace(",", ".")
@@ -167,10 +159,6 @@ def main():
             {"label": "Monto OC/OP deducible", "kind": "sum", "field": "monto_deducible", "fmt": "money"},
             {"label": "Base imponible IIBB neta", "kind": "sum", "field": "base_imponible", "fmt": "money"},
         ],
-        "charts": [
-            {"mount": "chart-mes", "type": "bar", "groupBy": "_periodo", "agg": "sum", "field": "monto_deducible", "fmt": "money"},
-            {"mount": "chart-clientes", "type": "hbar", "groupBy": "cliente", "agg": "sum", "field": "monto_deducible", "fmt": "money", "topN": 10, "height": HBAR_HEIGHT_MATCH_BAR},
-        ],
         "tables": [
             {
                 "mount": "tabla-facturas",
@@ -188,8 +176,6 @@ def main():
     secciones = "".join([
         hr.filter_bar_html(),
         hr.stat_tiles_mount(),
-        hr.section("Monto OC/OP deducible por mes", hr.mount("chart-mes")),
-        hr.section("Top 10 clientes por monto OC/OP deducible", hr.mount("chart-clientes")),
         hr.section("Detalle por factura", hr.mount("tabla-facturas"), wide=True),
         hr.dashboard_bundle(records, spec),
     ])

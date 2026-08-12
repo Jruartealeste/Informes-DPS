@@ -45,6 +45,14 @@ from common import normalizar_numero
 
 load_dotenv()
 
+# La consola de Windows usa cp1252 por default: algunos mensajes de error de
+# Playwright traen caracteres (ej. "↵") que no son representables ahi y
+# tiraban UnicodeEncodeError al hacer print() dentro del except -- eso
+# escapaba el try/except de la fila y abortaba todo el crawl a mitad de
+# camino (detectado en vivo 2026-08-12, factura 000500000536).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 URL = os.environ.get("ADVERTYS_URL")
 USER = os.environ.get("ADVERTYS_USER")
 PASSWORD = os.environ.get("ADVERTYS_PASSWORD")
@@ -370,6 +378,7 @@ def main():
         page = browser.new_page(accept_downloads=True)
         login(page)
 
+        errores_seguidos = 0
         for i, numero_referencia in enumerate(facturas, 1):
             print(f"  [{i}/{len(facturas)}] Factura {numero_referencia}...")
             try:
@@ -417,8 +426,27 @@ def main():
                     resultados.extend(items)
                     con_oc = sum(1 for it in items if it["numero_oc"])
                     print(f"    -> [{tipo_inferido}] {len(items)} item(s), {con_oc} con N° de OC/OP")
+                errores_seguidos = 0
             except Exception as e:
                 print(f"    ERROR revisando factura {numero_referencia}: {e}")
+                errores_seguidos += 1
+                # 3 fallos seguidos = la sesion quedo en un estado roto (visto
+                # en vivo 2026-08-12: tras un timeout de click, TODAS las
+                # facturas siguientes fallaban con "no se encontro el
+                # buscador", sin recuperarse solas). Relogin fresco en vez de
+                # seguir gastando el resto de la corrida en fallos garantizados.
+                if errores_seguidos == 3:
+                    print("    3 fallos seguidos -- reintentando login para recuperar la sesion...")
+                    try:
+                        page.screenshot(path=str(SCREENSHOT_DIR / f"cobranza_crawl_error_sesion_{numero_referencia}.png"), full_page=True)
+                    except Exception:
+                        pass
+                    try:
+                        login(page)
+                        errores_seguidos = 0
+                        print("    Login recuperado, sigo con la siguiente factura.")
+                    except Exception as e2:
+                        print(f"    ERROR: no se pudo recuperar la sesion: {e2}")
                 continue
 
         browser.close()

@@ -1,10 +1,9 @@
 """
-Refresh completo y automatico del dashboard: para cada modulo con
-export.py (todos salvo IIBB, que queda deliberadamente afuera por ser
-mucho mas pesado -- ver README) hace login a Advertys, exporta el ultimo
-listado, lo carga en advertys.db, y al final regenera todos los informes
-y el dashboard. Reemplaza el paso manual de "bajar el Excel a mano" del
-skill refresh-dashboard.
+Refresh completo y automatico del dashboard: para cada modulo de esta
+lista hace login a Advertys, exporta el ultimo listado, lo carga en
+advertys.db, y al final regenera todos los informes y el dashboard.
+Reemplaza el paso manual de "bajar el Excel a mano" del skill
+refresh-dashboard.
 
 Un fallo en un modulo puntual (ej. Advertys renombro una columna) no
 aborta el resto: se loggea y se sigue con los demas. Los informes se
@@ -12,9 +11,13 @@ regeneran siempre al final, incluso si algun modulo fallo, porque leen
 lo que ya este en advertys.db (dato no tan fresco para ese modulo, pero
 valido).
 
-IIBB, y el crawl opcional de items_pendientes_oc
+IIBB (que ya tiene su propio modules/iibb/export.py desde 2026-08-12,
+pero se dispara aparte a demanda -- ver workflows/actualizar_informe.md),
+y el crawl opcional de items_pendientes_oc
 (modules/ordenes_trabajo/crawl_items_pendientes.py), quedan fuera de
-este script a proposito -- se siguen actualizando aparte.
+este script a proposito -- su export es mucho mas pesado (~22.700 filas
+vs. cientos en el resto) y no hace falta refrescarlo con la misma
+frecuencia que el resto.
 
 Uso (desde la raiz del proyecto, con -m para que 'modules' sea importable):
     python -m tools.actualizar_todo
