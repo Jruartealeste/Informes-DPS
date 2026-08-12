@@ -1,0 +1,15 @@
+<div class="drawer-overlay" onclick="cerrarSheet2(event)">
+  <div class="drawer" onclick="event.stopPropagation()">
+    <div class="drawer__header">
+      <div style="min-width:0">
+        <div class="drawer__kicker">Catálogo</div>
+        <div class="drawer__title">Responsables</div>
+      </div>
+      <div class="page-header__spacer"></div>
+      <button type="button" class="drawer__close" onclick="cerrarSheet2(event)">✕</button>
+    </div>
+    <div class="drawer__body">
+      {% include "responsables/_panel.html" %}
+    </div>
+  </div>
+</div>

@@ -73,9 +73,13 @@ def _listar_todos(db: Session) -> list[Responsable]:
 
 @router.get("/responsables")
 def listar_responsables(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(
-        request, "responsables/list.html", {"responsables": _listar_todos(db)}
-    )
+    ctx = {"responsables": _listar_todos(db)}
+    if request.headers.get("HX-Request"):
+        # abierto como sheet apilada sobre otra sheet (ver "Gestionar
+        # responsables" en tareas/_campo_responsables.html) — solo el
+        # fragmento, no la pagina completa con su propio <html>/sidebar.
+        return templates.TemplateResponse(request, "responsables/_sheet.html", ctx)
+    return templates.TemplateResponse(request, "responsables/list.html", ctx)
 
 
 @router.post("/responsables")
@@ -97,6 +101,19 @@ def renombrar_responsable(
     nombre = nombre.strip()
     if r and nombre:
         r.nombre = nombre
+        db.commit()
+    return templates.TemplateResponse(
+        request, "responsables/_panel.html", {"responsables": _listar_todos(db)}
+    )
+
+
+@router.post("/responsables/{responsable_id}/mail")
+def editar_mail_responsable(
+    responsable_id: int, request: Request, db: Session = Depends(get_db), mail: str = Form("")
+):
+    r = db.get(Responsable, responsable_id)
+    if r:
+        r.mail = mail.strip() or None
         db.commit()
     return templates.TemplateResponse(
         request, "responsables/_panel.html", {"responsables": _listar_todos(db)}

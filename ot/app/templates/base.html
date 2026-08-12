@@ -141,6 +141,7 @@
     <main class="main">
       {% block content %}{% endblock %}
       <div id="drawer-root"></div>
+      <div id="sheet-2-root"></div>
     </main>
   </div>
 </div>
@@ -149,6 +150,26 @@
   function cerrarDrawer(ev) {
     if (ev) ev.stopPropagation();
     document.getElementById('drawer-root').innerHTML = '';
+  }
+
+  // sheet-2: capa apilada sobre el drawer principal (ej. "Gestionar
+  // responsables" abierto desde adentro de la sheet de tarea) — se cierra
+  // sola sin tocar #drawer-root, para volver a la sheet de abajo tal cual
+  // estaba.
+  function cerrarSheet2(ev) {
+    if (ev) ev.stopPropagation();
+    document.getElementById('sheet-2-root').innerHTML = '';
+  }
+
+  // gestor de responsables: el icono de lápiz revela/oculta el campo de
+  // mail de esa fila nada más (sin ida y vuelta al servidor) — el mail
+  // recién se guarda al tipear y salir del campo.
+  function toggleMailResponsable(btn) {
+    var row = btn.closest('.resp-row');
+    row.classList.toggle('is-editando-mail');
+    if (row.classList.contains('is-editando-mail')) {
+      row.querySelector('.resp-row__mail input').focus();
+    }
   }
 
   // combo: buscador con sugerencias propio (reemplaza <input list> nativo,
