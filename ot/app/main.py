@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import ordenes_trabajo, responsables, tareas
+from app.routers import mail, ordenes_trabajo, responsables, tareas
 
 app = FastAPI(title="Órdenes de trabajo")
 
@@ -14,3 +14,4 @@ app.mount(
 app.include_router(tareas.router)
 app.include_router(ordenes_trabajo.router)
 app.include_router(responsables.router)
+app.include_router(mail.router)

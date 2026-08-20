@@ -144,6 +144,27 @@
           <div class="factura-block__label">Número de factura</div>
           <div class="factura-block__nota">Se completa en Fase 2, cuando Advertys devuelve el CAE.</div>
         </div>
+
+        {% if det and det.mails %}
+        <div class="field">
+          <div class="field__label">Mails enviados</div>
+          <div class="mail-historial">
+            {% for m in det.mails %}
+            <details class="mail-historial__item{{ ' is-error' if m.estado == 'ERROR' }}">
+              <summary>
+                <span>{{ m.enviado_en_label }} · {{ m.asunto }}</span>
+                <span class="mail-historial__estado">{{ "Enviado" if m.estado == "ENVIADO" else "Error" }}</span>
+              </summary>
+              <div class="mail-historial__cuerpo">
+                <div class="field-hint">Para: {{ m.destinatarios }}</div>
+                {% if m.error_detalle %}<div class="field-hint">{{ m.error_detalle }}</div>{% endif %}
+                <pre>{{ m.cuerpo }}</pre>
+              </div>
+            </details>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
 
       <div class="drawer__footer">
@@ -151,6 +172,12 @@
         <button type="button" class="btn" onclick="cerrarDrawer(event)">Cancelar</button>
         <div class="drawer__footer-spacer"></div>
         {% if det %}
+        {% set hay_mail = det.responsables_con_mail | selectattr('mail') | list | length > 0 %}
+        <button type="button" class="btn"
+                {% if not hay_mail %}disabled title="Ningún responsable de esta tarea tiene mail cargado"{% endif %}
+                hx-get="/tareas/{{ det.id }}/mail" hx-target="#sheet-2-root" hx-swap="innerHTML">
+          Enviar mail
+        </button>
         <button type="button" class="btn btn--peligro"
                 {% if not det.puede_anular %}disabled title="{{ 'Ya anulada' if det.estado_tarea == 'ANULADA' else 'No se puede anular: ya finalizada o facturada' }}"{% endif %}
                 hx-post="/tareas/{{ det.id }}/anular" hx-target="#tabla-tareas" hx-swap="outerHTML"

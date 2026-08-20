@@ -31,6 +31,7 @@ def _cargar_tareas(db: Session) -> list[Tarea]:
             joinedload(Tarea.ot_interna),
             selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
             selectinload(Tarea.responsables).joinedload(TareaResponsable.responsable),
+            selectinload(Tarea.mails),
         )
         .order_by(Tarea.id)
     )
@@ -159,31 +160,39 @@ def tareas_partial(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "tareas/_tabla_swap.html", ctx)
 
 
-@router.get("/tareas/{tarea_id}")
-def tarea_detalle(tarea_id: int, request: Request, db: Session = Depends(get_db)):
-    t = db.get(
+def cargar_tarea_con_relaciones(db: Session, tarea_id: int) -> Tarea:
+    return db.get(
         Tarea,
         tarea_id,
         options=[
             joinedload(Tarea.ot_interna),
             selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
             selectinload(Tarea.responsables).joinedload(TareaResponsable.responsable),
+            selectinload(Tarea.mails),
         ],
     )
+
+
+def contexto_detalle(db: Session, tarea_id: int) -> dict:
+    """Contexto de tareas/_detalle.html — compartido con app/routers/mail.py
+    para poder refrescar el drawer después de mandar un mail sin duplicar
+    este armado."""
+    t = cargar_tarea_con_relaciones(db, tarea_id)
     todos_tipos = list(db.scalars(select(TipoTarea).order_by(TipoTarea.nombre)))
     det = tarea_vm(t)
-    return templates.TemplateResponse(
-        request,
-        "tareas/_detalle.html",
-        {
-            "det": det,
-            "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
-            "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-            "todos_tipos": [tt.nombre for tt in todos_tipos],
-            "todos_ot_numeros": _todos_ot_numeros(db),
-            **combo_ctx(db, set(det["responsable_ids"])),
-        },
-    )
+    return {
+        "det": det,
+        "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
+        "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
+        "todos_tipos": [tt.nombre for tt in todos_tipos],
+        "todos_ot_numeros": _todos_ot_numeros(db),
+        **combo_ctx(db, set(det["responsable_ids"])),
+    }
+
+
+@router.get("/tareas/{tarea_id}")
+def tarea_detalle(tarea_id: int, request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(request, "tareas/_detalle.html", contexto_detalle(db, tarea_id))
 
 
 def _resolver_ot_interna(db: Session, numero: str) -> tuple[int | None, str | None]:

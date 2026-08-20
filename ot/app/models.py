@@ -30,6 +30,11 @@ class EstadoOtInterna(str, enum.Enum):
     CERRADA = "CERRADA"
 
 
+class EstadoMail(str, enum.Enum):
+    ENVIADO = "ENVIADO"
+    ERROR = "ERROR"
+
+
 class Cliente(Base):
     __tablename__ = "clientes"
 
@@ -100,6 +105,9 @@ class Tarea(Base):
     responsables: Mapped[list["TareaResponsable"]] = relationship(
         back_populates="tarea", cascade="all, delete-orphan"
     )
+    mails: Mapped[list["TareaMail"]] = relationship(
+        back_populates="tarea", cascade="all, delete-orphan", order_by="TareaMail.enviado_en.desc()"
+    )
 
 
 class TareaTipoTarea(Base):
@@ -124,3 +132,22 @@ class TareaResponsable(Base):
 
     tarea: Mapped["Tarea"] = relationship(back_populates="responsables")
     responsable: Mapped["Responsable"] = relationship()
+
+
+class TareaMail(Base):
+    """Registro de cada mail redactado y mandado a los responsables de una
+    tarea — queda guardado el cuerpo completo, no solo que "se mandó"."""
+
+    __tablename__ = "tarea_mails"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tarea_id: Mapped[int] = mapped_column(ForeignKey("tareas.id"))
+    destinatarios: Mapped[str] = mapped_column(String(500))
+    asunto: Mapped[str] = mapped_column(String(300))
+    cuerpo: Mapped[str] = mapped_column(Text)
+    estado: Mapped[EstadoMail] = mapped_column(default=EstadoMail.ENVIADO)
+    error_detalle: Mapped[str | None] = mapped_column(Text)
+    gmail_message_id: Mapped[str | None] = mapped_column(String(100))
+    enviado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    tarea: Mapped["Tarea"] = relationship(back_populates="mails")

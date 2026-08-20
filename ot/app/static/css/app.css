@@ -1323,6 +1323,47 @@ select.chip-fac {
   margin-top: 5px;
 }
 
+.mail-historial {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mail-historial__item {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+}
+.mail-historial__item summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.mail-historial__item summary::-webkit-details-marker {
+  display: none;
+}
+.mail-historial__estado {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ok-text);
+}
+.mail-historial__item.is-error .mail-historial__estado {
+  color: var(--warn-text);
+}
+.mail-historial__cuerpo {
+  padding: 0 12px 10px;
+  border-top: 1px solid var(--line-soft);
+}
+.mail-historial__cuerpo pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;

@@ -306,6 +306,55 @@ Tablas:
     `app/routers/tareas.py` (`POST /tareas/{id}/anular`),
     `app/templates/tareas/_campo_ot.html` y `_detalle.html`.
 
+## Decisiones confirmadas con Javier (2026-08-20)
+
+- **Mail a responsables desde el drawer de tarea — implementado (Fase 1,
+  remitente único).** Botón "Enviar mail" en el footer del drawer de
+  tarea (deshabilitado si ningún responsable de la tarea tiene
+  `responsables.mail` cargado, sumado 2026-08-12) abre una sheet apilada
+  (`app/templates/tareas/_mail_sheet.html`) con destinatarios
+  (checkboxes, precargados con los responsables que tienen mail; los que
+  no tienen se listan aparte con acceso directo a cargárselo), asunto y
+  cuerpo prellenados desde los datos de la tarea (OT, cliente, detalle,
+  link Drive) y completamente editables — ahí se redacta el detalle más
+  largo. Al mandar, queda guardado en `tarea_mails` (asunto + cuerpo +
+  destinatarios + estado + `gmail_message_id`) y se ve en una sección
+  "Mails enviados" colapsable dentro del drawer. Envío por tarea
+  individual (no agrupado por OT, según lo decidido).
+  - Mecanismo: **Gmail API con OAuth** (no SMTP), remitente único = vos.
+    `app/gmail_client.py` refresca el access token a partir de un refresh
+    token fijo (`GMAIL_REFRESH_TOKEN` en el `.env` del server, obtenido
+    una vez corriendo `python -m scripts.gmail_authorize` a mano — pide
+    `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` de una credencial OAuth tipo
+    Desktop app en un proyecto de Google Cloud con la Gmail API
+    habilitada y consent screen tipo Interno) y postea directo contra
+    `users.messages.send` de la API REST (sin sumar
+    `google-api-python-client`, alcanza con `google-auth` + `httpx`).
+    Settings opcionales en `app/config.py` — si faltan, el envío falla
+    con mensaje claro ("Falta configurar…") en vez de romper el arranque
+    de la app; probado así en dev (sin credenciales todavía) y el error
+    queda igual guardado en el historial.
+  - **Pendiente, no empezar sin decisión explícita:** que cada usuario de
+    la app conecte su propia cuenta Gmail y mande en su nombre (en vez de
+    todo saliendo como vos). No se puede construir todavía porque depende
+    de que exista login (roadmap ítem 4 abajo, sin implementar) — sin
+    usuarios de la app no hay a quién atarle un refresh token propio.
+    `app/gmail_client.py` ya expone `enviar_mail(destinatarios, asunto,
+    cuerpo)` como función de nivel de módulo (no una clase atada a "el
+    remitente"), para que agregar el parámetro de remitente después sea
+    un cambio chico. Diseño pensado para cuando se retome: botón
+    self-service "Conectar Gmail" (flujo OAuth por navegador, scope
+    `gmail.send` incremental sobre la cuenta `@aleste.ar` de quien está
+    logueado), refresh token por usuario cifrado en la base
+    (`MAIL_TOKEN_ENC_KEY`), botón "Enviar mail" deshabilitado si el
+    usuario todavía no conectó su cuenta.
+  - **Falta para que funcione en la práctica (a hacer vos):** crear el
+    proyecto de Google Cloud + credencial OAuth y correr `python -m
+    scripts.gmail_authorize` una vez para obtener el refresh token — sin
+    eso el botón manda pero guarda el intento como error (probado en
+    dev). Ver también migración `c07737c98c23_agrega_tarea_mails.py`
+    (aplicada ya en la base de dev de Neon).
+
 ## Roadmap inmediato
 
 1. **Relevamiento de solo lectura del formulario "Nueva OT" en Advertys**

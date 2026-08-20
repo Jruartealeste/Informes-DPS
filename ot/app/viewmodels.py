@@ -14,6 +14,28 @@ def puede_anular(t: Tarea) -> bool:
     return t.estado_facturacion not in (EstadoFacturacion.FACTURADO, EstadoFacturacion.PARA_FACTURAR)
 
 
+def mail_vm(m) -> dict:
+    return {
+        "id": m.id,
+        "destinatarios": m.destinatarios,
+        "asunto": m.asunto,
+        "cuerpo": m.cuerpo,
+        "estado": m.estado.name,
+        "error_detalle": m.error_detalle,
+        "enviado_en_label": m.enviado_en.strftime("%d/%m %H:%M"),
+    }
+
+
+def responsables_con_mail(t: Tarea) -> list[dict]:
+    """Responsables de la tarea con su mail — separa los que tienen mail
+    cargado (destinatarios posibles) de los que no (para avisar en el
+    composer en vez de mandarles nada)."""
+    return [
+        {"id": r.responsable_id, "nombre": r.responsable.nombre, "mail": r.responsable.mail}
+        for r in t.responsables
+    ]
+
+
 def tarea_vm(t: Tarea) -> dict:
     responsables = [r.responsable.nombre for r in t.responsables]
     tipos = [tt.tipo_tarea.nombre for tt in t.tipos]
@@ -52,6 +74,8 @@ def tarea_vm(t: Tarea) -> dict:
         "puede_anular": puede_anular(t),
         "presupuestado": t.presupuestado,
         "fila_sheet_original": t.fila_sheet_original,
+        "mails": [mail_vm(m) for m in t.mails],
+        "responsables_con_mail": responsables_con_mail(t),
     }
 
 
