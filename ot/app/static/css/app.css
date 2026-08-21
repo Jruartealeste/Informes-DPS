@@ -1353,6 +1353,12 @@ select.chip-fac {
 .mail-historial__item.is-error .mail-historial__estado {
   color: var(--warn-text);
 }
+.mail-historial__item.is-borrador .mail-historial__estado {
+  color: var(--muted);
+}
+.mail-historial__item.is-borrador {
+  border-style: dashed;
+}
 .mail-historial__cuerpo {
   padding: 0 12px 10px;
   border-top: 1px solid var(--line-soft);

@@ -31,6 +31,7 @@ class EstadoOtInterna(str, enum.Enum):
 
 
 class EstadoMail(str, enum.Enum):
+    BORRADOR = "BORRADOR"
     ENVIADO = "ENVIADO"
     ERROR = "ERROR"
 

@@ -20,7 +20,7 @@
 
         <div class="field">
           <div class="field__label">Destinatarios</div>
-          {% if con_mail %}
+          {% if con_mail or sin_mail %}
           <div class="combo__lista" style="position:static;border:1px solid var(--line);border-radius:7px;max-height:none">
             {% for r in con_mail %}
             <label class="combo__check-row">
@@ -28,14 +28,21 @@
               <span class="combo__check-row__nombre">{{ r.nombre }} <span style="color:var(--faint)">— {{ r.mail }}</span></span>
             </label>
             {% endfor %}
+            {% for r in sin_mail %}
+            <label class="combo__check-row is-inactivo">
+              <input type="checkbox" name="destinatario_ids" value="{{ r.id }}" {{ "checked" if r.id in seleccionados }}>
+              <span class="combo__check-row__nombre">{{ r.nombre }}</span>
+              <span class="combo__check-row__tag">sin mail</span>
+            </label>
+            {% endfor %}
           </div>
           {% else %}
-          <div class="field-hint">Ningún responsable de esta tarea tiene mail cargado todavía.</div>
+          <div class="field-hint">Esta tarea todavía no tiene responsables asignados.</div>
           {% endif %}
           {% if sin_mail %}
           <div class="field-hint">
-            Sin mail cargado (no reciben): {{ sin_mail | map(attribute='nombre') | join(', ') }} —
-            <a href="/responsables" hx-get="/responsables" hx-target="#sheet-2-root" hx-swap="innerHTML">cargarlo →</a>
+            {{ sin_mail | map(attribute='nombre') | join(', ') }} no {{ 'tiene' if sin_mail | length == 1 else 'tienen' }} mail cargado — no se les puede enviar todavía, pero se pueden tildar para dejar armado el borrador.
+            <a href="/responsables" hx-get="/responsables" hx-target="#sheet-2-root" hx-swap="innerHTML">Cargar mail →</a>
           </div>
           {% endif %}
         </div>
@@ -52,7 +59,8 @@
       </div>
 
       <div class="drawer__footer">
-        <button type="submit" class="btn btn--primary">Enviar mail</button>
+        <button type="submit" name="accion" value="enviar" class="btn btn--primary">Enviar mail</button>
+        <button type="submit" name="accion" value="borrador" class="btn">Guardar borrador</button>
         <button type="button" class="btn" onclick="cerrarSheet2(event)">Cancelar</button>
       </div>
     </form>

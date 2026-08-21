@@ -1,8 +1,15 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Ruta absoluta (no ".env" relativo) — un ".env" relativo depende del
+    # cwd del proceso que arranca la app, que no siempre es la raíz de
+    # ot/ (systemd, un launcher externo, etc.).
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 
     database_url: str
 

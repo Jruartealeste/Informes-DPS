@@ -310,17 +310,27 @@ Tablas:
 
 - **Mail a responsables desde el drawer de tarea — implementado (Fase 1,
   remitente único).** Botón "Enviar mail" en el footer del drawer de
-  tarea (deshabilitado si ningún responsable de la tarea tiene
-  `responsables.mail` cargado, sumado 2026-08-12) abre una sheet apilada
-  (`app/templates/tareas/_mail_sheet.html`) con destinatarios
-  (checkboxes, precargados con los responsables que tienen mail; los que
-  no tienen se listan aparte con acceso directo a cargárselo), asunto y
-  cuerpo prellenados desde los datos de la tarea (OT, cliente, detalle,
-  link Drive) y completamente editables — ahí se redacta el detalle más
-  largo. Al mandar, queda guardado en `tarea_mails` (asunto + cuerpo +
+  tarea (deshabilitado solo si la tarea no tiene ningún responsable
+  asignado — no hace falta que tengan mail cargado, ver "borradores"
+  abajo) abre una sheet apilada (`app/templates/tareas/_mail_sheet.html`)
+  con destinatarios (checkboxes de todos los responsables de la tarea,
+  con o sin mail; los sin mail se pueden tildar igual pero quedan
+  marcados "sin mail" y no reciben nada al mandar), asunto y cuerpo
+  prellenados desde los datos de la tarea (OT, cliente, detalle, link
+  Drive) y completamente editables — ahí se redacta el detalle más largo.
+  Al mandar, queda guardado en `tarea_mails` (asunto + cuerpo +
   destinatarios + estado + `gmail_message_id`) y se ve en una sección
-  "Mails enviados" colapsable dentro del drawer. Envío por tarea
-  individual (no agrupado por OT, según lo decidido).
+  "Mails" colapsable dentro del drawer. Envío por tarea individual (no
+  agrupado por OT, según lo decidido).
+  - **Borradores (sumado 2026-08-20):** aunque ningún responsable tenga
+    mail cargado todavía, se puede redactar y "Guardar borrador"
+    (`EstadoMail.BORRADOR`, tercer estado además de ENVIADO/ERROR — el
+    enum de Postgres no soporta sacar valores, ver downgrade no-op en la
+    migración `d3f8a1b4e6c9`) para no perder el trabajo de redacción. La
+    próxima vez que se abre "Enviar mail" para esa tarea, si hay un
+    borrador guardado se precarga ESE texto (no se regenera el template
+    genérico) — así, apenas alguien carga el mail del responsable, el
+    texto ya está listo para mandar tal cual quedó redactado.
   - Mecanismo: **Gmail API con OAuth** (no SMTP), remitente único = vos.
     `app/gmail_client.py` refresca el access token a partir de un refresh
     token fijo (`GMAIL_REFRESH_TOKEN` en el `.env` del server, obtenido
