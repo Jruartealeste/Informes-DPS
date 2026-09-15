@@ -36,6 +36,23 @@ class EstadoMail(str, enum.Enum):
     ERROR = "ERROR"
 
 
+class RolUsuario(str, enum.Enum):
+    MIEMBRO = "MIEMBRO"
+    APROBADOR_FACTURACION = "APROBADOR_FACTURACION"
+    ADMIN = "ADMIN"
+
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(200), unique=True)
+    nombre: Mapped[str] = mapped_column(String(120))
+    rol: Mapped[RolUsuario] = mapped_column(default=RolUsuario.MIEMBRO)
+    activo: Mapped[bool] = mapped_column(default=True)
+    ultimo_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Cliente(Base):
     __tablename__ = "clientes"
 

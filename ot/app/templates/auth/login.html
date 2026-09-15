@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es" data-tema="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Iniciar sesión — Órdenes de trabajo</title>
+  <script>
+    (function () {
+      var m = document.cookie.match(/(?:^|; )tema=([^;]+)/);
+      var tema = m ? m[1] : (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-tema', tema);
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/css/tokens.css?v={{ static_version('css/tokens.css') }}">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+    }
+    .login-card {
+      width: min(360px, 90vw);
+      padding: 32px 28px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+    .login-card__mark {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 16px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      color: var(--accent-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-weight: 600;
+    }
+    .login-card h1 {
+      font-size: 17px;
+      margin: 0 0 6px;
+    }
+    .login-card p {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0 0 22px;
+    }
+    .login-card__error {
+      color: var(--warn-text);
+      background: var(--warn-soft);
+      border: 1px solid var(--warn-line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      margin: 0 0 18px;
+      text-align: left;
+    }
+    .login-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 16px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .login-btn:hover { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-card__mark">OT</div>
+    <h1>Órdenes de trabajo</h1>
+    <p>Ingresá con tu cuenta @aleste.ar</p>
+    {% if error_dominio %}
+    <div class="login-card__error">
+      Esa cuenta no pertenece al dominio @aleste.ar — no se puede iniciar sesión con ella.
+    </div>
+    {% endif %}
+    <a class="login-btn" href="/auth/login/google">Iniciar sesión con Google</a>
+  </div>
+</body>
+</html>

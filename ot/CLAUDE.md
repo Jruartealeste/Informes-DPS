@@ -365,20 +365,64 @@ Tablas:
     dev). Ver también migración `c07737c98c23_agrega_tarea_mails.py`
     (aplicada ya en la base de dev de Neon).
 
+## Decisiones confirmadas con Javier (2026-08-21)
+
+- **Auth con Google OAuth — implementado (roadmap ítem 4).** Toda la app
+  queda detrás de login salvo `/auth/*` y `/static/*`
+  (`app/auth.py::AuthMiddleware`, montada en `main.py` después de
+  `SessionMiddleware` de Starlette — sesión en cookie httponly firmada,
+  nunca se guarda un token de Google, solo `user_id`/`email`/`nombre`/`rol`).
+  Sin sesión: una request normal redirige a `/auth/login?next=...`; una
+  request HTMX (`HX-Request: true`) devuelve `401` + header
+  `HX-Redirect: /auth/login` en vez de un redirect plano, porque HTMX solo
+  swapea el fragmento target con un redirect normal — no navega la
+  página.
+  - `app/auth.py::procesar_login(db, claims)` valida `claims["hd"] ==
+    "aleste.ar"` y `email_verified` (si no, `DominioNoAutorizado`, no
+    crea nada) y hace upsert de `Usuario` por email, actualizando
+    `ultimo_login` en cada login. Primera vez que alguien de `@aleste.ar`
+    entra, se crea solo con eso — no hay paso de invitación separado
+    (el dominio restringido de Google Workspace ya es el gate).
+  - `rol_usuario` (`MIEMBRO`/`APROBADOR_FACTURACION`/`ADMIN`) está
+    modelado y se guarda en la sesión, pero **nada lo usa todavía para
+    gatear rutas** — no hay ninguna feature hoy que lo necesite. Un
+    cambio de rol o `activo=False` tarda hasta el próximo login en
+    reflejarse (se lee de la sesión, no de la DB en cada request) —
+    aceptado para un equipo de ~10 personas, revisar si llega a doler.
+  - **Credencial OAuth separada de la de Gmail**, a propósito:
+    `AUTH_GOOGLE_CLIENT_ID`/`AUTH_GOOGLE_CLIENT_SECRET` (nuevos, en vez
+    de reusar `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` de Gmail) porque
+    un login por navegador necesita una credencial tipo **"Web
+    application"** con redirect URI registrada — la de Gmail es tipo
+    "Desktop app" (pensada para el flujo de `gmail_authorize.py`, sin
+    redirect URI real) y no sirve para esto.
+  - **Falta para que funcione en la práctica (a hacer vos):** crear ese
+    segundo OAuth client en el mismo proyecto de Google Cloud que ya
+    usás para Gmail, con `http://localhost:8000/auth/callback` como
+    redirect URI en dev (sumar la URL de Vercel cuando se despliegue), y
+    cargar `SESSION_SECRET` (random, ver `.env.example`),
+    `AUTH_GOOGLE_CLIENT_ID` y `AUTH_GOOGLE_CLIENT_SECRET` en `ot/.env` —
+    son settings requeridos, la app no arranca sin ellos (a propósito:
+    mejor que falle a que arranque con todo abierto por falta de
+    config).
+
 ## Roadmap inmediato
 
 1. **Relevamiento de solo lectura del formulario "Nueva OT" en Advertys**
    (`Informes/modules/ordenes_trabajo/explore_nueva_ot.py`, en curso) — qué
    campos pide, cuáles autogenera el sistema (el número de OT), cuáles hay
    que mandar desde la app. Sin guardar nada.
-2. Modelo de datos (`models.py` + primera migración de Alembic) y CRUD
-   básico de tareas, sin auth todavía (para poder probar rápido) — carga
-   inicial solo con ALUAR.
+2. ~~Modelo de datos (`models.py` + primera migración de Alembic) y CRUD
+   básico de tareas~~ — hecho, y bastante más allá de lo mínimo (mail a
+   responsables con borradores, anular tarea).
 3. `scripts/migrar_sheet.py` en modo dry-run contra la pestaña ALUAR del
    Sheet real, revisar el CSV de filas flaggeadas con Javier antes de
    `--commit` (casos reales ya vistos: OT compuesta "4086/4110",
    "9119 - 1602", filas sin número de OT).
-4. Auth con Google OAuth restringido a `@aleste.ar`.
+4. ~~Auth con Google OAuth restringido a `@aleste.ar`~~ — implementado
+   2026-08-21 (ver "Decisiones confirmadas con Javier (2026-08-21)"
+   arriba); falta que vos cargues las credenciales reales en `.env` para
+   que funcione en la práctica.
 5. Sync `ordenes_trabajo` ↔ `ordenes_trabajo_espejo` (script en
    `Informes/` + endpoint acá).
 6. `crear_ot.py` — solo después de (1) confirmado y aprobado explícitamente

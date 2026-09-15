@@ -102,10 +102,10 @@
       <div class="sidebar__spacer"></div>
 
       <div class="sidebar__footer">
-        <div class="sidebar__avatar">JS</div>
+        <div class="sidebar__avatar">{{ (request.session.get('nombre', '?')[:2]) | upper }}</div>
         <div class="sidebar__user">
-          <div class="sidebar__user-name">Javier S.</div>
-          <div class="sidebar__user-role">Sin login todavía</div>
+          <div class="sidebar__user-name">{{ request.session.get('nombre', '') }}</div>
+          <div class="sidebar__user-role"><a href="/auth/logout">Cerrar sesión</a></div>
         </div>
       </div>
       <div class="sidebar__prefs">

@@ -13,6 +13,16 @@ class Settings(BaseSettings):
 
     database_url: str
 
+    # Login (Google OAuth, ver "Auth" en CLAUDE.md). A diferencia de los
+    # settings de Gmail de abajo, estos son requeridos sin default: la app
+    # no debe arrancar dejando todas las páginas abiertas por falta de
+    # config. Credencial distinta a la de Gmail (tipo "Web application",
+    # con redirect URI registrada) — un cliente "Desktop app" como el de
+    # Gmail no sirve para un flujo de login por navegador.
+    session_secret: str
+    auth_google_client_id: str
+    auth_google_client_secret: str
+
     # Envío de mail a responsables (Gmail API, remitente único — ver
     # "Mail a responsables" en CLAUDE.md). Quedan opcionales para que el
     # resto de la app funcione sin configurar esto: el envío falla con un

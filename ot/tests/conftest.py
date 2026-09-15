@@ -1,15 +1,23 @@
 import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("SESSION_SECRET", "test-secret")
+os.environ.setdefault("AUTH_GOOGLE_CLIENT_ID", "test-client-id")
+os.environ.setdefault("AUTH_GOOGLE_CLIENT_SECRET", "test-client-secret")
 
+import base64
+import json
+
+import itsdangerous
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config import settings
 from app.db import Base, get_db
 from app.main import app
-from app.models import Cliente, Responsable, TipoTarea
+from app.models import Cliente, Responsable, TipoTarea, Usuario
 
 TIPOS_TAREA = [
     "diseño", "redaccion", "produccion", "estrategia",
@@ -50,8 +58,38 @@ def db_session():
     app.dependency_overrides.clear()
 
 
+def cookie_sesion(data: dict) -> str:
+    """Firma una cookie de sesión con el mismo formato que
+    starlette.middleware.sessions.SessionMiddleware — para simular en tests
+    un login ya hecho sin pasar por el flujo real de Google."""
+    signer = itsdangerous.TimestampSigner(str(settings.session_secret))
+    payload = base64.b64encode(json.dumps(data).encode("utf-8"))
+    return signer.sign(payload).decode("utf-8")
+
+
 @pytest.fixture
 def client(db_session):
+    """Cliente logueado por defecto — la app entera queda detrás de
+    AuthMiddleware, así que los tests de tareas/OT/responsables (que no
+    prueban auth en sí) necesitan una sesión válida para no chocar con el
+    redirect a /auth/login."""
+    from fastapi.testclient import TestClient
+
+    usuario = Usuario(email="test@aleste.ar", nombre="Test User")
+    db_session.add(usuario)
+    db_session.commit()
+
+    c = TestClient(app)
+    c.cookies.set(
+        "session",
+        cookie_sesion({"user_id": usuario.id, "email": usuario.email, "nombre": usuario.nombre, "rol": "MIEMBRO"}),
+    )
+    return c
+
+
+@pytest.fixture
+def client_anonimo(db_session):
+    """Sin sesión — para probar que AuthMiddleware efectivamente bloquea."""
     from fastapi.testclient import TestClient
 
     return TestClient(app)
