@@ -11,9 +11,9 @@ regeneran siempre al final, incluso si algun modulo fallo, porque leen
 lo que ya este en advertys.db (dato no tan fresco para ese modulo, pero
 valido).
 
-IIBB (que ya tiene su propio modules/iibb/export.py desde 2026-08-12,
-pero se dispara aparte a demanda -- ver workflows/actualizar_informe.md),
-y el crawl opcional de items_pendientes_oc
+IIBB (que tiene su propio refresh completo en tools/actualizar_iibb.py
+desde 2026-08-18, pero se dispara aparte a demanda -- ver
+workflows/actualizar_informe.md), y el crawl opcional de items_pendientes_oc
 (modules/ordenes_trabajo/crawl_items_pendientes.py), quedan fuera de
 este script a proposito -- su export es mucho mas pesado (~22.700 filas
 vs. cientos en el resto) y no hace falta refrescarlo con la misma
@@ -97,7 +97,7 @@ def main():
         print(f"OK  {modulo}: {detalle}")
     for modulo, detalle in errores.items():
         print(f"ERROR {modulo}: {detalle}")
-    print("IIBB no fue tocado por este script (queda manual).")
+    print("IIBB no fue tocado por este script -- correr 'python -m tools.actualizar_iibb' aparte.")
 
     sys.exit(1 if errores else 0)
 

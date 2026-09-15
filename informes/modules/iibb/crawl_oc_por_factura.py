@@ -37,7 +37,21 @@ Igual que modules/ordenes_trabajo/crawl_items_pendientes.py, la tabla
 resultante (items_factura_oc) se REEMPLAZA entera en cada corrida: es un
 snapshot de la ventana de 6 meses actual, no un historico acumulado.
 
-Uso:
+Reintento automatico (desde 2026-08-18): una factura que falla en la
+primera pasada (postback lento, grilla que todavia no refresco) se
+reintenta una vez al final, misma sesion de browser -- antes quedaba
+"pendiente" en silencio (con deducible pero sin detalle de OC/OP en el
+informe) y habia que reintentarla a mano. Si sigue fallando tras el
+reintento, se avisa por nombre al final del output (ver `siguen_fallando`
+en main()).
+
+Para un refresh de IIBB que garantice que no quede nada pendiente (este
+crawl necesita facturas/imputaciones_iibb al dia, y el informe ademas
+necesita ordenes_compra/ordenes_publicidad frescas para resolver
+Proveedor/Monto -- ver oc_resolver.py), usar
+`python -m tools.actualizar_iibb` en vez de correr este script suelto.
+
+Uso (suelto, si ya tenes todo lo demas al dia):
     python -m modules.iibb.crawl_oc_por_factura
 """
 import os
@@ -101,7 +115,15 @@ def reemplazar_todo(records: list[dict]) -> int:
 def facturas_a_revisar() -> list[str]:
     """Facturas de los ultimos 6 meses con monto OC/OP deducible > 0 (mismo
     recorte que modules/iibb/generate_html_report.py) -- no tiene sentido
-    crawlear facturas sin ninguna linea deducible."""
+    crawlear facturas sin ninguna linea deducible.
+
+    Filtra explicitamente por cuenta (config.CUENTAS_DEDUCIBLES): desde que
+    imputaciones_iibb tambien carga Servicio de Agencia/FEE (ver
+    config.CUENTAS_A_CARGAR), un JOIN sin filtro de cuenta traeria casi
+    cualquier factura con FEE, no solo las que tienen OC/OP deducible --
+    esto reventaria el alcance acotado que describe el docstring del
+    modulo (crawl factura por factura, pensado para un subconjunto chico)."""
+    placeholders = ", ".join("?" for _ in config.CUENTAS_DEDUCIBLES)
     sql = f"""
         SELECT f.numero_referencia
         FROM facturas f
@@ -109,11 +131,12 @@ def facturas_a_revisar() -> list[str]:
           ON f.tipo_asiento = i.tipo_asiento AND f.numero_asiento = i.numero_asiento
          AND f.tipo_referencia = i.tipo_referencia AND f.numero_referencia = i.numero_referencia
         WHERE f.fecha >= date('now', '-6 months')
+          AND i.cuenta IN ({placeholders})
         GROUP BY f.clave_factura
         ORDER BY f.fecha DESC
     """
     with db.get_connection() as conn:
-        return [r[0] for r in conn.execute(sql)]
+        return [r[0] for r in conn.execute(sql, config.CUENTAS_DEDUCIBLES)]
 
 
 def esperar_postback(page, timeout=25000):
@@ -355,6 +378,21 @@ def leer_items_factura(page, numero_referencia: str) -> list[dict]:
     return items
 
 
+def _revisar_una(page, numero_referencia: str, ahora: str) -> tuple[list[dict] | None, str | None]:
+    """Devuelve (items, None) si pudo leer la factura (aunque sea 0 items
+    validos), o (None, motivo) si fallo -- separado de main() para poder
+    reintentar con la misma firma en la segunda pasada."""
+    try:
+        if not ir_a_factura(page, numero_referencia):
+            return None, "no se encontro la factura en la grilla"
+        items = leer_items_factura(page, numero_referencia)
+        for it in items:
+            it["fecha_crawl"] = ahora
+        return items, None
+    except Exception as e:
+        return None, str(e)
+
+
 def main():
     if not URL or not USER or not PASSWORD:
         print("ERROR: completa ADVERTYS_URL, ADVERTYS_USER y ADVERTYS_PASSWORD en .env")
@@ -369,6 +407,7 @@ def main():
     print(f"Se van a revisar {len(facturas)} facturas (esto tarda varios minutos, una factura a la vez)...")
 
     resultados = []
+    pendientes = []
     ahora = datetime.now(timezone.utc).isoformat()
 
     with sync_playwright() as p:
@@ -378,24 +417,43 @@ def main():
 
         for i, numero_referencia in enumerate(facturas, 1):
             print(f"  [{i}/{len(facturas)}] Factura {numero_referencia}...")
-            try:
-                if not ir_a_factura(page, numero_referencia):
-                    print(f"    AVISO: no se encontro la factura {numero_referencia} en la grilla, salteo")
+            items, motivo = _revisar_una(page, numero_referencia, ahora)
+            if motivo is not None:
+                print(f"    AVISO: {motivo} -- se reintenta al final")
+                pendientes.append(numero_referencia)
+                continue
+            resultados.extend(items)
+            con_oc = sum(1 for it in items if it["numero_oc"])
+            print(f"    -> {len(items)} item(s), {con_oc} con N° de OC/OP")
+
+        # Los fallos de la primera pasada son casi siempre transitorios
+        # (postback lento, grilla que todavia no termino de refrescar) --
+        # confirmado en vivo 2026-08-18: 3 facturas fallaron asi en una
+        # corrida y las 3 anduvieron bien al reintentarlas en la misma
+        # sesion de browser. Sin este reintento quedaban "pendientes" en
+        # silencio (con deducible pero sin detalle de OC/OP en el informe).
+        siguen_fallando = []
+        if pendientes:
+            print(f"Reintentando {len(pendientes)} factura(s) que fallaron en la primera pasada...")
+            for numero_referencia in pendientes:
+                print(f"  [reintento] Factura {numero_referencia}...")
+                items, motivo = _revisar_una(page, numero_referencia, ahora)
+                if motivo is not None:
+                    print(f"    ERROR definitivo: {motivo}")
+                    siguen_fallando.append(numero_referencia)
                     continue
-                items = leer_items_factura(page, numero_referencia)
-                for it in items:
-                    it["fecha_crawl"] = ahora
                 resultados.extend(items)
                 con_oc = sum(1 for it in items if it["numero_oc"])
                 print(f"    -> {len(items)} item(s), {con_oc} con N° de OC/OP")
-            except Exception as e:
-                print(f"    ERROR revisando factura {numero_referencia}: {e}")
-                continue
 
         browser.close()
 
     cantidad = reemplazar_todo(resultados)
     print(f"OK: {cantidad} items de factura guardados en items_factura_oc ({len(facturas)} facturas revisadas).")
+    if pendientes:
+        print(f"  Reintento: {len(pendientes) - len(siguen_fallando)}/{len(pendientes)} recuperadas.")
+    if siguen_fallando:
+        print(f"AVISO: {len(siguen_fallando)} factura(s) siguen sin poder revisarse tras el reintento, van a quedar sin detalle de OC/OP: {', '.join(siguen_fallando)}")
 
 
 if __name__ == "__main__":

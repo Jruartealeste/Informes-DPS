@@ -50,20 +50,22 @@ texto trae el SALDO actual de la OP (siempre $0,00 en estado "Utilizada"),
 no el importe original -- de ahi se armo `modules/ordenes_publicidad`, que
 releva la vista real de Advertys (Medios > Ordenes Publicidad >
 Navegacion) con el importe sin IVA real ("Total Orden"), independiente del
-estado. `_oc_por_factura()` ahora cruza contra esa tabla; el parseo de
-texto crudo (`_parsear_oc_texto`) sigue vivo solo como fallback de ultimo
-recurso si una OP referenciada no aparece en `ordenes_publicidad` (no
-debería pasar salvo datos desactualizados) y como fuente del nombre de
-proveedor para desambiguar (ver mas abajo). La columna "Origen OC" del
-informe marca `Producción` / `Publicidad` / `Publicidad (año ambiguo)` /
-`Publicidad (estimado)` segun que fuente/certeza tuvo cada fila.
+estado. `_oc_por_factura()` ahora cruza contra esa tabla via
+`oc_resolver.resolver_proveedor_monto()` (compartido con modules/iibb, ver
+oc_resolver.py); el parseo de texto crudo (`oc_resolver.parsear_oc_texto`)
+sigue vivo solo como fallback de ultimo recurso si una OP referenciada no
+aparece en `ordenes_publicidad` (no debería pasar salvo datos
+desactualizados) y como fuente del nombre de proveedor para desambiguar
+(ver mas abajo). La columna "Origen OC" del informe marca `Producción` /
+`Publicidad` / `Publicidad (año ambiguo)` / `Publicidad (estimado)` segun
+que fuente/certeza tuvo cada fila.
 
 **Gotcha real de `ordenes_publicidad`:** el numero de Orden que aparece en
 `orden_compra_raw` (y por lo tanto en `items_oc.numero_oc`) NO trae el año
 -- y ese numero se reinicia cada año (ver docstring de
 `modules/ordenes_publicidad/config.py`), asi que puede matchear mas de una
-fila real. `_resolver_op()` desambigua cruzando tambien por Proveedor
-(texto ya parseado de `orden_compra_raw`): en una muestra real, de 164
+fila real. `oc_resolver._resolver_op()` desambigua cruzando tambien por
+Proveedor (texto ya parseado de `orden_compra_raw`): en una muestra real, de 164
 numero_oc referenciados desde facturas, 116 (71%) colisionaban por año sin
 este cruce, y bajan a ~12 (7%) cruzando por proveedor tambien. Los que
 siguen ambiguos tras el cruce por proveedor se resuelven con la fila de
@@ -80,34 +82,16 @@ que ya calcula Advertys ni se pisaba a 0 en estados terminales -- ver
 Uso:
     python -m modules.cobranza_proveedores.generate_html_report
 """
-import re
-
 import pandas as pd
 
 import db
 import html_report as hr
-from common import normalizar_numero
+import oc_resolver
 from modules.facturas import config as facturas_config
 from modules.ordenes_compra import config as oc_config
 from modules.ordenes_publicidad import config as op_config
 from modules.recibos import config as recibos_config
 from . import config
-
-# "7023 - El Bajo Producciones SRL -$ 57463770,15 - Autorizada" ->
-# ("El Bajo Producciones SRL", "57463770,15", "Autorizada"). Mismo formato
-# de texto que ya parsea crawl_oc_por_factura.parsear_numero_oc (solo el
-# numero). El proveedor/estado se usan para desambiguar contra
-# `ordenes_publicidad` (ver _resolver_op); el monto parseado de aca solo se
-# usa como ultimo recurso si la OP no aparece en esa tabla.
-_RE_OC_TEXTO = re.compile(r"^\s*\d+\s*-\s*(.+?)\s*-\$\s*([\d.,]+)\s*-\s*(.+?)\s*$")
-
-
-def _parsear_oc_texto(texto: str) -> dict | None:
-    m = _RE_OC_TEXTO.match(texto or "")
-    if not m:
-        return None
-    proveedor, monto_txt, estado = m.groups()
-    return {"proveedor": proveedor.strip(), "monto": normalizar_numero(monto_txt), "estado": estado.strip()}
 
 
 def _fmt_money(v: float) -> str:
@@ -195,32 +179,12 @@ _COLUMNAS_OC = [
 ]
 
 
-def _normalizar_proveedor(nombre) -> str | None:
-    return nombre.strip().upper() if isinstance(nombre, str) and nombre.strip() else None
-
-
-def _resolver_op(numero_oc: str, proveedor_txt: str | None, ordenes_publicidad: pd.DataFrame) -> tuple[pd.Series | None, str]:
-    """Busca la OP real por numero_oc, desambiguando por proveedor cuando el
-    numero solo (sin año) matchea mas de una fila -- ver "Gotcha real de
-    ordenes_publicidad" en el docstring del modulo. Devuelve (fila o None,
-    origen: 'Publicidad' | 'Publicidad (año ambiguo)' | None)."""
-    candidatos = ordenes_publicidad[ordenes_publicidad["numero_oc"] == numero_oc]
-    if candidatos.empty:
-        return None, None
-    if len(candidatos) == 1:
-        return candidatos.iloc[0], "Publicidad"
-
-    prov_norm = _normalizar_proveedor(proveedor_txt)
-    por_proveedor = candidatos[candidatos["proveedor"].apply(_normalizar_proveedor) == prov_norm]
-    if len(por_proveedor) == 1:
-        return por_proveedor.iloc[0], "Publicidad"
-
-    restantes = por_proveedor if not por_proveedor.empty else candidatos
-    return restantes.sort_values("ano_op", ascending=False).iloc[0], "Publicidad (año ambiguo)"
-
-
 def _oc_por_factura(items_oc: pd.DataFrame, ordenes_compra: pd.DataFrame,
                      ordenes_publicidad: pd.DataFrame) -> pd.DataFrame:
+    """Cruza cada item con OC/OP referenciada contra ordenes_compra/
+    ordenes_publicidad -- ver oc_resolver.resolver_proveedor_monto para el
+    detalle de la desambiguacion Produccion/Publicidad (compartida con
+    modules/iibb)."""
     if items_oc.empty:
         return pd.DataFrame(columns=_COLUMNAS_OC)
     con_oc = items_oc[items_oc["numero_oc"].notna()].drop_duplicates(
@@ -229,55 +193,8 @@ def _oc_por_factura(items_oc: pd.DataFrame, ordenes_compra: pd.DataFrame,
     if con_oc.empty:
         return pd.DataFrame(columns=_COLUMNAS_OC)
 
-    if not ordenes_compra.empty:
-        detalle_oc = ordenes_compra[["numero_oc", "proveedor", "importe_sin_iva", "estado"]].rename(
-            columns={"importe_sin_iva": "oc_importe_sin_iva", "estado": "oc_estado"}
-        )
-        con_oc = con_oc.merge(detalle_oc, on="numero_oc", how="left")
-    else:
-        con_oc["proveedor"] = None
-        con_oc["oc_importe_sin_iva"] = None
-        con_oc["oc_estado"] = None
-    con_oc["oc_origen"] = con_oc["proveedor"].notna().map({True: "Producción", False: None})
-
-    # Para lo que no matcheo en ordenes_compra_produccion (Ordenes de
-    # Publicidad, TA=FM -- ver "Gap real detectado 2026-08-04" en el
-    # docstring del modulo): cruzar contra modules/ordenes_publicidad,
-    # desambiguando por proveedor cuando el numero de Orden solo no alcanza.
-    sin_match = con_oc["proveedor"].isna()
-    if sin_match.any():
-        parseado = con_oc.loc[sin_match, "orden_compra_raw"].apply(_parsear_oc_texto)
-        proveedor_txt = parseado.apply(lambda d: d["proveedor"] if d else None)
-        estado_txt = parseado.apply(lambda d: d["estado"] if d else None)
-        monto_txt = parseado.apply(lambda d: d["monto"] if d else None)
-
-        for idx in con_oc.loc[sin_match].index:
-            fila_op, origen = _resolver_op(
-                con_oc.at[idx, "numero_oc"], proveedor_txt.loc[idx], ordenes_publicidad
-            )
-            if fila_op is not None:
-                con_oc.at[idx, "proveedor"] = fila_op["proveedor"]
-                con_oc.at[idx, "oc_importe_sin_iva"] = fila_op["importe_sin_iva"]
-                con_oc.at[idx, "oc_estado"] = fila_op["estado"]
-                con_oc.at[idx, "oc_origen"] = origen
-            else:
-                # Ultimo recurso: la OP referenciada no esta en
-                # ordenes_publicidad (dato desactualizado) -- usar el texto
-                # crudo tal cual se hacia antes de tener el modulo propio.
-                con_oc.at[idx, "proveedor"] = proveedor_txt.loc[idx]
-                con_oc.at[idx, "oc_importe_sin_iva"] = monto_txt.loc[idx]
-                con_oc.at[idx, "oc_estado"] = estado_txt.loc[idx]
-                con_oc.at[idx, "oc_origen"] = "Publicidad (estimado)" if proveedor_txt.loc[idx] else None
-
-    # "Saldo a Pagar" es siempre el importe sin IVA de la OC/OP, sin importar
-    # su estado (Utilizada/Autorizada/etc) -- pedido explicito de Javier
-    # (2026-08-04). Antes esta columna se pisaba a 0 para OC/OP en estado
-    # terminal, o tomaba el "saldo" que ya trae Advertys para OC de
-    # Produccion, y en ambos casos el numero mostrado no coincidia con el
-    # monto sin IVA real.
-    con_oc["oc_saldo"] = con_oc["oc_importe_sin_iva"]
-
-    return con_oc[_COLUMNAS_OC]
+    resuelto = oc_resolver.resolver_proveedor_monto(con_oc, ordenes_compra, ordenes_publicidad)
+    return resuelto[_COLUMNAS_OC]
 
 
 def armar_tabla(recibos_6m: pd.DataFrame, referencias: pd.DataFrame, facturas: pd.DataFrame,

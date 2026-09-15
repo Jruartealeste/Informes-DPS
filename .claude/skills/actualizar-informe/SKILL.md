@@ -16,15 +16,26 @@ Carga un export `.xlsx` nuevo de Advertys en un módulo ya armado y regenera
 1. Determinar el módulo (`$0`) y la ruta al xlsx (`$1`). Si `$0` no vino o
    no es un módulo reconocido, revisar la tabla de "Módulos armados hasta
    ahora" en README.md antes de asumir.
-2. **Caso especial `iibb`:** si no vino `$1` (Javier no dio una ruta
-   puntual), correr primero `python -m modules.iibb.export` — descarga el
-   export actual de Advertys a `exploracion/iibb_export.xlsx` vía
-   Playwright (login + navegación + filtro "Todos", ya no hace falta que
-   Javier lo baje a mano). Usar esa ruta como `$1` en el paso 4. Si el
-   script corta con `ExportError` sobre el combo de Filtro, no reintentar
-   a ciegas — el ID de ese combo ya cambió una vez (2026-08-12); ver la
-   nota en `modules/iibb/export.py` y `workflows/actualizar_informe.md`
-   para el procedimiento de diagnóstico.
+2. **Caso especial `iibb`:** si no vino `$1` (Javier no dio una ruta xlsx
+   puntual), NO uses los pasos 4-5 genéricos — corré
+   `python -m tools.actualizar_iibb` en su lugar. El informe de IIBB no
+   depende solo del export de Imputaciones: también necesita
+   `facturas`/`ordenes_compra`/`ordenes_publicidad` frescas y el crawl
+   `modules/iibb/crawl_oc_por_factura.py` corrido después (para el N° de
+   OC/OP de cada factura, con Proveedor/Monto vía `oc_resolver.py`); ese
+   script encadena los 5 pasos en el orden correcto y al final avisa por
+   número de factura si algo quedó sin detalle de OC/OP — ver su
+   docstring y `workflows/actualizar_informe.md` para el detalle. Si
+   Javier sí trae un xlsx puntual de Imputaciones, usar
+   `python -m modules.iibb.export` para el export en vivo queda de lado;
+   cargar ese xlsx con el paso 4 normal y correr igual el resto de
+   `tools/actualizar_iibb.py` (o sus pasos por separado) para no dejar
+   facturas/ordenes_compra/ordenes_publicidad/crawl atrasados. Si el
+   export en vivo corta con `ExportError` sobre el combo de Filtro, no
+   reintentar a ciegas — el ID de ese combo ya cambió una vez
+   (2026-08-12); ver la nota en `modules/iibb/export.py` y
+   `workflows/actualizar_informe.md` para el procedimiento de
+   diagnóstico.
 3. **Caso especial `pendientes`:** no tiene `ingest.py` propio, cruza
    `ordenes_trabajo` + `estimados_costos` + `ordenes_compra` +
    `oc_pendientes_generar` + `estimados_pendientes_facturar` +

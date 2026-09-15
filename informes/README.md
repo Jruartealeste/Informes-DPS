@@ -100,6 +100,7 @@ mismos archivos (`config.py`, `ingest.py`, `generate_html_report.py`,
 | Estim.Pendientes Facturar (Cuentas y Producción, shortcut) | `modules/estimados_pendientes_facturar/` | `estimados_pendientes_facturar` | (sin informe propio, alimenta Pendientes) |
 | Items pendientes de O.C. (crawl item-level, sin Excel) | `modules/ordenes_trabajo/crawl_items_pendientes.py` | `items_pendientes_oc` | (sin informe propio, alimenta Pendientes) |
 | **Pendientes** (cruce OT abiertas + Estimados + OC + los 3 anteriores) | `modules/pendientes/` | *(no ingesta, cruza las 6 tablas de arriba)* | `salida/informe_pendientes.html` |
+| **Estimados Pendientes** (todos los Estimados no terminales, cualquier OT abierta o cerrada) | `modules/estimados_pendientes/` | *(no ingesta, cruza `estimados_costos`+`ordenes_compra_produccion`+`ordenes_trabajo`+ los 3 de arriba de OC/facturación pendiente)* | `salida/informe_estimados_pendientes.html` |
 | **IIBB** (Consultas > Contabilidad > Imputaciones, cruzado con Facturas) | `modules/iibb/` | `imputaciones_iibb` (filtrada a cuentas OC/OP) | `salida/informe_iibb.html` |
 | Recibo Cliente (Administración > Recibo Cliente, cabecera + crawl "Referencias Canceladas") | `modules/recibos/` | `recibos`, `referencias_canceladas` | (sin informe propio, alimenta Cobranza x Proveedores) |
 | Órdenes de Publicidad (Medios > Ordenes Publicidad > Navegación) | `modules/ordenes_publicidad/` | `ordenes_publicidad` | (sin informe propio, alimenta Cobranza x Proveedores) |
@@ -279,6 +280,41 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   el usuario. Ese desfasaje entre OC del lado venta y OC del lado costo
   parece ser lo que le impide a Advertys "cancelar" el importe tercerizado
   y bloquea la finalización del estimado.
+- **Segundo caso real, confirma que el patrón se repite (OT 253 / Estimado
+  435, 2026-09-09, primer intento real de `finalizar-estimado` desde que
+  existe el semáforo de `modules/estimados_pendientes/`):** mismo mecanismo
+  exacto que OT 235/439 — OC 160 (Anulada, USD) reemplazada por OC 233
+  (Utilizada, Pesos), mismo proveedor. `chequear_estimado_completo()` dio
+  "completo" (el item de "Items del Estimado" ya referencia la OC 233
+  vigente, confirmado leyendo esa grilla), pero Advertys igual rechazó
+  `Finalizado` con "Los importes tercerizados no estan CANCELADOS": en
+  Imputaciones, la línea `411040-VTA SERVICIOS DE TERCEROS (OC)` (Haber
+  $599.400, lado venta) sigue con `N° O.C. = 160` (la anulada), mientras
+  que `510010-COSTO PRODUCCIÓN DE TERCEROS (OC)` (Debe $787.800, lado
+  costo) ya tiene `N° O.C. = 233` — Debe ($787.800) ≠ Haber total
+  ($599.400 + $119.880 de la línea `411035-VTA X DIFERENCIA DE SERV
+  3EROS` = $719.280), desfasaje sin cancelar de $68.520.
+  - **Hallazgo nuevo (Javier, 2026-09-09): este mismo desfasaje también se
+    ve en la pestaña "Totales" del estimado**, sin necesidad de abrir
+    Imputaciones — "Información contable > Tercerizado" ($432,78) no
+    coincide con "Serv.Tercerizados" ($400,00, el presupuestado del
+    estimado). Confirmado que es el mismo problema, no uno nuevo: el
+    desfasaje sin cancelar ($68.520 ARS) convertido con el tipo de cambio
+    implícito de "Ordenes de Compras > Emitidas" (787.800 ARS / $568,81 =
+    ~1385 ARS/USD) da **~49,47 USD — coincide exacto con "Rentabilidad
+    Actual: -49,47"** que se muestra en el mismo panel. Es decir, el
+    desfasaje de imputaciones no solo bloquea `Finalizado`: también
+    distorsiona la rentabilidad y el costo tercerizado que muestra
+    "Totales" para ese estimado mientras no se corrija. Sirve como chequeo
+    rápido a futuro: si "Tercerizado" (contable) y "Serv.Tercerizados"
+    (presupuestado) no coinciden en la pestaña Totales, es señal fuerte de
+    este mismo desfasaje sin necesidad de entrar a Imputaciones primero.
+  - `modules/ordenes_trabajo/ver_imputaciones.py` (agregado 2026-07-21,
+    ampliado 2026-09-09) ahora también abre "Items del Estimado" (imprime
+    a qué O.C. referencia HOY cada item, para comparar contra el N° O.C.
+    de cada línea de Imputaciones) y "Totales" en la misma corrida, además
+    de Facturas/Ordenes Compra/Imputaciones — todo en modo lectura, sin
+    tocar "Editar" ni "Guardar".
 - Este pipeline **no tiene** (ni va a agregar sin aprobación explícita)
   un script que edite imputaciones o reasigne OCs — es una corrección
   contable, no una transición de estado simple como las que
@@ -367,18 +403,20 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
 - Igual que Facturas/Compras, esta vista tiene un combo "Filtro" con default
   "Mes Actual" — hay que ponerlo en "Todos" antes de exportar (relevado:
   ~600 filas en "Mes Actual" contra ~22700 en "Todos").
-- **Plan de cuentas (confirmado con Javier 2026-07-23):** de todas las
-  cuentas de ingreso (411xxx/412xxx) relevadas, **solo** estas dos son
-  recupero de costo de terceros deducible:
+- **Plan de cuentas (confirmado con Javier 2026-07-23, ampliado
+  2026-08-18):** de todas las cuentas de ingreso (411xxx/412xxx)
+  relevadas, se deducen de la base imponible:
   - `411040 - VTA SERVICIOS DE TERCEROS (OC)` (recupero producción)
   - `411075 - VTA SERVICIOS MEDIOS (OP)` (recupero medios)
+  - `411020 - SERVICIO AGENCIA PRODUCCION` / `411070 - SERVICIO AGENCIA
+    MEDIOS` (Servicio de Agencia, ver nota aparte más abajo)
 
-  Todo el resto (FEE, SERVICIO AGENCIA PRODUCCION/MEDIOS, VTA SERVICIOS
-  PROPIOS, VTA X DIFERENCIA DE SERV 3EROS, MARK UP, BONIFICACIONES,
-  INTERESES GANADOS) es margen/comisión propia de la agencia: queda como
-  base gravada, no se descuenta. `modules/iibb/ingest.py` ya filtra a esas
-  2 cuentas al cargar — la tabla `imputaciones_iibb` **no** es el libro
-  mayor completo, es un recorte de un solo propósito (mismo patrón que
+  Todo el resto (VTA SERVICIOS PROPIOS, VTA X DIFERENCIA DE SERV 3EROS,
+  MARK UP, BONIFICACIONES, INTERESES GANADOS) sigue siendo margen/comisión
+  propia de la agencia: queda como base gravada, no se descuenta.
+  `modules/iibb/ingest.py` filtra a `config.CUENTAS_A_CARGAR` al cargar —
+  la tabla `imputaciones_iibb` **no** es el libro mayor completo, es un
+  recorte de un solo propósito (mismo patrón que
   `oc_pendientes_generar`/`estimados_pendientes_facturar`), y se reemplaza
   entera en cada corrida (no hay columna de ID de línea en el export para
   hacer upsert).
@@ -427,6 +465,30 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
     $89.256 en el libro vs $54.200 sumando los items con OC — el libro
     registra MÁS de lo que los items muestran, al revés que en el resto):
     monto chico, pero anómalo, vale la pena revisarlo puntualmente.
+- **Servicio de Agencia + tipo de venta (pedido de Javier, 2026-08-18):**
+  - **Tipo de venta (Producción/Medios):** ya estaba disponible sin cruces
+    nuevos — `facturas.tipo_asiento` (TA) distingue `FP` (Producción, OC)
+    de `FM` (Medios, OP) por factura. Se agregó como columna `tipo_venta`
+    en el informe.
+  - **Servicio de Agencia:** también se descuenta de la base imponible,
+    sale de las cuentas `411020`/`411070` de Imputaciones. Pero **no
+    siempre existe esa línea**: confirmado en vivo contra dos facturas
+    reales — la 000500001458 (Medios) sí tiene `411070` y cuadra exacto
+    (`subtotal_ml` = recupero 411075 + 411070); la 000500001455
+    (Producción) **no** tiene `411020`, el cargo de agencia está ahí
+    dentro del item "Honorarios sobre producción audiovisual", que en
+    Imputaciones cae bajo `411010 - FEE`. Por eso
+    `_servicio_agencia_por_factura()` usa FEE como *fallback* solo cuando
+    la factura no tiene ninguna línea `411020`/`411070` — no se suma
+    aparte cuando ya existe la cuenta dedicada.
+  - Esto amplió qué cuentas carga `modules/iibb/ingest.py` (antes solo
+    411040/411075). Eso rompía un supuesto de
+    `crawl_oc_por_factura.facturas_a_revisar()`, que hacía `JOIN
+    imputaciones_iibb` sin filtrar por cuenta asumiendo que la tabla solo
+    tenía las 2 cuentas deducibles — con FEE adentro el JOIN iba a traer
+    casi cualquier factura. Se agregó el filtro explícito `WHERE i.cuenta
+    IN (411040, 411075)` para mantener acotado el crawl a las facturas con
+    OC/OP deducible real, que es lo único que ese crawl necesita resolver.
 
 ### Notas del módulo Recibo Cliente / Cobranza x Proveedores
 

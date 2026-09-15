@@ -39,6 +39,60 @@ class ExportError(RuntimeError):
     pass
 
 
+def _cambiar_filtro_a_todos(page) -> None:
+    """Busca el combo de Filtro por el VALOR actual ('Mes Actual', el
+    default de esta vista) en vez de por un ID fijo -- ese ID ya cambio
+    dos veces sin aviso (2026-08-12 y 2026-08-19), asi que hardcodear un
+    tercero se romperia igual la proxima vez que Advertys reordene la
+    toolbar. Cambia el combo a 'Todos' y verifica que haya quedado ahi
+    antes de exportar (ver ExportError abajo: este filtro ya dio un falso
+    OK una vez -- el boton se encontro pero el combo quedo en "Mes Actual"
+    y el export salio con 291 filas en vez de ~22.700, sin ningun error
+    visible)."""
+    inputs = page.locator("input[id$='_Cb_I']")
+    combo_id = None
+    for i in range(inputs.count()):
+        inp = inputs.nth(i)
+        try:
+            valor = inp.input_value(timeout=500)
+        except Exception:
+            continue
+        if valor.strip() == "Mes Actual":
+            combo_id = inp.get_attribute("id")
+            break
+
+    if combo_id is None:
+        page.screenshot(path=str(SCREENSHOT_DIR / "iibb_export_error_filtro.png"), full_page=True)
+        raise ExportError(
+            "No se encontro el combo de Filtro (ningun input muestra 'Mes Actual'). "
+            "Sin filtro en 'Todos' el export solo trae el mes en curso, asi que se "
+            "corta acá en vez de exportar datos incompletos en silencio."
+        )
+
+    page.locator(f"#{combo_id.replace('_Cb_I', '_Cb_B-1')}").click(timeout=3000)
+    page.wait_for_timeout(800)
+    todos_item = page.get_by_text("Todos", exact=True).first
+    try:
+        todos_item.click(timeout=5000)
+    except Exception:
+        page.evaluate(
+            """() => {
+                const els = [...document.querySelectorAll('td, div, span, li')];
+                const el = els.find(e => e.textContent.trim() === 'Todos');
+                if (el) el.click();
+            }"""
+        )
+    esperar_postback(page)
+
+    filtro_valor = page.locator(f"#{combo_id}").input_value()
+    if filtro_valor.strip() != "Todos":
+        page.screenshot(path=str(SCREENSHOT_DIR / "iibb_export_error_filtro_valor.png"), full_page=True)
+        raise ExportError(
+            f"El filtro no quedo en 'Todos' (quedo en '{filtro_valor}'). "
+            "Exportar así traeria datos incompletos, así que se corta acá."
+        )
+
+
 def _click_por_texto_o_title(page, texto) -> bool:
     click_js = """(texto) => {
         const candidatos = [...document.querySelectorAll('[title], span, div')];
@@ -83,51 +137,15 @@ def exportar() -> Path:
 
             # Filtro de vista: Advertys trae "Mes Actual" por default. Sin
             # cambiarlo a "Todos" el export trae ~300 filas en vez de
-            # ~22.700 (relevado 2026-07-23). El ID de este combo es
-            # inestable entre corridas -- corrio de "_a3_" a "_a5_" en las
-            # ~2 semanas entre el relevamiento original y esta verificacion
-            # (2026-08-12), probablemente por otro item de toolbar que
-            # corrio el indice. Si vuelve a fallar (Aviso "no se encontro
-            # el combo de Filtro esperado"), no asumir la causa: reabrir
-            # Imputaciones con explore.py y ubicar el nuevo ID buscando el
-            # <input> cuyo value es "Mes Actual" (ver commit que agrego esta
-            # nota para el script de diagnostico usado).
-            filtro_btn = page.locator("#Vertical_TB_Menu_ITCNT6_xaf_a5_Cb_B-1")
-            if filtro_btn.count() == 0:
-                page.screenshot(path=str(SCREENSHOT_DIR / "iibb_export_error_filtro.png"), full_page=True)
-                raise ExportError(
-                    "No se encontro el combo de Filtro (ID puede haber cambiado de nuevo -- "
-                    "ver nota en el codigo). Sin filtro en 'Todos' el export solo trae el mes "
-                    "en curso, asi que se corta acá en vez de exportar datos incompletos "
-                    "en silencio."
-                )
-            filtro_btn.click()
-            page.wait_for_timeout(800)
-            todos_item = page.get_by_text("Todos", exact=True).first
-            try:
-                todos_item.click(timeout=5000)
-            except Exception:
-                page.evaluate(
-                    """() => {
-                        const els = [...document.querySelectorAll('td, div, span, li')];
-                        const el = els.find(e => e.textContent.trim() === 'Todos');
-                        if (el) el.click();
-                    }"""
-                )
-            esperar_postback(page)
-
-            # Verificacion extra (ver docstring del combo mas arriba: este
-            # filtro ya nos dio un falso OK una vez -- el boton se encontro
-            # pero el combo quedo en "Mes Actual" y el export salio con 291
-            # filas en vez de ~22.700, sin ningun error visible). Confirmar
-            # que el input realmente muestra "Todos" antes de exportar.
-            filtro_valor = page.locator('input[id$="xaf_a5_Cb_I"]').input_value()
-            if filtro_valor.strip() != "Todos":
-                page.screenshot(path=str(SCREENSHOT_DIR / "iibb_export_error_filtro_valor.png"), full_page=True)
-                raise ExportError(
-                    f"El filtro no quedo en 'Todos' (quedo en '{filtro_valor}'). "
-                    "Exportar así traeria datos incompletos, así que se corta acá."
-                )
+            # ~22.700 (relevado 2026-07-23). El ID de este combo cambio DOS
+            # veces sin aviso (de "_a3_" a "_a5_" el 2026-08-12, y de nuevo
+            # el 2026-08-19 -- confirmado en vivo, ExportError real en
+            # produccion), probablemente por otro item de toolbar que corre
+            # el indice cada vez. Un tercer ID hardcodeado se rompería
+            # igual la proxima vez, asi que se busca el combo por su VALOR
+            # actual ("Mes Actual") en vez de por ID -- mismo patron ya
+            # probado en modules/iibb/crawl_oc_por_factura.abrir_combo_filtro().
+            _cambiar_filtro_a_todos(page)
 
             click_js = """(texto) => {
                 const spans = [...document.querySelectorAll('span.dx-vam')];

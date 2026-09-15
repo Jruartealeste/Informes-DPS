@@ -15,6 +15,7 @@ import os
 import html_report as hr
 from modules.cobranza_proveedores import config as cobranza_proveedores_config
 from modules.compras import config as compras_config
+from modules.estimados_pendientes import generate_html_report as estimados_pendientes_report
 from modules.facturas import config as facturas_config
 from modules.iibb import config as iibb_config
 from modules.ordenes_trabajo import config as ot_config
@@ -25,6 +26,7 @@ from modules.pendientes import generate_html_report as pendientes_report
 # El basename alcanza porque dashboard.html vive en la misma carpeta salida/.
 MODULOS = [
     ("pendientes", "Pendientes", os.path.basename(pendientes_report.REPORT_HTML_OUTPUT_PATH)),
+    ("estimados_pendientes", "Estimados Pendientes", os.path.basename(estimados_pendientes_report.REPORT_HTML_OUTPUT_PATH)),
     ("ordenes_trabajo", "Ordenes de Trabajo", os.path.basename(ot_config.REPORT_HTML_OUTPUT_PATH)),
     ("compras", "Compras", os.path.basename(compras_config.REPORT_HTML_OUTPUT_PATH)),
     ("facturas", "Facturas", os.path.basename(facturas_config.REPORT_HTML_OUTPUT_PATH)),

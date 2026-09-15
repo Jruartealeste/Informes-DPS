@@ -31,24 +31,37 @@ abr-2024 a jul-2026. El default de la vista es "Mes Actual" (mismo gotcha
 que Facturas/Compras) -- ver explore.py.
 
 Plan de cuentas de ingresos relevado (Cuenta/Nombre Cuenta, clase
-INGRESOS) y confirmado con Javier (2026-07-23): SOLO estas dos cuentas son
-el "recupero de costo de terceros" deducible por IIBB, porque son la
+INGRESOS) y confirmado con Javier (2026-07-23): estas dos cuentas son el
+"recupero de costo de terceros" deducible por IIBB, porque son la
 contrapartida de venta -- sin margen -- de lo que el cliente le compra a
 un tercero a traves de la agencia:
     411040 - VTA SERVICIOS DE TERCEROS (OC)   -> recupero produccion
     411075 - VTA SERVICIOS MEDIOS (OP)        -> recupero medios
-Todo el resto de las cuentas 411xxx/412xxx (FEE, SERVICIO AGENCIA
-PRODUCCION/MEDIOS, VTA SERVICIOS PROPIOS, VTA X DIFERENCIA DE SERV 3EROS,
-MARK UP, BONIFICACIONES, INTERESES GANADOS) es margen/comision propia de
-la agencia: queda como base gravada, NO se descuenta.
 
-Esta tabla se filtra a esas 2 cuentas al ingestar (no se guarda el libro
+Actualizacion confirmada con Javier (2026-08-18): el importe de "Servicio
+de Agencia" tambien se descuenta de la base imponible, ademas del recupero
+de terceros de arriba. Sale de:
+    411020 - SERVICIO AGENCIA PRODUCCION
+    411070 - SERVICIO AGENCIA MEDIOS
+En Medios esta cuenta aparece siempre (confirmado contra la factura
+000500001458: subtotal_ml = recupero 411075 + 411070 exacto). En
+Produccion NO siempre hay una linea 411020 -- ej. la factura
+000500001455 no tiene esa cuenta, el cargo de agencia esta ahi bajo FEE
+(411010, item "Honorarios sobre produccion audiovisual"). Por eso, si una
+factura no tiene ninguna linea 411020/411070, se usa como fallback su
+linea de cuenta 411010 (FEE) -- ver CUENTA_FEE_FALLBACK y
+generate_html_report._servicio_agencia_por_factura(). El resto de las
+cuentas 411xxx/412xxx (VTA SERVICIOS PROPIOS, VTA X DIFERENCIA DE SERV
+3EROS, MARK UP, BONIFICACIONES, INTERESES GANADOS) sigue siendo
+margen/comision propia de la agencia que NO se descuenta.
+
+Esta tabla se filtra a estas cuentas al ingestar (no se guarda el libro
 mayor completo: este modulo es de un solo proposito, igual que
 oc_pendientes_generar/estimados_pendientes_facturar) y se REEMPLAZA entera
 en cada corrida (DELETE + INSERT), no upsert: no hay columna de ID de
-linea en el export, y como es un recorte (solo 2 cuentas) tiene sentido
-tratarlo como snapshot del ultimo export en vez de mantener historial de
-upserts con una clave sintetica fragil.
+linea en el export, y como es un recorte tiene sentido tratarlo como
+snapshot del ultimo export en vez de mantener historial de upserts con una
+clave sintetica fragil.
 
 El informe final NO usa el filtro de periodo dinamico de los demas
 modulos: se recorta en Python a los ultimos 6 meses (por fecha de factura)
@@ -83,6 +96,17 @@ COLUMN_MAP = {
 # deducible de IIBB -- ver docstring arriba. Cuenta llega como int desde
 # Advertys (ej. 411040), no como texto.
 CUENTAS_DEDUCIBLES = (411040, 411075)
+
+# Cuentas de "Servicio de Agencia" (Produccion/Medios) -- tambien deducible
+# de la base imponible, ver docstring arriba (actualizacion 2026-08-18).
+CUENTAS_SERVICIO_AGENCIA = (411020, 411070)
+
+# Si una factura no tiene ninguna linea 411020/411070, se usa su linea de
+# FEE como fallback del cargo de agencia -- ver docstring arriba.
+CUENTA_FEE_FALLBACK = 411010
+
+# Todas las cuentas que efectivamente se guardan en la tabla (ver ingest.py)
+CUENTAS_A_CARGAR = CUENTAS_DEDUCIBLES + CUENTAS_SERVICIO_AGENCIA + (CUENTA_FEE_FALLBACK,)
 
 # Columnas obligatorias para que un registro se cargue
 REQUIRED_COLUMNS = ["numero_referencia", "tipo_asiento", "numero_asiento", "tipo_referencia", "importe"]

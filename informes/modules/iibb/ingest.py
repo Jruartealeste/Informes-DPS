@@ -1,8 +1,9 @@
 """
 Carga un Excel exportado desde Advertys (vista Imputaciones, Consultas >
 Contabilidad > Imputaciones) a la base local, filtrado a las cuentas de
-recupero de terceros (OC/OP) que interesan para el informe de IIBB -- ver
-modules/iibb/config.py para el detalle de por que.
+recupero de terceros (OC/OP) y de Servicio de Agencia (mas su fallback de
+FEE) que interesan para el informe de IIBB -- ver modules/iibb/config.py
+para el detalle de por que.
 
 Uso:
     python -m modules.iibb.ingest ruta/al/export.xlsx
@@ -119,8 +120,8 @@ def cargar_excel(path: str, hoja=0) -> pd.DataFrame:
         print(f"Aviso: se descartaron {antes - len(df)} filas por faltarles datos obligatorios.")
 
     antes = len(df)
-    df = df[df["cuenta"].isin(config.CUENTAS_DEDUCIBLES)]
-    print(f"Filtrado a cuentas deducibles {config.CUENTAS_DEDUCIBLES}: {len(df)} de {antes} filas.")
+    df = df[df["cuenta"].isin(config.CUENTAS_A_CARGAR)]
+    print(f"Filtrado a cuentas deducibles/servicio de agencia {config.CUENTAS_A_CARGAR}: {len(df)} de {antes} filas.")
 
     return df
 

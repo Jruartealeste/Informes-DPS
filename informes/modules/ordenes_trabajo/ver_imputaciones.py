@@ -1,9 +1,21 @@
 """
 Script de RECONOCIMIENTO (solo lectura, no escribe nada en Advertys):
 navega hasta un Estimado de Costos puntual (en modo VISTA, sin entrar a
-Editar) y abre la pestana 'Imputaciones' para revisar por que Advertys
-rechaza la transicion a 'Finalizado' con el mensaje "Los importes
-tercerizados no estan CANCELADOS".
+Editar) y abre las pestanas 'Items del Estimado', 'Facturas', 'Ordenes
+Compra', 'Imputaciones' y 'Totales' para revisar por que Advertys rechaza
+la transicion a 'Finalizado' con el mensaje "Los importes tercerizados no
+estan CANCELADOS".
+
+Ademas de las capturas, imprime a que N° de O.C. referencia HOY cada item
+tercerizado (pestana 'Items del Estimado') -- confirmado en 2 casos reales
+(OT 235/Estimado 439, 2026-07-21; OT 253/Estimado 435, 2026-09-09) que el
+motivo real es que el item ya referencia una O.C. nueva (vigente), pero la
+imputacion del lado VENTA (cuenta 411040) quedo con la O.C. vieja anulada
+que reemplazo -- desfasaje que ni chequear_estimado_completo() ni el propio
+item detectan, porque ambos miran solo el item, no el asiento contable. Ver
+seccion "Notas del flujo de cierre de OT" del README para el detalle
+completo y por que el 'Totales' de Rentabilidad/Informacion contable del
+estimado tambien queda desfasado como sintoma visible del mismo problema.
 
 No clickea 'Editar', 'Guardar' ni ningun boton de 'Cambiar estado a: X'.
 Ver salvaguarda "Advertys es de solo lectura" en CLAUDE.md.
@@ -17,6 +29,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
+
+from modules.ordenes_trabajo.cerrar_ot import _col, leer_grid_visible, normalizar_num_oc
 
 load_dotenv()
 
@@ -172,9 +186,11 @@ def ver_imputaciones(numero_ot, numero_estimado):
         shot(page, f"est_{numero_estimado}_imp_00_detalle")
 
         for pestana, tag in (
+            ("Items del Estimado", "04_items"),
             ("Facturas", "02_facturas"),
             ("Ordenes Compra", "03_ordenes_compra"),
             ("Imputaciones", "01_imputaciones"),
+            ("Totales", "05_totales"),
         ):
             print(f"  Abriendo pestana '{pestana}' (solo lectura)...")
             if not click_texto_visible(page, pestana):
@@ -183,6 +199,17 @@ def ver_imputaciones(numero_ot, numero_estimado):
             esperar_postback(page)
             page.wait_for_timeout(800)
             shot(page, f"est_{numero_estimado}_imp_{tag}")
+
+            if pestana == "Items del Estimado":
+                items = leer_grid_visible(page)
+                print("  Items del Estimado -> O.C. referenciada HOY (para comparar contra el N° O.C. de cada linea en Imputaciones):")
+                for fila in items:
+                    proveedor = _col(fila, "Proveedor").strip()
+                    if not proveedor:
+                        continue
+                    num_oc = normalizar_num_oc(_col(fila, "O.C."))
+                    titulo = _col(fila, "Titulo") or _col(fila, "Nro")
+                    print(f"    - '{titulo}' (proveedor: {proveedor}) -> O.C. {num_oc or '(sin O.C.)'}")
 
         print("Reconocimiento terminado. No se clickeo 'Editar' ni 'Guardar'.")
         browser.close()

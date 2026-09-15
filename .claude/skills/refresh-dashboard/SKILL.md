@@ -18,7 +18,9 @@ de este skill; `tools/actualizar_todo.py` es el que reemplaza ese paso).
 **IIBB queda afuera de este script a propósito** — su export es mucho más
 pesado (~22.700 filas vs. cientos en el resto de los módulos) y además
 tiene su propio crawl lento aparte (`crawl_oc_por_factura.py`, "unos
-minutos"). Sigue actualizándose con el flujo manual de siempre.
+minutos"). Se actualiza con `python -m tools.actualizar_iibb` (desde
+2026-08-18) — no es manual, es otro script encadenado, solo que se dispara
+aparte por el costo de tiempo.
 
 ## Pasos
 
@@ -41,8 +43,11 @@ minutos"). Sigue actualizándose con el flujo manual de siempre.
    `ordenes_trabajo` / `estimados_costos` / `ordenes_compra` /
    `oc_pendientes_generar` / `estimados_pendientes_facturar`, recién
    después `pendientes`).
-3. **IIBB** siempre se actualiza aparte con el skill `actualizar-informe`
-   (export manual, como siempre) — no lo toca `tools/actualizar_todo.py`.
+3. **IIBB** siempre se actualiza aparte con `python -m tools.actualizar_iibb`
+   (encadena facturas/ordenes_compra/ordenes_publicidad + Imputaciones +
+   el crawl de OC/OP + el informe, avisando si algo queda sin detalle) —
+   no lo toca `tools/actualizar_todo.py`. Ver "Caso especial — IIBB" en
+   `workflows/actualizar_informe.md`.
 4. `items_pendientes_oc` no tiene Excel propio y sigue siendo opt-in: solo
    re-correrlo (`python -m modules.ordenes_trabajo.crawl_items_pendientes`,
    tarda unos minutos) si Javier pide específicamente refrescar ese dato o

@@ -41,11 +41,22 @@ cerrar, sin gastar un intento de escritura a ciegas. Ver
 `workflows/cerrar_pendientes.md` para el flujo completo (incluye el paso de
 confirmacion explicita de Javier antes de ejecutar cualquier escritura).
 
+`listar_candidatos_estimados()` es la version amplia de lo anterior
+(agregada 2026-09-09, skill `finalizar-estimados-pendientes`): en vez de
+partir de estimados no-terminales de OT ABIERTAS, parte del semaforo de
+`modules/estimados_pendientes/generate_html_report.py` (TODOS los
+estimados no terminales, de cualquier OT, abierta o cerrada -- confirmado
+con Javier que un estimado puede quedar facturado y sin el click final a
+Finalizado aunque su OT ya este Cerrada) y chequea en vivo solo los que ya
+dieron "listo" en el semaforo local. Ver
+`workflows/finalizar_estimados_pendientes.md` para el flujo completo.
+
 Uso:
     python -m modules.ordenes_trabajo.cerrar_ot finalizar-estimado <numero_estimado>
     python -m modules.ordenes_trabajo.cerrar_ot cerrar-ot <numero_ot>
     python -m modules.ordenes_trabajo.cerrar_ot chequear-estimado <numero_ot> <numero_estimado>
     python -m modules.ordenes_trabajo.cerrar_ot listar-candidatos
+    python -m modules.ordenes_trabajo.cerrar_ot listar-candidatos-estimados
 """
 import os
 import sys
@@ -634,6 +645,106 @@ def listar_candidatos():
         print(f"  - OT {numero_ot}")
 
 
+def listar_candidatos_estimados():
+    """SOLO LECTURA (nunca clickea 'Editar' ni 'Guardar'): version amplia de
+    listar_candidatos() -- en vez de partir de estimados no-terminales de OT
+    ABIERTAS, parte del semaforo por estimado de
+    modules/estimados_pendientes/generate_html_report.py, que cubre TODOS los
+    estimados no terminales de advertys.db sin importar si su OT esta
+    abierta o cerrada (confirmado con Javier 2026-09-09). Solo corre el
+    chequeo en vivo (chequear_estimado_completo) sobre los que el semaforo
+    local ya marco 'listo' -- los que el semaforo local marco 'bloqueado' no
+    se re-chequean en vivo (ya sabemos el motivo por los datos locales)."""
+    from modules.estimados_pendientes.generate_html_report import (
+        _armar_resumen,
+        cargar_datos as cargar_datos_estimados,
+    )
+    from modules.pendientes.generate_html_report import _combinar_items_pendientes
+
+    estimados, oc, ot, oc_pendientes, estimados_pend_facturar, items_crawl = cargar_datos_estimados()
+    if estimados.empty:
+        print("No hay estimados de costo en la base local (correr el ingest de estimados_costos primero).")
+        return
+
+    items_pendientes = _combinar_items_pendientes(oc_pendientes, items_crawl)
+    resumen = _armar_resumen(estimados, oc, ot, items_pendientes, estimados_pend_facturar)
+
+    # Mismo umbral y motivo que listar_candidatos(): la grilla "Estimados
+    # Costo" de una OT pagina de a 20, y este script busca el estimado por
+    # texto exacto en lo ya renderizado en pantalla -- un estimado que cae
+    # en la pagina 2+ nunca aparece.
+    UMBRAL_MUCHOS_ESTIMADOS_LOCAL = 20
+    cant_estimados_por_ot = estimados.groupby("numero_ot")["numero_estimado"].count()
+    ots_muchos_estimados = set(
+        cant_estimados_por_ot[cant_estimados_por_ot > UMBRAL_MUCHOS_ESTIMADOS_LOCAL].index
+    )
+
+    candidatos_todos = resumen[resumen["semaforo"] == "listo"]
+    candidatos_no_evaluables = candidatos_todos[candidatos_todos["numero_ot"].isin(ots_muchos_estimados)]
+    candidatos = candidatos_todos[~candidatos_todos["numero_ot"].isin(ots_muchos_estimados)]
+
+    print(f"Estimados con semaforo local 'Listo para Finalizado': {len(candidatos_todos)}")
+
+    if not candidatos_no_evaluables.empty:
+        print(
+            f"\nEstimados NO evaluables (su OT tiene mas de {UMBRAL_MUCHOS_ESTIMADOS_LOCAL} estimados "
+            f"cargados, revisar a mano en Advertys): {len(candidatos_no_evaluables)}"
+        )
+        for fila in candidatos_no_evaluables.to_dict(orient="records"):
+            print(f"  - OT {fila['numero_ot']} / Estimado {fila['numero_estimado']}")
+
+    print(f"\nEstimados a chequear en vivo contra Advertys: {len(candidatos)}")
+    if candidatos.empty:
+        return
+
+    listos = []
+    bloqueados = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(accept_downloads=True)
+        login(page)
+
+        for fila in candidatos.to_dict(orient="records"):
+            numero_ot = fila["numero_ot"]
+            numero_estimado = fila["numero_estimado"]
+            titulo = fila.get("titulo") or ""
+            ot_estado = fila.get("ot_estado") or ""
+            print(f"  Chequeando estimado {numero_estimado} (OT {numero_ot}, {ot_estado})...")
+            try:
+                ir_a_ot(page, numero_ot)
+                if not click_boton_visible(page, "Estimados Costo"):
+                    bloqueados.append((numero_ot, numero_estimado, titulo, ["No se pudo abrir la pestana 'Estimados Costo'"]))
+                    continue
+                esperar_postback(page)
+                page.wait_for_timeout(600)
+
+                fila_est = page.get_by_text(str(numero_estimado), exact=True)
+                if fila_est.count() == 0:
+                    bloqueados.append((numero_ot, numero_estimado, titulo, ["No se encontro el estimado en la grilla"]))
+                    continue
+                fila_est.first.click(timeout=5000)
+                esperar_postback(page)
+                page.wait_for_timeout(600)
+
+                completo, motivos = chequear_estimado_completo(page, numero_estimado)
+                if completo:
+                    listos.append((numero_ot, numero_estimado, titulo))
+                else:
+                    bloqueados.append((numero_ot, numero_estimado, titulo, motivos))
+            except Exception as e:
+                bloqueados.append((numero_ot, numero_estimado, titulo, [f"Error durante el chequeo: {e}"]))
+
+        browser.close()
+
+    print(f"\nEstimados LISTOS para 'finalizar-estimado': {len(listos)}")
+    for numero_ot, numero_estimado, titulo in listos:
+        print(f"  - OT {numero_ot} / Estimado {numero_estimado} ({titulo})")
+
+    print(f"\nEstimados BLOQUEADOS (no se pueden finalizar todavia): {len(bloqueados)}")
+    for numero_ot, numero_estimado, titulo, motivos in bloqueados:
+        print(f"  - OT {numero_ot} / Estimado {numero_estimado} ({titulo}): {'; '.join(motivos)}")
+
+
 def main():
     if not URL or not USER or not PASSWORD:
         print("ERROR: completa ADVERTYS_URL, ADVERTYS_USER y ADVERTYS_PASSWORD en .env")
@@ -645,6 +756,8 @@ def main():
     accion = sys.argv[1]
     if accion == "listar-candidatos":
         listar_candidatos()
+    elif accion == "listar-candidatos-estimados":
+        listar_candidatos_estimados()
     elif accion == "finalizar-estimado":
         if len(sys.argv) < 3:
             print(__doc__)

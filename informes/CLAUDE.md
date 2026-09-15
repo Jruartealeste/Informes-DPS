@@ -22,6 +22,13 @@ workflow correspondiente:
 - `workflows/verificar_informe_visual.md` — el Screenshot Workflow:
   capturar claro/oscuro/print de un informe con Playwright antes de
   darlo por terminado.
+- `workflows/cerrar_pendientes.md` — cerrar en Advertys las OT abiertas y
+  sus estimados que ya están listos según el informe de Pendientes (skill
+  `cerrar-pendientes`).
+- `workflows/finalizar_estimados_pendientes.md` — pasar a `Finalizado` en
+  Advertys los Estimados de Costo listos según el informe de Estimados
+  Pendientes, de cualquier OT (abierta o cerrada) — skill
+  `finalizar-estimados-pendientes`.
 - `workflows/arquitectura_claude_code.md` — cómo mapear estas 3 capas a
   los mecanismos reales de Claude Code (Skills, Subagents, Agent Teams) y
   la regla de decisión para sumar automatización nueva. Leerlo cuando el

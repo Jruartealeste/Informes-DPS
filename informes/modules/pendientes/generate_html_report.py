@@ -334,6 +334,98 @@ MOTIVO_LABEL = {
 }
 
 
+def _resumen_por_estimado(
+    estimados: pd.DataFrame,
+    oc: pd.DataFrame,
+    items_pendientes: pd.DataFrame,
+    estimados_pend_facturar: pd.DataFrame,
+) -> pd.DataFrame:
+    """Version a nivel ESTIMADO (no OT) de las mismas tres causas de bloqueo
+    que ya calcula _resumen_por_ot (items sin O.C., saldo pendiente de
+    facturar, O.C. sin resolver con saldo > 0) -- confirmado con Javier
+    2026-09-09 que un estimado puede quedar "listo para Finalizado" con
+    independencia de si su OT esta abierta o cerrada (una OT cerrada puede
+    tener quedado un estimado en 'Facturado manual' sin el click final a
+    Finalizado). Reusada por modules/estimados_pendientes/ para su propio
+    semaforo; no reemplaza el calculo por OT de aca abajo (que sigue
+    agregando directo desde las tablas base) para no arriesgar el informe de
+    Pendientes ya validado -- es una funcion nueva, no un refactor de
+    _resumen_por_ot."""
+    base = (
+        estimados[["numero_estimado", "numero_ot"]]
+        .drop_duplicates("numero_estimado")
+        .set_index("numero_estimado")
+    )
+
+    oc_por_estimado = oc.groupby("numero_estimado").agg(
+        cant_oc=("numero_oc", "count"),
+        total_oc=("importe_sin_iva", "sum"),
+        oc_ok=("estado", lambda s: set(s) <= OC_ESTADOS_RESUELTOS),
+    )
+
+    oc_pend_mask = ~oc["estado"].isin(OC_ESTADOS_RESUELTOS) & (oc["saldo"] > 0)
+    oc_saldo_pend_por_estimado = (
+        oc[oc_pend_mask]
+        .groupby("numero_estimado")
+        .agg(saldo_oc_pendiente=("saldo", "sum"), cant_oc_pendiente=("numero_oc", "count"))
+    )
+
+    if not items_pendientes.empty:
+        items_sin_oc_por_estimado = items_pendientes.groupby("numero_estimado").agg(
+            cant_items_sin_oc=("detalle", "count"),
+        )
+    else:
+        items_sin_oc_por_estimado = pd.DataFrame(columns=["cant_items_sin_oc"])
+
+    if not estimados_pend_facturar.empty:
+        pend_facturar_por_estimado = estimados_pend_facturar.groupby("numero_estimado").agg(
+            monto_pendiente_facturar=("pendiente_facturar", "sum"),
+        )
+    else:
+        pend_facturar_por_estimado = pd.DataFrame(columns=["monto_pendiente_facturar"])
+
+    resumen = (
+        base
+        .join(oc_por_estimado, how="left")
+        .join(oc_saldo_pend_por_estimado, how="left")
+        .join(items_sin_oc_por_estimado, how="left")
+        .join(pend_facturar_por_estimado, how="left")
+    )
+    resumen["cant_oc"] = resumen["cant_oc"].fillna(0).astype(int)
+    resumen["total_oc"] = resumen["total_oc"].fillna(0.0)
+    resumen["oc_ok"] = resumen["oc_ok"].fillna(True)
+    resumen["saldo_oc_pendiente"] = resumen["saldo_oc_pendiente"].fillna(0.0)
+    resumen["cant_oc_pendiente"] = resumen["cant_oc_pendiente"].fillna(0).astype(int)
+    resumen["cant_items_sin_oc"] = resumen["cant_items_sin_oc"].fillna(0).astype(int)
+    resumen["monto_pendiente_facturar"] = resumen["monto_pendiente_facturar"].fillna(0.0)
+
+    def _bloqueado(fila):
+        return (
+            fila["cant_items_sin_oc"] > 0
+            or fila["monto_pendiente_facturar"] > 0
+            or fila["saldo_oc_pendiente"] > 0
+        )
+
+    def _motivo(fila):
+        if not _bloqueado(fila):
+            return ""
+        motivos = []
+        if fila["cant_items_sin_oc"] > 0:
+            motivos.append(f"{fila['cant_items_sin_oc']} item(s) con proveedor sin O.C. emitida")
+        if fila["monto_pendiente_facturar"] > 0:
+            motivos.append(f"pendiente de facturar {_fmt_money(fila['monto_pendiente_facturar'])}")
+        if fila["saldo_oc_pendiente"] > 0:
+            motivos.append(
+                f"{fila['cant_oc_pendiente']} O.C. sin resolver con saldo "
+                f"{_fmt_money(fila['saldo_oc_pendiente'])}"
+            )
+        return "; ".join(motivos)
+
+    resumen["bloqueado"] = resumen.apply(_bloqueado, axis=1)
+    resumen["motivo_bloqueo"] = resumen.apply(_motivo, axis=1)
+    return resumen.reset_index()
+
+
 def _resumen_por_ot(
     ot: pd.DataFrame,
     estimados: pd.DataFrame,
