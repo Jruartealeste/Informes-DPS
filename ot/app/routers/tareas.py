@@ -1,6 +1,6 @@
 import datetime as dt
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -147,6 +147,7 @@ def tareas_home(request: Request, db: Session = Depends(get_db)):
     ctx = _contexto_tabla(db, request)
     ctx["tema"] = request.cookies.get("tema", "dark")
     ctx["densidad"] = request.cookies.get("densidad", "1") != "0"
+    ctx["seccion_activa"] = "tareas"
     return templates.TemplateResponse(request, "tareas/list.html", ctx)
 
 
@@ -221,6 +222,32 @@ def _resolver_ot_interna(db: Session, numero: str) -> tuple[int | None, str | No
     return nueva.id, None
 
 
+def _validar_campos_obligatorios(
+    ot_editable: bool,
+    ot_numero: str,
+    fecha_pedido: str,
+    tipos: list[str],
+    responsable_ids: set[int],
+):
+    """Respaldo server-side de los obligatorios de la sheet de tarea (ver
+    ot/CLAUDE.md) — la sheet ya bloquea el guardado del lado del cliente,
+    esto es solo para no dejar la puerta abierta a quien pegue directo
+    contra el endpoint. `ot_editable` es False cuando la tarea ya tiene una
+    OT interna asignada (el campo queda de solo lectura en la sheet, así
+    que no viaja en el POST/PATCH y no corresponde exigirlo de nuevo)."""
+    faltantes = []
+    if ot_editable and not ot_numero.strip():
+        faltantes.append("OT interna")
+    if not fecha_pedido:
+        faltantes.append("fecha de pedido")
+    if not tipos:
+        faltantes.append("tipo de tarea")
+    if not responsable_ids:
+        faltantes.append("responsables")
+    if faltantes:
+        raise HTTPException(422, f"Faltan campos obligatorios: {', '.join(faltantes)}.")
+
+
 def _guardar_tipos_responsables(db: Session, tarea: Tarea, tipos: list[str], responsable_ids: set[int]):
     tarea.tipos.clear()
     for nombre in tipos:
@@ -251,6 +278,10 @@ def crear_tarea(
     tipos: str = Form(""),
     responsable_ids: str = Form(""),
 ):
+    tipos_lista = [x.strip() for x in tipos.split(",") if x.strip()]
+    responsables = parse_ids(responsable_ids)
+    _validar_campos_obligatorios(True, ot_numero, fecha_pedido, tipos_lista, responsables)
+
     ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero)
     tarea = Tarea(
         ot_interna_id=ot_interna_id,
@@ -265,12 +296,7 @@ def crear_tarea(
     )
     db.add(tarea)
     db.flush()
-    _guardar_tipos_responsables(
-        db,
-        tarea,
-        [x for x in tipos.split(",") if x.strip()],
-        parse_ids(responsable_ids),
-    )
+    _guardar_tipos_responsables(db, tarea, tipos_lista, responsables)
     db.commit()
 
     return _tabla_y_cerrar_drawer(db, request)
@@ -293,6 +319,10 @@ def editar_tarea(
     responsable_ids: str = Form(""),
 ):
     tarea = db.get(Tarea, tarea_id)
+    tipos_lista = [x.strip() for x in tipos.split(",") if x.strip()]
+    responsables = parse_ids(responsable_ids)
+    _validar_campos_obligatorios(tarea.ot_interna_id is None, ot_numero, fecha_pedido, tipos_lista, responsables)
+
     if tarea.ot_interna_id is None:
         ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero)
         tarea.ot_interna_id = ot_interna_id
@@ -304,12 +334,7 @@ def editar_tarea(
     tarea.presupuestado = {"si": True, "no": False}.get(presupuestado.lower())
     tarea.estado_tarea = EstadoTarea[estado_tarea] if estado_tarea else None
     tarea.estado_facturacion = EstadoFacturacion[estado_facturacion]
-    _guardar_tipos_responsables(
-        db,
-        tarea,
-        [x for x in tipos.split(",") if x.strip()],
-        parse_ids(responsable_ids),
-    )
+    _guardar_tipos_responsables(db, tarea, tipos_lista, responsables)
     db.commit()
 
     return _tabla_y_cerrar_drawer(db, request)

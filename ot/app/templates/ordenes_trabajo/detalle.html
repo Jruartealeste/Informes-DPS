@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block titulo %}OT {{ ot.n }} · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="ot-header">
+  <a href="/ordenes-trabajo" class="ot-header__back">← OT internas</a>
+  <div class="ot-header__title-row">
+    <h1 class="ot-header__title">OT {{ ot.n }}</h1>
+    <span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span>
+    <span class="ot-header__antiguedad">{{ ot.apertura_label }}</span>
+  </div>
+</div>
+
+<div class="ot-cards-row">
+  <div class="card card--principal">
+    <div class="card__grid2">
+      <div>
+        <div class="card__field-label">OT interna</div>
+        <div class="card__field-value card__field-value--ot">OT {{ ot.n }}</div>
+      </div>
+      <div>
+        <div class="card__field-label">Cliente</div>
+        <div class="card__field-value">{{ cliente }}</div>
+        {% if anunciante %}<div class="card__field-sub">Anunciante Advertys: {{ anunciante }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="card__sep"></div>
+
+    <div class="card__eyebrow">OT de sistema (Advertys)</div>
+
+    {% if ot.dps %}
+    <div class="ot-sistema__con">
+      <span class="ot-sistema__numero">{{ ot.dps }}</span>
+      <span class="badge--sincronizada">SINCRONIZADA</span>
+      {% if ot.hermanas %}
+      <div class="ot-sistema__hermanas">compartida con {{ ot.hermanas | length }} OT interna{{ 's' if ot.hermanas | length != 1 }} más ({{ ot.hermanas | join(', ') }})</div>
+      {% endif %}
+    </div>
+    <form class="ot-sistema__form" method="post" action="/ordenes-trabajo/{{ ot.n }}/reasignar">
+      <input type="text" name="numero_ot_advertys" value="{{ ot.dps }}" placeholder="Número de OT de sistema">
+      <button type="submit" class="btn btn--small">Reasignar OT de sistema</button>
+    </form>
+    {% else %}
+    <div class="ot-sistema__sin">
+      <p class="ot-sistema__sin-titulo">Todavía no tiene OT de sistema</p>
+      <p class="ot-sistema__sin-nota">
+        "Generar OT en Advertys" y "Agrupar con otras OT" todavía no están disponibles — pendiente el
+        relevamiento de solo lectura del formulario "Nueva OT" en Advertys (roadmap ítem 1). Mientras tanto se
+        puede cargar el número a mano si ya se generó por otro medio.
+      </p>
+      <form class="ot-sistema__form" method="post" action="/ordenes-trabajo/{{ ot.n }}/reasignar">
+        <input type="text" name="numero_ot_advertys" placeholder="Número de OT de sistema">
+        <button type="submit" class="btn btn--small">Guardar</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card card--facturacion">
+    <div class="card__eyebrow">Facturación</div>
+    <div class="fact-progreso__num">{{ ot.progreso }}</div>
+    <p class="fact-progreso__nota">tareas facturadas. Se factura de a partes; la OT sigue abierta.</p>
+    <div class="fact-progreso__track"><div class="fact-progreso__fill" style="width:{{ ot.pct }}%"></div></div>
+    <div class="fact-desglose">
+      {% for d in desglose %}
+      <div class="fact-desglose__row">
+        <span class="chip-fac" data-valor="{{ d.valor }}">{{ d.label }}</span>
+        <span class="fact-desglose__n">{{ d.n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card card--tareas table-scroll">
+    <div class="table-card table-card--ot">
+      <div class="table-head table-head--ot">
+        <div>Pedido</div><div>Tipo</div><div>Detalle</div><div>Pidió</div>
+        <div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
+      </div>
+      {% for t in ot.tareas %}
+      <div class="row-tarea row-tarea--ot">
+        <div class="cell-mono">{{ t.fecha_pedido }}</div>
+        <div class="cell-muted">{{ t.tipos_label }}</div>
+        <div class="cell-detalle">{{ t.detalle }}</div>
+        <div class="cell-muted">{{ t.pedido_por }}</div>
+        <div class="cell-muted">{{ t.responsables_label }}</div>
+        <div class="cell-drive {{ 'is-linked' if t.link_drive }}">↗</div>
+        <div class="cell-presup {{ 'is-si' if t.presup_label == 'Si' }}">{{ t.presup_label }}</div>
+        <div><span class="chip-estado" data-valor="{{ t.estado_tarea }}">{{ t.estado_tarea_label }}</span></div>
+        <div><span class="chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</span></div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="ot-tareas__footer-link">
+      <a href="/tareas?q={{ ot.n }}">Ver y editar estas tareas en Tareas →</a>
+    </p>
+  </div>
+</div>
+
+{% endblock %}

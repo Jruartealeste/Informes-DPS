@@ -17,7 +17,7 @@
 
       <div class="drawer__body">
         <div class="field">
-          <div class="field__label">OT interna</div>
+          <div class="field__label">OT interna <span class="field__req">*</span></div>
           {% with ot_numero = det.ot_numero_form if det else '', ot_bloqueada = det.ot_bloqueada if det else False, ot_cliente = det.ot_cliente if det else '' %}
           {% include "tareas/_campo_ot.html" %}
           {% endwith %}
@@ -34,8 +34,8 @@
 
         <div class="field-row">
           <div class="field">
-            <div class="field__label">Fecha de pedido</div>
-            <input type="date" name="fecha_pedido" value="{{ det.fecha_pedido_iso if det else '' }}">
+            <div class="field__label">Fecha de pedido <span class="field__req">*</span></div>
+            <input type="date" name="fecha_pedido" required value="{{ det.fecha_pedido_iso if det else '' }}">
           </div>
           <div class="field">
             <div class="field__label">Pedido por</div>
@@ -44,13 +44,13 @@
         </div>
 
         <div class="field">
-          <div class="field__label">Detalle</div>
+          <div class="field__label">Detalle <span class="field__req">*</span></div>
           <textarea name="detalle" rows="3" required>{{ det.detalle if det else '' }}</textarea>
         </div>
 
         <div class="field">
-          <div class="field__label">Tipo de tarea</div>
-          <input type="text" name="tipos" list="tipos-catalogo"
+          <div class="field__label">Tipo de tarea <span class="field__req">*</span></div>
+          <input type="text" name="tipos" list="tipos-catalogo" required
                  value="{{ det.tipos | join(', ') if det else '' }}"
                  placeholder="diseño, redacción">
           <datalist id="tipos-catalogo">
@@ -59,8 +59,9 @@
         </div>
 
         <div class="field">
-          <div class="field__label">Responsables</div>
+          <div class="field__label">Responsables <span class="field__req">*</span></div>
           {% include "tareas/_campo_responsables.html" %}
+          <div class="field-error">Elegí al menos un responsable.</div>
         </div>
 
         {% if det and det.ot_asignada %}
@@ -120,23 +121,12 @@
           </div>
           <div class="field field--fixed">
             <div class="field__label">Presupuestado</div>
-            {% set presu_actual = det.presupuestado if det else none %}
-            {% set presu_valor = "" if presu_actual is none else ("si" if presu_actual else "no") %}
-            {% set presu_label = "—" if presu_actual is none else ("Si" if presu_actual else "No") %}
-            <div class="combo combo--select">
-              <button type="button" class="combo__display">{{ presu_label }}</button>
-              <input type="hidden" class="combo__hidden" name="presupuestado" value="{{ presu_valor }}">
-              <button type="button" class="combo__toggle" aria-label="Mostrar opciones">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-              <div class="combo__menu">
-                <div class="combo__item" data-valor="">—</div>
-                <div class="combo__item" data-valor="si">Si</div>
-                <div class="combo__item" data-valor="no">No</div>
-              </div>
-            </div>
+            {% set presu_actual = det.presupuestado if det and det.presupuestado else false %}
+            <label class="check-toggle">
+              <input type="checkbox" class="check-toggle__input" {{ "checked" if presu_actual }}>
+              <input type="hidden" name="presupuestado" value="{{ 'si' if presu_actual else 'no' }}">
+              <span class="check-toggle__text">{{ "Si" if presu_actual else "No" }}</span>
+            </label>
           </div>
         </div>
 

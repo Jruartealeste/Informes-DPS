@@ -1,5 +1,5 @@
 from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS
-from app.models import EstadoFacturacion, EstadoTarea, Tarea
+from app.models import EstadoFacturacion, EstadoTarea, OtInterna, Tarea
 
 
 def grupo_key(t: Tarea) -> str:
@@ -103,6 +103,46 @@ def grupo_vm(key: str, tareas_orm: list[Tarea]) -> dict:
         "pct": round((facturadas / total) * 100) if total else 0,
         "progreso": f"{facturadas}/{total}",
     }
+
+
+def ot_interna_vm(ot: OtInterna) -> dict:
+    """Resumen de una OT interna para la vista de listado y de detalle —
+    reusa grupo_vm cuando tiene tareas (misma forma que la fila de grupo de
+    Tareas agrupada); una OT interna recién creada sin tareas todavía no
+    debería poder existir hoy (solo se crea al guardar una tarea), pero se
+    contempla igual para no romper si algún dato legado queda huérfano."""
+    if not ot.tareas:
+        return {
+            "n": ot.numero_interno,
+            "amb": False,
+            "dps": ot.numero_ot_advertys,
+            "dps_label": f"OT sistema {ot.numero_ot_advertys}" if ot.numero_ot_advertys else "sin OT de sistema",
+            "ot_estado": ot.estado.value,
+            "apertura_label": (
+                "abierta el " + ot.fecha_apertura.strftime("%d/%m")
+                if ot.fecha_apertura
+                else "sin fecha de apertura"
+            ),
+            "tareas": [],
+            "total": 0,
+            "facturadas": 0,
+            "pct": 0,
+            "progreso": "0/0",
+        }
+    return grupo_vm(ot.numero_interno, ot.tareas)
+
+
+def desglose_facturacion_vm(tareas: list[Tarea]) -> list[dict]:
+    """Conteo de tareas por estado de facturación, solo los estados con al
+    menos una tarea (ver README de diseño: 'sólo los que tienen > 0')."""
+    conteos = {f: 0 for f in EstadoFacturacion}
+    for t in tareas:
+        conteos[t.estado_facturacion] += 1
+    return [
+        {"valor": f.name, "label": FACTURACION_LABELS[f], "n": conteos[f]}
+        for f in EstadoFacturacion
+        if conteos[f] > 0
+    ]
 
 
 def construir_grupos(tareas_orm: list[Tarea]) -> list[dict]:

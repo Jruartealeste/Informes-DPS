@@ -24,6 +24,9 @@
           <div class="group-progress__track"><div class="group-progress__fill" style="width:{{ g.pct }}%"></div></div>
           <span class="group-progress__label">{{ g.progreso }}</span>
         </div>
+        {% if not g.amb %}
+        <a href="/ordenes-trabajo/{{ g.n }}" class="btn btn--small" onclick="event.stopPropagation()">Ver OT</a>
+        {% endif %}
       </div>
       <div class="group__tareas">
         {% for t in g.tareas %}

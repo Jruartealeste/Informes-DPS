@@ -23,5 +23,6 @@ app.add_middleware(SessionMiddleware, secret_key=settings.session_secret, same_s
 app.include_router(auth_routes.router)
 app.include_router(tareas.router)
 app.include_router(ordenes_trabajo.router)
+app.include_router(ordenes_trabajo.router_paginas)
 app.include_router(responsables.router)
 app.include_router(mail.router)

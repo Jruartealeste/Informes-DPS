@@ -48,7 +48,7 @@
       <div class="sidebar__group">
         <div class="sidebar__group-label">Secciones</div>
         <div class="sidebar__list">
-          <a href="/tareas" class="sidebar__item is-active" title="Tareas">
+          <a href="/tareas" class="sidebar__item {{ 'is-active' if seccion_activa == 'tareas' else '' }}" title="Tareas">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="m3 17 2 2 4-4"></path>
               <path d="m3 7 2 2 4-4"></path>
@@ -59,7 +59,7 @@
             <span class="sidebar__item-label">Tareas</span>
             <span class="sidebar__badge">{{ total_tareas | default(0) }}</span>
           </a>
-          <button type="button" class="sidebar__item is-disabled" disabled title="OT internas · todavía no construido">
+          <a href="/ordenes-trabajo" class="sidebar__item {{ 'is-active' if seccion_activa == 'ordenes_trabajo' else '' }}" title="OT internas">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="4" x2="20" y1="9" y2="9"></line>
               <line x1="4" x2="20" y1="15" y2="15"></line>
@@ -67,8 +67,8 @@
               <line x1="16" x2="14" y1="3" y2="21"></line>
             </svg>
             <span class="sidebar__item-label">OT internas</span>
-            <span class="sidebar__badge">pronto</span>
-          </button>
+            <span class="sidebar__badge">{{ total_ots | default(0) }}</span>
+          </a>
           <button type="button" class="sidebar__item is-disabled" disabled title="Agrupar OT · todavía no construido">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18" cy="18" r="3"></circle>
@@ -332,6 +332,45 @@
       });
     });
   })();
+
+  // check-toggle: checkbox visible (ej. "Presupuestado") que sincroniza un
+  // hidden de al lado con "si"/"no" — mismo patrón que los combo, pero acá
+  // no hace falta menú propio, un checkbox nativo alcanza.
+  document.addEventListener('change', function (ev) {
+    if (!(ev.target.matches && ev.target.matches('.check-toggle__input'))) return;
+    var wrap = ev.target.closest('.check-toggle');
+    var hidden = wrap.querySelector('input[type="hidden"]');
+    var texto = wrap.querySelector('.check-toggle__text');
+    hidden.value = ev.target.checked ? 'si' : 'no';
+    if (texto) texto.textContent = ev.target.checked ? 'Si' : 'No';
+  });
+
+  // valida antes de dejar que htmx mande la sheet de tarea: los campos
+  // obligatorios respaldados por un hidden (combo--multi de responsables,
+  // hoy; cualquier combo futuro marcado data-required) no participan de la
+  // validación nativa del navegador porque type="hidden" queda "barred
+  // from constraint validation" por spec — hay que resolverlo a mano acá,
+  // en fase de captura para llegar antes que el listener de submit de
+  // htmx y frenar el request si falta algo.
+  document.addEventListener('submit', function (ev) {
+    var form = ev.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    form.querySelectorAll('.combo.is-invalid').forEach(function (w) {
+      w.classList.remove('is-invalid');
+    });
+    var faltante = null;
+    form.querySelectorAll('.combo__hidden[data-required]').forEach(function (hidden) {
+      if (!faltante && !hidden.value) faltante = hidden;
+    });
+    if (faltante) {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      var wrap = faltante.closest('.combo');
+      wrap.classList.add('is-invalid');
+      var display = wrap.querySelector('.combo__display');
+      if (display) display.focus();
+    }
+  }, true);
 
   (function () {
     var html = document.documentElement;

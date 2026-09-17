@@ -34,9 +34,17 @@ def test_crear_tarea_nueva_ot(client, db_session):
 
 
 def test_tarea_con_ot_ambigua_no_crea_ot_interna(client, db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+
     client.post(
         "/tareas",
-        data={"ot_numero": "4086/4110", "detalle": "Video institucional"},
+        data={
+            "ot_numero": "4086/4110",
+            "detalle": "Video institucional",
+            "fecha_pedido": "2026-08-01",
+            "tipos": "produccion",
+            "responsable_ids": str(fer.id),
+        },
     )
     tarea = db_session.query(Tarea).filter_by(detalle="Video institucional").one()
     assert tarea.ot_interna_id is None
@@ -59,6 +67,7 @@ def test_filtro_por_estado(client, db_session):
 
 
 def test_editar_tarea(client, db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
     cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
     ot = OtInterna(numero_interno="4220", cliente_id=cliente.id)
     db_session.add(ot)
@@ -70,7 +79,14 @@ def test_editar_tarea(client, db_session):
 
     r = client.patch(
         f"/tareas/{tarea_id}",
-        data={"ot_numero": "4220", "detalle": "Tarea editada", "estado_facturacion": "PARA_FACTURAR"},
+        data={
+            "ot_numero": "4220",
+            "detalle": "Tarea editada",
+            "fecha_pedido": "2026-08-01",
+            "tipos": "diseño",
+            "responsable_ids": str(fer.id),
+            "estado_facturacion": "PARA_FACTURAR",
+        },
     )
     assert r.status_code == 200
     assert "Tarea editada" in r.text
@@ -81,18 +97,20 @@ def test_editar_tarea(client, db_session):
     assert actualizada.estado_facturacion.name == "PARA_FACTURAR"
 
 
-def test_crear_tarea_borrador_sin_ot(client, db_session):
+def test_crear_tarea_sin_campos_obligatorios_falla(client, db_session):
+    # Ver ot/CLAUDE.md: hasta 2026-09-17 se podía crear una tarea "borrador"
+    # con solo el detalle, sin OT — decisión revertida, ahora OT interna,
+    # fecha de pedido, tipo de tarea y responsables son obligatorios siempre
+    # (la sheet ya lo bloquea del lado del cliente; esto prueba el respaldo
+    # server-side para quien pegue directo contra el endpoint).
     r = client.post("/tareas", data={"detalle": "Recordar pedir presupuesto a imprenta"})
-    assert r.status_code == 200
-    assert "Recordar pedir presupuesto a imprenta" in r.text
+    assert r.status_code == 422
 
-    tarea = db_session.query(Tarea).filter_by(detalle="Recordar pedir presupuesto a imprenta").one()
-    assert tarea.ot_interna_id is None
-    assert tarea.ot_ambigua is None
-    assert tarea.estado_tarea is None
+    assert db_session.query(Tarea).filter_by(detalle="Recordar pedir presupuesto a imprenta").count() == 0
 
 
 def test_no_se_puede_cambiar_ot_ya_asignada(client, db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
     cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
     ot_original = OtInterna(numero_interno="4240", cliente_id=cliente.id)
     ot_otra = OtInterna(numero_interno="4241", cliente_id=cliente.id)
@@ -105,7 +123,13 @@ def test_no_se_puede_cambiar_ot_ya_asignada(client, db_session):
 
     r = client.patch(
         f"/tareas/{tarea_id}",
-        data={"ot_numero": "4241", "detalle": "Tarea con OT fija"},
+        data={
+            "ot_numero": "4241",
+            "detalle": "Tarea con OT fija",
+            "fecha_pedido": "2026-08-01",
+            "tipos": "diseño",
+            "responsable_ids": str(fer.id),
+        },
     )
     assert r.status_code == 200
 

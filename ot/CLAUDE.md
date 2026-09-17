@@ -282,10 +282,15 @@ Tablas:
   drawer de tarea quedaba siempre editable como buscador de texto, incluso
   en una tarea ya guardada: reescribirlo reasignaba la tarea a otra OT (o
   creaba una nueva) por error. Ahora:
-  - Se puede crear una tarea con solo el nombre (`detalle`, ya era el
-    único campo obligatorio), sin OT — sirve de ayuda-memoria. Mientras no
-    tenga OT asignada (`ot_interna_id` y `ot_ambigua` ambos vacíos), los
-    selects de Estado y Facturación se ocultan en el drawer (no tiene
+  - ~~Se puede crear una tarea con solo el nombre (`detalle`, ya era el
+    único campo obligatorio), sin OT — sirve de ayuda-memoria.~~ Revertido
+    2026-09-17: ver "Decisiones confirmadas con Javier (2026-09-17)" abajo
+    — OT interna pasó a ser obligatoria siempre, ya no existe la tarea
+    "borrador" sin OT.
+  - Mientras la tarea no tenga OT asignada (`ot_interna_id` y `ot_ambigua`
+    ambos vacíos) — solo alcanzable hoy en datos legado de la migración del
+    Sheet, ya no se puede llegar a este estado creando desde la sheet —,
+    los selects de Estado y Facturación se ocultan en el drawer (no tiene
     sentido fijarlos todavía).
   - En cuanto se le asigna una OT real (existente o generando un número
     nuevo con "+ Nueva") y se guarda, el campo pasa a mostrarse como caja
@@ -405,6 +410,38 @@ Tablas:
     son settings requeridos, la app no arranca sin ellos (a propósito:
     mejor que falle a que arranque con todo abierto por falta de
     config).
+
+## Decisiones confirmadas con Javier (2026-09-17)
+
+- **OT interna, fecha de pedido, tipo de tarea y responsables pasan a ser
+  obligatorios siempre en la sheet de tarea** (detalle ya lo era). Revierte
+  la decisión de 2026-08-06 que permitía crear una tarea "borrador" con
+  solo el detalle, sin OT, como ayuda-memoria — ya no se puede crear ni
+  editar una tarea sin completar los 5 campos.
+  - Doble capa, no solo cosmética: la sheet bloquea el guardado del lado
+    del cliente (`required` nativo en OT interna/fecha/tipo de tarea/
+    detalle; el combo de responsables usa un hidden `type="hidden"` que
+    queda "barred from constraint validation" por spec HTML, así que ahí
+    hace falta un listener de `submit` propio en `app/templates/base.html`
+    que lo valida a mano antes de dejar pasar el request de htmx) **y**
+    `app/routers/tareas.py::_validar_campos_obligatorios` repite la
+    validación server-side (422 si falta algo) para no dejar la puerta
+    abierta a quien pegue directo contra `POST/PATCH /tareas` sin pasar
+    por la UI.
+  - OT interna solo se exige cuando el campo está editable en la sheet —
+    si la tarea ya tiene `ot_interna_id` (campo bloqueado, de solo
+    lectura) no se vuelve a pedir en el POST/PATCH porque directamente no
+    viaja en el form.
+  - **Presupuestado pasó de combo Si/No/— a checkbox** (destildado = No,
+    tildado = Si) — se pierde el tercer estado "sin dato" (`presupuestado
+    IS NULL` en la DB) para carga nueva desde la sheet; datos legado con
+    `NULL` siguen existiendo y se muestran como "—" donde ya se leían así
+    (ej. tabla de tareas), pero en cuanto se vuelve a guardar esa tarea
+    desde el drawer, el checkbox resuelve a un booleano explícito.
+  - Implementado en `app/templates/tareas/_detalle.html`,
+    `_campo_ot.html`, `_campo_responsables.html`, `app/templates/base.html`
+    (validación de submit + sync del checkbox), `app/static/css/app.css` y
+    `app/routers/tareas.py`.
 
 ## Roadmap inmediato
 
