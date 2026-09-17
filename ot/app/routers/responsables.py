@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import cache
 from app.db import get_db
 from app.models import Responsable
 from app.templating import templates
@@ -22,9 +23,7 @@ def combo_ctx(db: Session, seleccionados: set[int], abierto: bool = False) -> di
     """Contexto para tareas/_campo_responsables.html: catálogo de responsables
     activos + cualquier inactivo ya seleccionado (para no perderlo de vista en
     una tarea vieja que lo tenía asignado)."""
-    todos = list(
-        db.scalars(select(Responsable).where(Responsable.activo.is_(True)).order_by(Responsable.nombre))
-    )
+    todos = list(cache.responsables_activos(db))
     faltantes = seleccionados - {r.id for r in todos}
     if faltantes:
         todos += list(
@@ -61,6 +60,7 @@ def crear_responsable(
             db.flush()
             seleccionados.add(nuevo.id)
         db.commit()
+        cache.invalidar_responsables()
 
     return templates.TemplateResponse(
         request, "tareas/_campo_responsables.html", combo_ctx(db, seleccionados, abierto=True)
@@ -88,6 +88,7 @@ def crear_responsable_admin(request: Request, db: Session = Depends(get_db), nom
     if nombre and not db.scalar(select(Responsable).where(func.lower(Responsable.nombre) == nombre.lower())):
         db.add(Responsable(nombre=nombre, activo=True))
         db.commit()
+        cache.invalidar_responsables()
     return templates.TemplateResponse(
         request, "responsables/_panel.html", {"responsables": _listar_todos(db)}
     )
@@ -102,6 +103,7 @@ def renombrar_responsable(
     if r and nombre:
         r.nombre = nombre
         db.commit()
+        cache.invalidar_responsables()
     return templates.TemplateResponse(
         request, "responsables/_panel.html", {"responsables": _listar_todos(db)}
     )
@@ -115,6 +117,7 @@ def editar_mail_responsable(
     if r:
         r.mail = mail.strip() or None
         db.commit()
+        cache.invalidar_responsables()
     return templates.TemplateResponse(
         request, "responsables/_panel.html", {"responsables": _listar_todos(db)}
     )
@@ -126,6 +129,7 @@ def toggle_responsable(responsable_id: int, request: Request, db: Session = Depe
     if r:
         r.activo = not r.activo
         db.commit()
+        cache.invalidar_responsables()
     return templates.TemplateResponse(
         request, "responsables/_panel.html", {"responsables": _listar_todos(db)}
     )

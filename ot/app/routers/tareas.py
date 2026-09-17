@@ -2,9 +2,10 @@ import datetime as dt
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import Integer, cast, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app import cache
 from app.db import get_db
 from app.labels import ESTADO_LABELS, FACTURACION_LABELS
 from app.models import (
@@ -28,7 +29,7 @@ def _cargar_tareas(db: Session) -> list[Tarea]:
     stmt = (
         select(Tarea)
         .options(
-            joinedload(Tarea.ot_interna),
+            joinedload(Tarea.ot_interna).joinedload(OtInterna.cliente),
             selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
             selectinload(Tarea.responsables).joinedload(TareaResponsable.responsable),
             selectinload(Tarea.mails),
@@ -130,11 +131,6 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
     }
 
 
-def _todos_ot_numeros(db: Session) -> list[str]:
-    stmt = select(OtInterna.numero_interno).order_by(cast(OtInterna.numero_interno, Integer).desc())
-    return list(db.scalars(stmt))
-
-
 def _tabla_y_cerrar_drawer(db: Session, request: Request) -> HTMLResponse:
     ctx = _contexto_tabla(db, request)
     tabla_html = templates.env.get_template("tareas/_tabla_swap.html").render(ctx)
@@ -161,14 +157,22 @@ def tareas_partial(request: Request, db: Session = Depends(get_db)):
 
 
 def cargar_tarea_con_relaciones(db: Session, tarea_id: int) -> Tarea:
+    # joinedload en las 3 colecciones (no selectinload): para UNA tarea el
+    # "cartesiano" es de un puñado de filas (pocos tipos/responsables/mails),
+    # trivial para Postgres — pero baja de 4 round-trips secuenciales a 1
+    # sola, que es lo que realmente pesa con Neon remoto (ver CLAUDE.md,
+    # notas de performance). _cargar_tareas (la tabla completa) sigue con
+    # selectinload a propósito: ahí selectinload ya hace 1 query por
+    # relación para TODAS las tareas del batch, así que no hay round-trips
+    # de más que ahorrar y el joinedload sí multiplicaría el tráfico.
     return db.get(
         Tarea,
         tarea_id,
         options=[
-            joinedload(Tarea.ot_interna),
-            selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
-            selectinload(Tarea.responsables).joinedload(TareaResponsable.responsable),
-            selectinload(Tarea.mails),
+            joinedload(Tarea.ot_interna).joinedload(OtInterna.cliente),
+            joinedload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
+            joinedload(Tarea.responsables).joinedload(TareaResponsable.responsable),
+            joinedload(Tarea.mails),
         ],
     )
 
@@ -178,14 +182,13 @@ def contexto_detalle(db: Session, tarea_id: int) -> dict:
     para poder refrescar el drawer después de mandar un mail sin duplicar
     este armado."""
     t = cargar_tarea_con_relaciones(db, tarea_id)
-    todos_tipos = list(db.scalars(select(TipoTarea).order_by(TipoTarea.nombre)))
     det = tarea_vm(t)
     return {
         "det": det,
         "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
         "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-        "todos_tipos": [tt.nombre for tt in todos_tipos],
-        "todos_ot_numeros": _todos_ot_numeros(db),
+        "todos_tipos": cache.tipos_nombres(db),
+        "todos_ot_numeros": cache.ot_numeros(db),
         **combo_ctx(db, set(det["responsable_ids"])),
     }
 
@@ -214,6 +217,7 @@ def _resolver_ot_interna(db: Session, numero: str) -> tuple[int | None, str | No
     )
     db.add(nueva)
     db.flush()
+    cache.invalidar_ot_numeros()
     return nueva.id, None
 
 
@@ -351,7 +355,6 @@ def actualizar_facturacion(
 
 @router.get("/tareas-nuevo")
 def form_nueva_tarea(request: Request, db: Session = Depends(get_db)):
-    todos_tipos = list(db.scalars(select(TipoTarea).order_by(TipoTarea.nombre)))
     return templates.TemplateResponse(
         request,
         "tareas/_detalle.html",
@@ -359,8 +362,8 @@ def form_nueva_tarea(request: Request, db: Session = Depends(get_db)):
             "det": None,
             "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
             "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-            "todos_tipos": [tt.nombre for tt in todos_tipos],
-            "todos_ot_numeros": _todos_ot_numeros(db),
+            "todos_tipos": cache.tipos_nombres(db),
+            "todos_ot_numeros": cache.ot_numeros(db),
             **combo_ctx(db, set()),
         },
     )

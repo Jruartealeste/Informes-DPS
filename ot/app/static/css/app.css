@@ -943,6 +943,14 @@ select.chip-fac {
   overflow: hidden;
 }
 
+.drawer > form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .drawer__header {
   flex: none;
   display: flex;
