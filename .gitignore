@@ -7,3 +7,4 @@ exploracion/
 __pycache__/
 *.pyc
 informe_*.html
+informes/salida/*.xlsx

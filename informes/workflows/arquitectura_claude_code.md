@@ -149,3 +149,39 @@ propia a `ot/`. Se sumó el skill `captura-visual` para el caso de "captura
 puntual para ver un diseño en curso" (sin el checklist completo de
 regresión que sí aplica `verificar-visual`), y una nota en `ot/CLAUDE.md`
 apuntando a esto.
+
+## QA interactivo de `ot/` (2026-09-17)
+
+A diferencia de los informes (HTML estático, `screenshot.py` alcanza con
+capturas sin interacción), `ot/` es una app con forms, drawers y HTMX —
+QA real necesita clickear, no solo mirar. Se sumó el par
+skill+subagent que sigue el mismo molde que `verificar-visual` +
+`informe-visual-qa`, pero para esto:
+
+- **`ot/tools/qa_server.py`** (nuevo, tool determinista): server FastAPI
+  descartable con sqlite propio (`ot/tools/.qa_data/`, gitignorado) sembrado
+  con el dataset realista de `scripts/seed.py` (ya existía, se reusó en vez
+  de duplicar fixtures) + una ruta `/auth/qa-login` que simula sesión sin
+  pasar por Google OAuth real. Nunca toca `.env` ni Neon de producción.
+  Se levanta vía `.claude/launch.json` (entry `ot-qa`, puerto 8123) con
+  `preview_start` del browser pane — no hace falta Playwright como
+  dependencia propia de `ot/` (ya está en su `.venv` para los tests).
+- **Skill `qa-ot`** (`.claude/skills/qa-ot/SKILL.md`): entry point
+  discoverable, misma lógica de "revisión puntual inline vs. pasada
+  completa delegada" que `verificar-visual`.
+- **Subagent `ot-qa`** (`.claude/agents/ot-qa.md`): hace la pasada
+  completa — interactúa de verdad (clicks/forms/drawers) contra el
+  `:8123` descartable vía `mcp__Claude_Browser__*` (Playwright por
+  debajo), reporta bugs + ideas de mejora (apoyándose en el skill
+  `frontend-design` para lo último) sin volcar capturas crudas en la
+  conversación principal. Solo lectura sobre el código real — no corrige,
+  igual que `informe-visual-qa`.
+- **Salvaguarda explícita en ambos** (skill y subagent): nunca interactuar
+  contra `http://localhost:8000` (el uvicorn real de desarrollo, que sí
+  puede apuntar a Neon compartido) — el server de QA vive en su propio
+  puerto (8123) para no poder confundirse.
+
+Este caso sí calzaba con la regla de decisión de subagents (output
+voluminoso — varias pantallas × interacciones — y sin necesidad de
+`AskUserQuestion` a mitad de camino, ver arriba), a diferencia de
+`relevar-modulo` que necesita confirmaciones de negocio en vivo.

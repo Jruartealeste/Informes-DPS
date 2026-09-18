@@ -55,11 +55,19 @@ cree o edite algo ahí.
   contra `aleste.ar` del lado del servidor (no alcanza con mirar el sufijo
   del email). Sesión en cookie httponly firmada — no se exponen tokens al
   cliente.
-- **Captura visual para diseño:** no hace falta sumar Playwright como
-  dependencia de `ot/` — `informes/tools/screenshot.py` (Playwright headless,
-  ya usado para QA de informes) también funciona contra una URL local en
-  desarrollo (`http://localhost:8000/...`). Ver skill `captura-visual`
+- **Captura visual puntual:** no hace falta sumar Playwright como
+  dependencia propia de `ot/` para una captura rápida — `informes/tools/
+  screenshot.py` (Playwright headless, ya usado para QA de informes)
+  también funciona contra una URL local en desarrollo
+  (`http://localhost:8000/...`). Ver skill `captura-visual`
   (`.claude/skills/captura-visual/SKILL.md`).
+- **QA interactivo (clicks, forms, drawers) — no solo capturas:** skill
+  `qa-ot` (`.claude/skills/qa-ot/SKILL.md`) + subagent `ot-qa`
+  (`.claude/agents/ot-qa.md`). Corre contra `ot/tools/qa_server.py`, un
+  server descartable propio en `:8123` con sqlite + datos ficticios de
+  `scripts/seed.py` y login simulado — nunca contra `.env` real ni Neon.
+  Detalle completo en `informes/workflows/arquitectura_claude_code.md`
+  (sección "QA interactivo de `ot/`").
 
 ## Arquitectura / estructura de carpetas (a crear)
 

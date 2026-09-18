@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ot-qa",
+      "runtimeExecutable": "ot/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "ot/tools/qa_server.py"
+      ],
+      "port": 8123
+    }
+  ]
+}
