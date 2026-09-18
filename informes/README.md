@@ -105,6 +105,7 @@ mismos archivos (`config.py`, `ingest.py`, `generate_html_report.py`,
 | Recibo Cliente (Administración > Recibo Cliente, cabecera + crawl "Referencias Canceladas") | `modules/recibos/` | `recibos`, `referencias_canceladas` | (sin informe propio, alimenta Cobranza x Proveedores) |
 | Órdenes de Publicidad (Medios > Ordenes Publicidad > Navegación) | `modules/ordenes_publicidad/` | `ordenes_publicidad` | (sin informe propio, alimenta Cobranza x Proveedores) |
 | **Cobranza x Proveedores** (cruce Recibo Cliente + Facturas + O.C. Producción/Publicidad) | `modules/cobranza_proveedores/` | `items_factura_oc_cobranza` (no ingesta, cruza `recibos`+`referencias_canceladas`+`facturas`+`items_factura_oc_cobranza`+`ordenes_compra_produccion`+`ordenes_publicidad`) | `salida/informe_cobranza_proveedores.html` |
+| **Balance Mensual** (Consultas > Contabilidad > Balance Mensual, cruzado con Imputaciones) | `modules/balance_mensual/` | *(sin tabla en `advertys.db`: lee directo los dos export crudos, sin ingest)* | `salida/balance_mensual_<desde>_<hasta>.xlsx` (deliverable Excel, no HTML) |
 
 Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
 
@@ -640,6 +641,59 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   operativo (revisar recibo por recibo qué pagar) — no es un olvido, es
   la decisión de diseño para este módulo puntual.
 
+### Notas del módulo Balance Mensual
+
+- **Pedido puntual de Javier (2026-09-16):** un Excel de balance mensual
+  1/7/25-31/8/26 "con detalle de cliente y proveedor en las cuentas que
+  correspondan". A diferencia de los demás módulos, el deliverable es un
+  `.xlsx` directo (no un informe HTML del dashboard) y **no tiene tabla
+  propia en `advertys.db`**: `generate_excel.py` lee los dos export crudos
+  directo del disco, sin `ingest.py`.
+- **Balance Mensual es agregado por cuenta x mes, sin dimensión de
+  entidad** (confirmado en vivo: columnas Año/Mes/Clase/Sub Clase/Rubro/
+  Nombre/Saldo Anterior/Debe/Haber/Neto Mes/Saldo Actual, sin Cliente ni
+  Proveedor, y sin selector de columnas ocultas en el grid). Se probaron
+  como alternativas "Mayor Analítico" (rango de cuentas+fechas, pero
+  tampoco trae la entidad como columna propia) y "Resumen Cta.Ctes"
+  (agregado Deudor/Acreedor mensual, tampoco por entidad) — ver
+  `modules/balance_mensual/explore.py` para el detalle completo del
+  relevamiento.
+- **La solución (sugerida por Javier):** la vista "Imputaciones", que ya
+  usa `modules/iibb`, trae en su columna **"Leyenda"** el nombre real de
+  cliente o proveedor de cada línea de asiento — confirmado en vivo tanto
+  para cuentas de Deudores (112110, Leyenda = razón social del cliente)
+  como de Proveedores (211020, Leyenda = nombre del proveedor). Es texto
+  libre, no una columna de entidad garantizada en el 100% de las filas
+  (medido: ~97% de cobertura no nula en la ventana 1/7/25-31/8/26), pero
+  es lo más cercano que expone Advertys a este cruce en bulk.
+- **Por eso `generate_excel.py` no arma un export nuevo de Imputaciones**:
+  reusa directo `exploracion/iibb_export.xlsx` (el export crudo de
+  `modules/iibb/export.py`, que trae **todas** las cuentas de Imputaciones
+  sin filtrar — el recorte a las cuentas de IIBB pasa recién en
+  `modules/iibb/ingest.py`, después de este archivo). Antes de correr
+  `generate_excel.py` hay que tener frescos los dos export:
+  `python -m modules.balance_mensual.export` y `python -m modules.iibb.export`.
+- **"Cuentas a Cobrar" / "Cuentas a Pagar"** (bajo Consultas, hermanas de
+  "Contabilidad") **no son listados, son formularios de alta de un
+  registro individual** — un click de relevamiento aterrizó sin querer en
+  uno en blanco (nunca se tocó Guardar/Guardar y cerrar, no se creó
+  nada). Mismo gotcha en espíritu que el shortcut "Estimado Costos" ya
+  documentado en la sección de Pendientes: evitar clickear esos dos nodos
+  sin necesidad real de dar de alta algo.
+- El combo "Filtro" de Balance Mensual viene en **"Año Actual"** por
+  default (no "Mes Actual" como Facturas/Compras/Imputaciones) — mismo
+  patrón de buscar el combo por su valor actual en vez de por ID fijo que
+  ya usa `modules/iibb/export.py` (esos IDs cambiaron de posición sin
+  aviso más de una vez). El menú "Exportar a" de esta vista es un dropdown
+  con ~10 formatos (CSV/XLS/XLSX/PDF/HTML/etc., más algunas variantes
+  "Popup..." que abren en una pestaña nueva en vez de disparar una
+  descarga directa) — `export.py` busca puntualmente "Documento CSV".
+  Como el combo de Filtro son presets fijos (Todos/Año Actual/etc., no un
+  rango libre), el export baja el histórico completo con "Todos" y el
+  recorte al rango 1/7/25-31/8/26 se hace en Python
+  (`generate_excel.py`), mismo criterio que otros módulos con filtros
+  rígidos de Advertys.
+
 ## 1. Instalar dependencias
 
 ```bash
@@ -712,6 +766,10 @@ python -m modules.recibos.crawl_referencias_canceladas          # sin Excel, nav
 python -m modules.cobranza_proveedores.crawl_oc_por_factura     # sin Excel, navega Advertys en vivo
 python -m modules.ordenes_publicidad.ingest "ruta/a/tu/export.xlsx"   # Medios > Ordenes Publicidad > Navegacion
 python -m modules.cobranza_proveedores.generate_html_report     # cruza recibos+referencias+facturas+items_oc+ordenes_compra+ordenes_publicidad, no tiene ingest propio
+
+python -m modules.balance_mensual.export         # Consultas > Contabilidad > Balance Mensual, filtro "Todos"
+python -m modules.iibb.export                    # export crudo de Imputaciones (TODAS las cuentas), lo reusa el paso de abajo
+python -m modules.balance_mensual.generate_excel # cruza los dos export de arriba -> salida/balance_mensual_<desde>_<hasta>.xlsx
 ```
 
 Cada vez que tengas un export nuevo, repetís esos dos comandos del módulo
