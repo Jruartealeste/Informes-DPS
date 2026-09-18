@@ -1527,10 +1527,11 @@ select.chip-fac {
 
 .table-card--ot-list {
   min-width: 720px;
+  max-width: 760px;
 }
 .table-head--ot-list,
 .row-ot {
-  grid-template-columns: 120px 110px 170px 90px minmax(160px, 1fr);
+  grid-template-columns: 120px 110px 170px 90px 180px;
 }
 .row-ot {
   display: grid;
@@ -1766,7 +1767,3 @@ select.chip-fac {
   color: var(--muted);
 }
 
-.ot-tareas__footer-link {
-  padding: 12px 16px 4px;
-  font-size: 12px;
-}

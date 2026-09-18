@@ -79,7 +79,7 @@
         <div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
       </div>
       {% for t in ot.tareas %}
-      <div class="row-tarea row-tarea--ot">
+      <div class="row-tarea row-tarea--ot" hx-get="/tareas/{{ t.id }}" hx-target="#drawer-root" hx-swap="innerHTML">
         <div class="cell-mono">{{ t.fecha_pedido }}</div>
         <div class="cell-muted">{{ t.tipos_label }}</div>
         <div class="cell-detalle">{{ t.detalle }}</div>
@@ -92,9 +92,6 @@
       </div>
       {% endfor %}
     </div>
-    <p class="ot-tareas__footer-link">
-      <a href="/tareas?q={{ ot.n }}">Ver y editar estas tareas en Tareas →</a>
-    </p>
   </div>
 </div>
 
