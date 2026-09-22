@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Estimados · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <div class="page-header__kicker">ALUAR · {{ estimados | length }} Estimados</div>
+      <h1 class="page-header__title">Estimados</h1>
+    </div>
+  </div>
+</div>
+
+<p class="form-nota form-nota--pageintro">
+  Resúmenes locales de tareas agrupadas para cargar un Estimado de Costo en Advertys — se arman desde el
+  detalle de una OT interna que ya tenga OT de sistema asignada. Los items y montos siguen cargándose a mano
+  en Advertys.
+</p>
+
+<div class="table-scroll">
+  <div class="table-card table-card--estimados-list">
+    <div class="table-head table-head--estimados-list">
+      <div>Título</div><div>OT sistema</div><div>Estado</div><div>Tareas</div><div>Creado</div>
+    </div>
+    {% for e in estimados %}
+    <a href="/estimados/{{ e.id }}" class="row-estimado">
+      <div class="cell-detalle">{{ e.titulo }}</div>
+      <div class="cell-mono">{{ e.numero_ot_advertys }}</div>
+      <div>
+        <span class="badge {{ 'badge--estimado-generado' if e.estado == 'GENERADO' else 'badge--estimado-borrador' }}">
+          {{ 'GENERADO' if e.estado == 'GENERADO' else 'BORRADOR' }}
+        </span>
+      </div>
+      <div class="cell-mono">{{ e.tareas | length }}</div>
+      <div class="cell-muted">{{ e.creado_en }}</div>
+    </a>
+    {% endfor %}
+  </div>
+  {% if not estimados %}
+  <p class="empty-state">
+    Todavía no se armó ningún Estimado. Entrá a una OT interna con OT de sistema asignada y usá
+    "Armar Estimado" desde ahí.
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

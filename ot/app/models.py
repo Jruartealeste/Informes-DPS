@@ -30,6 +30,11 @@ class EstadoOtInterna(str, enum.Enum):
     CERRADA = "CERRADA"
 
 
+class EstadoEstimado(str, enum.Enum):
+    BORRADOR = "BORRADOR"
+    GENERADO = "GENERADO"
+
+
 class EstadoMail(str, enum.Enum):
     BORRADOR = "BORRADOR"
     ENVIADO = "ENVIADO"
@@ -95,12 +100,37 @@ class OtInterna(Base):
     tareas: Mapped[list["Tarea"]] = relationship(back_populates="ot_interna")
 
 
+class Estimado(Base):
+    """Agrupador local de tareas para armar un Estimado de Costo en
+    Advertys. La app nunca escribe items/montos del Estimado (eso sigue
+    100% manual en Advertys, decisión confirmada 2026-09-21) — solo agrupa
+    tareas para mostrar un resumen y, opcionalmente, dispara el alta del
+    encabezado (`numero_estimado` queda nulo hasta que eso pasa)."""
+
+    __tablename__ = "estimados"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    titulo: Mapped[str] = mapped_column(String(300))
+    numero_ot_advertys: Mapped[str] = mapped_column(String(20))
+    numero_estimado: Mapped[str | None] = mapped_column(String(20))
+    estado: Mapped[EstadoEstimado] = mapped_column(default=EstadoEstimado.BORRADOR)
+    creado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    creado_por: Mapped["Usuario | None"] = relationship()
+    tareas: Mapped[list["Tarea"]] = relationship(back_populates="estimado")
+
+
 class Tarea(Base):
     __tablename__ = "tareas"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ot_interna_id: Mapped[int | None] = mapped_column(ForeignKey("ot_interna.id"))
     ot_ambigua: Mapped[str | None] = mapped_column(String(60))
+    estimado_id: Mapped[int | None] = mapped_column(ForeignKey("estimados.id"))
     fecha_pedido: Mapped[date | None] = mapped_column(Date)
     detalle: Mapped[str] = mapped_column(Text)
     pedido_por: Mapped[str | None] = mapped_column(String(80))
@@ -117,6 +147,7 @@ class Tarea(Base):
     )
 
     ot_interna: Mapped["OtInterna | None"] = relationship(back_populates="tareas")
+    estimado: Mapped["Estimado | None"] = relationship(back_populates="tareas")
     tipos: Mapped[list["TareaTipoTarea"]] = relationship(
         back_populates="tarea", cascade="all, delete-orphan"
     )

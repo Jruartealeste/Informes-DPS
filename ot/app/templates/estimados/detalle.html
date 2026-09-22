@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titulo %}{{ est.titulo }} · Estimados · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="ot-header">
+  <a href="/estimados" class="ot-header__back">← Estimados</a>
+  <div class="ot-header__title-row">
+    <h1 class="ot-header__title">{{ est.titulo }}</h1>
+    <span class="badge {{ 'badge--estimado-generado' if est.estado == 'GENERADO' else 'badge--estimado-borrador' }}">
+      {{ 'GENERADO EN ADVERTYS' if est.estado == 'GENERADO' else 'BORRADOR' }}
+    </span>
+  </div>
+  <div class="ot-header__antiguedad">
+    OT de sistema {{ est.numero_ot_advertys }}
+    {% if est.numero_estimado %} · Estimado Advertys N° {{ est.numero_estimado }}{% endif %}
+    · creado el {{ est.creado_en }}
+  </div>
+</div>
+
+<div class="ot-cards-row">
+  <div class="card card--estimado-resumen">
+    <div class="card__eyebrow">Resumen para cargar en Advertys</div>
+    <p class="form-nota">
+      Esta tabla es solo de lectura local: los items y montos del Estimado se cargan a mano en Advertys
+      (OT {{ est.numero_ot_advertys }} → "Nuevo Estimado" / abrir el Estimado {{ est.numero_estimado or '' }}).
+      Tené esta pantalla al lado mientras los cargás.
+    </p>
+  </div>
+
+  <div class="card card--tareas table-scroll">
+    <div class="table-card table-card--estimado-detalle">
+      <div class="table-head table-head--estimado-detalle">
+        <div>OT</div><div>Detalle</div><div>Tipo</div>{% if est.es_borrador %}<div></div>{% endif %}
+      </div>
+      {% for t in est.tareas %}
+      <div class="row-tarea--estimado-detalle">
+        <div class="cell-mono">OT {{ t.ot_numero }}</div>
+        <div class="cell-detalle">{{ t.detalle }}</div>
+        <div class="cell-muted">{{ t.tipos_label }}</div>
+        {% if est.es_borrador %}
+        <div>
+          <form method="post" action="/estimados/{{ est.id }}/tareas/{{ t.id }}/quitar">
+            <button type="submit" class="link-btn">Quitar</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if not est.tareas %}
+      <p class="empty-state">Todavía no tiene tareas.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if est.es_borrador and disponibles %}
+  <form method="post" action="/estimados/{{ est.id }}/agregar" id="form-agregar-tareas" class="card card--estimado-resumen">
+    <input type="hidden" name="tarea_ids" id="tarea_ids_input">
+    <div class="card__eyebrow">Agregar más tareas de la misma OT de sistema</div>
+    <div class="table-card table-card--estimado-sel" style="margin-top:10px;">
+      <div class="table-head table-head--estimado-sel">
+        <div></div><div>OT</div><div>Detalle</div><div>Tipo</div>
+      </div>
+      {% for t in disponibles %}
+      <label class="row-tarea--estimado-sel">
+        <div><input type="checkbox" class="chk-tarea" value="{{ t.id }}"></div>
+        <div class="cell-mono">OT {{ t.ot_numero }}</div>
+        <div class="cell-detalle">{{ t.detalle }}</div>
+        <div class="cell-muted">{{ t.tipos_label }}</div>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="page-header__actions form-acciones">
+      <button type="submit" class="btn btn--small">Agregar tildadas</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+
+{% if est.es_borrador and disponibles %}
+<script>
+  document.getElementById('form-agregar-tareas').addEventListener('submit', function (ev) {
+    var marcadas = Array.prototype.filter.call(document.querySelectorAll('.chk-tarea'), function (c) { return c.checked; });
+    if (!marcadas.length) { ev.preventDefault(); alert('Tildá al menos una tarea.'); return; }
+    document.getElementById('tarea_ids_input').value = marcadas.map(function (c) { return c.value; }).join(',');
+  });
+</script>
+{% endif %}
+
+{% endblock %}

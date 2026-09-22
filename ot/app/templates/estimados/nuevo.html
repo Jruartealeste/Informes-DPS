@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block titulo %}Nuevo Estimado · OT sistema {{ numero_ot_advertys }} · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <div class="page-header__kicker">OT de sistema {{ numero_ot_advertys }}</div>
+      <h1 class="page-header__title">Armar resumen de Estimado</h1>
+    </div>
+  </div>
+</div>
+
+<div class="table-scroll">
+  <form method="post" action="/estimados" id="form-nuevo-estimado" class="card card--estimado-form">
+    <input type="hidden" name="numero_ot_advertys" value="{{ numero_ot_advertys }}">
+    <input type="hidden" name="tarea_ids" id="tarea_ids_input">
+
+    <div class="card__field-label">Título del Estimado</div>
+    <input type="text" name="titulo" class="input-full" placeholder="Ej. Campaña institucional - Setiembre" required>
+
+    <div class="card__field-label card__field-label--sep">Tareas a incluir</div>
+    <p class="form-nota">
+      Se muestran las tareas de esta OT de sistema (incluidas las de otras OT internas que la compartan) que
+      todavía no están en ningún Estimado. Esto arma el resumen local — la carga real del Estimado y sus items
+      en Advertys se sigue haciendo a mano.
+    </p>
+
+    {% if candidatas %}
+    <div class="table-card table-card--estimado-sel">
+      <div class="table-head table-head--estimado-sel">
+        <div></div><div>OT</div><div>Detalle</div><div>Tipo</div>
+      </div>
+      {% for t in candidatas %}
+      <label class="row-tarea--estimado-sel">
+        <div><input type="checkbox" class="chk-tarea" value="{{ t.id }}"></div>
+        <div class="cell-mono">OT {{ t.ot_numero }}</div>
+        <div class="cell-detalle">{{ t.detalle }}</div>
+        <div class="cell-muted">{{ t.tipos_label }}</div>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="page-header__actions form-acciones">
+      <button type="submit" class="btn btn--primary">Crear resumen de Estimado</button>
+    </div>
+    {% else %}
+    <p class="empty-state">
+      No hay tareas disponibles para esta OT de sistema — o todavía no tiene tareas cargadas, o ya están
+      todas asignadas a otro Estimado.
+    </p>
+    {% endif %}
+  </form>
+</div>
+
+<script>
+  document.getElementById('form-nuevo-estimado').addEventListener('submit', function (ev) {
+    var marcadas = Array.prototype.filter.call(document.querySelectorAll('.chk-tarea'), function (c) { return c.checked; });
+    if (!marcadas.length) {
+      ev.preventDefault();
+      alert('Tildá al menos una tarea.');
+      return;
+    }
+    document.getElementById('tarea_ids_input').value = marcadas.map(function (c) { return c.value; }).join(',');
+  });
+</script>
+{% endblock %}

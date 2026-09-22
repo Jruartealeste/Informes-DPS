@@ -41,6 +41,7 @@
       <input type="text" name="numero_ot_advertys" value="{{ ot.dps }}" placeholder="Número de OT de sistema">
       <button type="submit" class="btn btn--small">Reasignar OT de sistema</button>
     </form>
+    <a href="/estimados/nuevo?ot_advertys={{ ot.dps }}" class="btn btn--small ot-sistema__estimado-btn">Armar Estimado</a>
     {% else %}
     <div class="ot-sistema__sin">
       <p class="ot-sistema__sin-titulo">Todavía no tiene OT de sistema</p>
