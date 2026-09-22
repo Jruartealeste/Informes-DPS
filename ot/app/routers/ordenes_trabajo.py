@@ -50,6 +50,19 @@ def _cargar_ot(db: Session, numero_interno: str) -> OtInterna:
     return ot
 
 
+def _dps_existentes(db: Session) -> list[dict]:
+    """OT de sistema ya cargadas en alguna OT interna, con cuántas la
+    comparten -- para el picker de "asignar a OT de sistema existente" del
+    alta en lote."""
+    filas = db.execute(
+        select(OtInterna.numero_ot_advertys, func.count())
+        .where(OtInterna.numero_ot_advertys.isnot(None))
+        .group_by(OtInterna.numero_ot_advertys)
+        .order_by(OtInterna.numero_ot_advertys)
+    ).all()
+    return [{"valor": valor, "n_ots": n} for valor, n in filas]
+
+
 @router_paginas.get("/ordenes-trabajo")
 def listado_ordenes_trabajo(request: Request, db: Session = Depends(get_db)):
     ots = list(
@@ -66,6 +79,7 @@ def listado_ordenes_trabajo(request: Request, db: Session = Depends(get_db)):
             "ots": [ot_interna_vm(ot) for ot in ots],
             "total_ots": len(ots),
             "total_tareas": _total_tareas(db),
+            "dps_existentes": _dps_existentes(db),
             "seccion_activa": "ordenes_trabajo",
             "tema": request.cookies.get("tema", "dark"),
             "densidad": request.cookies.get("densidad", "1") != "0",
@@ -106,6 +120,25 @@ def detalle_orden_trabajo(numero_interno: str, request: Request, db: Session = D
             "densidad": request.cookies.get("densidad", "1") != "0",
         },
     )
+
+
+@router_paginas.post("/ordenes-trabajo/asignar-lote")
+def asignar_lote_ot_sistema(
+    db: Session = Depends(get_db),
+    ot_ids: str = Form(""),
+    numero_ot_advertys: str = Form(""),
+):
+    numeros = [n.strip() for n in ot_ids.split(",") if n.strip()]
+    valor = numero_ot_advertys.strip()
+    if not numeros:
+        raise HTTPException(422, "Seleccioná al menos una OT interna.")
+    if not valor:
+        raise HTTPException(422, "Falta el número de OT de sistema.")
+    ots = list(db.scalars(select(OtInterna).where(OtInterna.numero_interno.in_(numeros))))
+    for ot in ots:
+        ot.numero_ot_advertys = valor
+    db.commit()
+    return RedirectResponse("/ordenes-trabajo", status_code=303)
 
 
 @router_paginas.post("/ordenes-trabajo/{numero_interno}/reasignar")

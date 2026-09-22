@@ -11,27 +11,139 @@
   </div>
 </div>
 
+<form method="post" action="/ordenes-trabajo/asignar-lote" id="form-asignar-lote" class="card card--asignar-lote">
+  <input type="hidden" name="ot_ids" id="ot_ids_input">
+  <input type="hidden" name="numero_ot_advertys" id="numero_ot_advertys_input">
+  <div class="card__field-label">Asignar OT de sistema a las OT internas tildadas</div>
+  <p class="form-nota">
+    Tildá una o más OT internas en la tabla de abajo (varias pueden compartir la misma OT de sistema, para no
+    generar de más en Advertys) y elegí si van a un número nuevo o a una OT de sistema que ya está en uso.
+  </p>
+  <div class="asignar-lote__modos">
+    <label><input type="radio" name="modo_ot_sistema" value="nuevo" checked> Cargar número</label>
+    <label><input type="radio" name="modo_ot_sistema" value="existente"> Asignar a una ya usada</label>
+  </div>
+  <div id="campo-ot-nuevo">
+    <input type="text" id="input-ot-nuevo" class="input-full" placeholder="Número de OT de sistema">
+  </div>
+  <div id="campo-ot-existente" style="display:none">
+    <select id="select-ot-existente" class="input-full">
+      <option value="">Elegí una OT de sistema…</option>
+      {% for d in dps_existentes %}
+      <option value="{{ d.valor }}">OT de sistema {{ d.valor }} ({{ d.n_ots }} OT interna{{ 's' if d.n_ots != 1 }})</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-acciones">
+    <button type="submit" class="btn btn--primary btn--small">Asignar OT de sistema</button>
+    <button type="button" id="btn-limpiar-seleccion" class="btn btn--small">Ninguna</button>
+    <button type="button" id="btn-tildar-todas" class="btn btn--small">Todas</button>
+    <span id="seleccion-count" class="form-nota" style="display:inline;margin:0 0 0 8px"></span>
+  </div>
+</form>
+
 <div class="table-scroll">
   <div class="table-card table-card--ot-list">
     <div class="table-head table-head--ot-list">
-      <div>OT interna</div><div>Estado</div><div>OT de sistema</div><div>Tareas</div><div>Facturación</div>
+      <div></div><div>OT interna</div><div>Estado</div><div>OT de sistema</div><div>Tareas</div><div>Facturación</div>
     </div>
     {% for ot in ots %}
-    <a href="/ordenes-trabajo/{{ ot.n }}" class="row-ot">
-      <div class="row-ot__n">OT {{ ot.n }}</div>
-      <div><span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span></div>
-      <div><span class="badge badge--dps {{ 'has-dps' if ot.dps else 'no-dps' }}">{{ ot.dps_label }}</span></div>
-      <div class="cell-mono">{{ ot.total }}</div>
-      <div class="group-progress">
-        <div class="group-progress__track"><div class="group-progress__fill" style="width:{{ ot.pct }}%"></div></div>
-        <span class="group-progress__label">{{ ot.progreso }}</span>
-      </div>
-    </a>
+    <div class="row-ot">
+      <label class="row-ot__select">
+        <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}">
+      </label>
+      <a href="/ordenes-trabajo/{{ ot.n }}" class="row-ot__link">
+        <div class="row-ot__n">OT {{ ot.n }}</div>
+        <div><span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span></div>
+        <div><span class="badge badge--dps {{ 'has-dps' if ot.dps else 'no-dps' }}">{{ ot.dps_label }}</span></div>
+        <div class="cell-mono">{{ ot.total }}</div>
+        <div class="group-progress">
+          <div class="group-progress__track"><div class="group-progress__fill" style="width:{{ ot.pct }}%"></div></div>
+          <span class="group-progress__label">{{ ot.progreso }}</span>
+        </div>
+      </a>
+    </div>
     {% endfor %}
   </div>
   {% if not ots %}
   <p class="empty-state">Todavía no hay ninguna OT interna.</p>
   {% endif %}
 </div>
+
+<script>
+(function () {
+  var form = document.getElementById('form-asignar-lote');
+  var contador = document.getElementById('seleccion-count');
+  var campoNuevo = document.getElementById('campo-ot-nuevo');
+  var campoExistente = document.getElementById('campo-ot-existente');
+
+  function marcadas() {
+    return Array.prototype.filter.call(document.querySelectorAll('.chk-ot'), function (c) { return c.checked; });
+  }
+
+  function actualizarContador() {
+    var n = marcadas().length;
+    contador.textContent = n ? n + ' seleccionada' + (n !== 1 ? 's' : '') : '';
+  }
+
+  function actualizarModo() {
+    var modo = document.querySelector('input[name="modo_ot_sistema"]:checked').value;
+    campoNuevo.style.display = modo === 'nuevo' ? '' : 'none';
+    campoExistente.style.display = modo === 'existente' ? '' : 'none';
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="modo_ot_sistema"]'), function (r) {
+    r.addEventListener('change', actualizarModo);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.chk-ot'), function (c) {
+    c.addEventListener('change', actualizarContador);
+  });
+  document.getElementById('btn-tildar-todas').addEventListener('click', function () {
+    Array.prototype.forEach.call(document.querySelectorAll('.chk-ot'), function (c) { c.checked = true; });
+    actualizarContador();
+  });
+  document.getElementById('btn-limpiar-seleccion').addEventListener('click', function () {
+    Array.prototype.forEach.call(document.querySelectorAll('.chk-ot'), function (c) { c.checked = false; });
+    actualizarContador();
+  });
+
+  actualizarModo();
+  actualizarContador();
+
+  form.addEventListener('submit', function (ev) {
+    var sel = marcadas();
+    if (!sel.length) {
+      ev.preventDefault();
+      alert('Tildá al menos una OT interna.');
+      return;
+    }
+    var modo = document.querySelector('input[name="modo_ot_sistema"]:checked').value;
+    var valor = (modo === 'nuevo'
+      ? document.getElementById('input-ot-nuevo').value
+      : document.getElementById('select-ot-existente').value).trim();
+    if (!valor) {
+      ev.preventDefault();
+      alert('Cargá o elegí un número de OT de sistema.');
+      return;
+    }
+    var conflictos = sel.filter(function (c) { return c.dataset.dps && c.dataset.dps !== valor; });
+    if (conflictos.length) {
+      var detalle = conflictos.map(function (c) {
+        return 'OT ' + c.value + ' (hoy: OT de sistema ' + c.dataset.dps + ')';
+      }).join('\n');
+      var ok = confirm(
+        'Estas OT internas ya tienen una OT de sistema asignada y se van a reasignar a ' + valor + ':\n\n' +
+        detalle + '\n\n¿Continuar?'
+      );
+      if (!ok) {
+        ev.preventDefault();
+        return;
+      }
+    }
+    document.getElementById('ot_ids_input').value = sel.map(function (c) { return c.value; }).join(',');
+    document.getElementById('numero_ot_advertys_input').value = valor;
+  });
+})();
+</script>
 
 {% endblock %}

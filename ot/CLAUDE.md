@@ -451,12 +451,157 @@ Tablas:
     (validación de submit + sync del checkbox), `app/static/css/app.css` y
     `app/routers/tareas.py`.
 
+## Decisiones confirmadas con Javier (2026-09-21) — Estimados de Costo
+
+- **Alcance confirmado: "una vez creada la OT en Advertys, adentro se hacen
+  los Estimados de Costo, y cada Estimado puede incluir una o más
+  tareas."** Esto amplía el límite que hasta ahora dejaba `tareas` 100%
+  interna a la app (ver "Clave de negocio confirmada con Javier
+  (2026-07-31)" más arriba, sección "Alcance inicial de la escritura en
+  Advertys") — pero **acotado**: la carga de items (líneas con costo,
+  proveedor) dentro de un Estimado **sigue siendo 100% manual en
+  Advertys**, igual que ya lo es el encabezado de una Orden de Compra. La
+  app no automatiza esa parte ni la releva a fondo (se evaluó relevarla
+  creando un Estimado de prueba y descartando el paso, pero Javier lo
+  frenó: "esa parte sigue siendo manual", 2026-09-21).
+  - Lo que sí aporta la app: un **resumen de Estimado** — una vista propia
+    en `ot/` (no un export, no texto para copiar) donde se seleccionan las
+    tareas que van a formar parte de un Estimado y se ve una tabla con
+    detalle + tipo de tarea de cada una, para tener abierta al lado de
+    Advertys mientras se carga el Estimado (encabezado y items) a mano.
+    Explícitamente fuera de este resumen por ahora: responsables, link
+    Drive, fecha de pedido (se puede sumar después si hace falta, no se
+    descartó por diseño sino por alcance inicial).
+  - Lo que sí se automatiza: el **alta del encabezado** del Estimado en
+    Advertys (no los items) — un botón "Generar Estimado en Advertys" en
+    `ot/`, mismo patrón que "Generar OT en Advertys" (acción explícita del
+    usuario, nunca disparada por un cambio de estado silencioso).
+- **Relevamiento ya hecho (2026-09-18), en modo lectura, contra Advertys
+  real** (`Informes/modules/estimados_costos/explore_nuevo_estimado.py`,
+  corrido sobre la OT 289 — abrió el formulario y lo cerró sin guardar,
+  confirmado que la grilla de Estimados de esa OT no cambió):
+  - **El alta es CONTEXTUAL, no suelta**: no hay un botón "Nuevo" en el
+    listado global de Estimado Costos (`ViewID=EstimadoCostos_ListView`) —
+    ese listado solo tiene Editar/Facturar/Importar/Clonar
+    Estimado/Exportar. El único camino real es entrar al detalle de una OT
+    (existente o recién creada) y usar el botón **"Nuevo Estimado"** que
+    está en la barra "Acciones:" del detalle de la OT (junto a "Lista
+    OT"), no dentro de la pestaña "Estimados Costo" en sí.
+  - El popup de alta ("Agregar Estimado (ALESTE ADS S.A.)") tiene
+    **solo 3 campos**: `Fecha Solicitada` (date, default hoy),
+    `Fecha Analisis` (date, default hoy — es el "periodo" AAAAMM que ya
+    usa el pipeline de lectura de `estimados_costos`) y `Titulo` (texto
+    libre, vacío). Nada de Cliente/Anunciante/Producto/Moneda ahí —
+    Advertys los hereda automáticamente de la OT al aceptar. Son 3 inputs
+    HTML normales dentro de un iframe propio del popup (ojo si se
+    automatiza: hay que ubicar el frame por texto antes de tocar los
+    inputs, `document.querySelectorAll` sobre la página principal no los
+    encuentra).
+  - Pregunta que quedó respondida por este relevamiento: no hace falta
+    entrar primero a una pantalla separada de "Estimados" — el flujo
+    completo (abrir OT → Nuevo Estimado → completar 3 campos → Aceptar)
+    encaja con un único script de escritura, mismo nivel que `crear_ot.py`.
+- **Un Estimado puede agrupar tareas de más de una `ot_interna`**, siempre
+  que compartan el mismo `numero_ot_advertys` — coherente con la regla ya
+  confirmada de que varias OT internas comparten una OT de sistema para no
+  duplicar altas (ver 2026-07-31 más arriba). El agrupamiento para armar un
+  Estimado se arma **por lote, a criterio manual de quien gestiona**
+  (selecciona qué tareas ya cerradas/listas entran en ese Estimado), no un
+  Estimado automático por tarea individual — mismo criterio que ya se usa
+  para "Generar OT en Advertys".
+- **Modelo de datos (implementado 2026-09-21):** tabla `estimados` — id,
+  `titulo`, `numero_ot_advertys` (a qué OT de sistema pertenece — no FK a
+  una tabla espejo real todavía, ver nota abajo), `numero_estimado`
+  (nullable hasta generarse en Advertys), `estado` (`EstadoEstimado`:
+  BORRADOR/GENERADO), `creado_por_id`, timestamps. Sin campos de
+  costo/monto: eso vive únicamente en Advertys.
+  - **FK directo en `tareas.estimado_id`, no tabla puente N:M** (se pensó
+    N:M al principio, se descartó al implementar): una tarea se factura
+    como un todo (`estado_facturacion` es un único valor por tarea, sin
+    facturación parcial modelada) así que no hay caso real de que una
+    tarea pertenezca a dos Estimados a la vez — mismo patrón ya usado para
+    `tareas.ot_interna_id`.
+  - Nota de estado real del código (chequeado 2026-09-21): `ordenes_trabajo_espejo`
+    todavía NO existe en `app/models.py` — sigue siendo un campo de texto
+    suelto (`OtInterna.numero_ot_advertys: str | None`), no una FK. El sync
+    real (roadmap ítem 5) y `crear_ot.py` (ítem 6) siguen sin construirse
+    todavía. Esto no bloquea Estimados: las OT ya existen hoy en Advertys
+    (creadas a mano por el equipo), así que `crear_estimado.py` puede
+    apuntar a un `numero_ot_advertys` ya cargado sin depender de que
+    `crear_ot.py` exista primero.
+  - Script nuevo en `Informes/`: `modules/estimados_costos/crear_estimado.py`
+    (mismo nivel de cuidado que `crear_ot.py`/`cerrar_ot.py` — ver
+    salvaguarda en `CLAUDE.md` raíz). Solo el alta de encabezado (3
+    campos), nunca items.
+
+## Decisiones confirmadas con Javier (2026-09-22) — Generar OT en Advertys
+
+- **Relevamiento de solo lectura del formulario "Nueva OT" hecho**
+  (`Informes/modules/ordenes_trabajo/explore_nueva_ot.py`, corrido contra
+  Advertys real: abre el formulario, releva campos y opciones de combo,
+  abre el popup de Anunciante y cierra todo sin guardar — confirmado que
+  no quedó ninguna OT nueva). Volcado en
+  `Informes/exploracion/ot_nuevo_campos.json` y
+  `Informes/exploracion/ot_nuevo_opciones_combos.json`. Hallazgos clave:
+  - **Autogenerado por Advertys, no se toca:** Nro OT, Estado ("Abierta"),
+    F.Abierta (hoy), Abierta por (usuario logueado).
+  - **Negocio:** combo con una sola opción real ("PRODUCCION"), ya viene
+    preseleccionado.
+  - **Resumen:** texto libre.
+  - **Anunciante NO es un combo simple** — es un lookup con botón de
+    búsqueda que abre un popup en un iframe propio (`Dialog=true` en la
+    URL) con un buscador de texto y una grilla de resultados (Id
+    Anunciante / Nombre). Hay que buscar y elegir una fila, no alcanza con
+    tipear el nombre en el campo. **Gatea por cascada** a Producto y
+    Contacto Anunciante (quedan vacíos hasta elegir un Anunciante).
+  - **Centro Costo** es un combo fijo de 4 valores: `ADMINISTRACION`,
+    `AGENCIA - ESTRUCTURA`, `CREATIVIDAD - PRODUCCION`, `MEDIOS` — no
+    dependen del cliente elegido.
+  - **Equipo** es otro combo fijo: `ALUAR-LA RESPUESTA`, `Area Beta`,
+    `Equipo Grafica`, `Riádigos`.
+  - **Tag** es un combo fijo pero de valores que parecen libres/por
+    campaña (ej. "Campaña Donación de sangre", "DENARI") — no hay un
+    conjunto cerrado de tags "correctos" por cliente.
+  - **Contacto Anunciante** es un contacto del lado del **cliente**
+    (cascada de Anunciante), no un responsable interno de la agencia — el
+    plan original ("cliente/anunciante, marca, producto, resumen,
+    responsable, equipo", ver "Decisiones confirmadas con Javier
+    (2026-07-31)" arriba) asumía un campo "responsable" que en la práctica
+    no existe tal cual en el formulario real; lo más parecido es este
+    contacto externo, no un usuario interno.
+- **Decisión: qué completa `crear_ot.py` y qué no.**
+  - **Centro Costo es obligatorio siempre** — no hay un default seguro
+    por cliente, lo elige quien genera la OT en el momento (parámetro
+    obligatorio del script, y futuro campo obligatorio en el botón
+    "Generar OT en Advertys" de `ot/`).
+  - **Equipo es opcional** — si no se pasa, queda en N / D.
+  - **Producto, Tag y Contacto Anunciante quedan siempre sin completar**
+    — se cargan a mano en Advertys después si hace falta, mismo criterio
+    que ya se usa para los items de Estimados.
+- **Script `Informes/modules/ordenes_trabajo/crear_ot.py` escrito**
+  (2026-09-22, mismo nivel de cuidado que `crear_estimado.py`/
+  `cerrar_ot.py`): busca y selecciona el Anunciante por el popup (corta
+  con error si la búsqueda no resuelve a exactamente una fila, nunca
+  asume), completa Resumen + Centro Costo + Equipo (opcional), clickea
+  "Guardar" y lee el número de OT nuevo directo del campo Nro OT (a
+  diferencia de `crear_estimado.py`, ese campo está en la misma página
+  así que no hace falta comparar grillas antes/después).
+  `python -m modules.ordenes_trabajo.crear_ot "<anunciante>" "<resumen>" "<centro_costo>" [--equipo "<equipo>"]`.
+  **Todavía no se corrió contra Advertys real** — falta tu confirmación
+  explícita (con un Anunciante/Resumen/Centro Costo reales para la
+  primera prueba) antes del primer alta real, no hay ambiente de prueba
+  separado.
+- **Pendiente, mismo problema abierto que con Estimados:** cómo dispara
+  el botón "Generar OT en Advertys" de esta app la ejecución de
+  `crear_ot.py` (ver "Decisión pendiente (2026-09-22)" en la sección de
+  Estimados arriba — mismo trade-off subprocess local vs. corrida manual,
+  sin resolver todavía).
+
 ## Roadmap inmediato
 
-1. **Relevamiento de solo lectura del formulario "Nueva OT" en Advertys**
-   (`Informes/modules/ordenes_trabajo/explore_nueva_ot.py`, en curso) — qué
-   campos pide, cuáles autogenera el sistema (el número de OT), cuáles hay
-   que mandar desde la app. Sin guardar nada.
+1. ~~Relevamiento de solo lectura del formulario "Nueva OT" en Advertys~~
+   — hecho (2026-09-22, ver "Decisiones confirmadas con Javier
+   (2026-09-22) — Generar OT en Advertys" abajo).
 2. ~~Modelo de datos (`models.py` + primera migración de Alembic) y CRUD
    básico de tareas~~ — hecho, y bastante más allá de lo mínimo (mail a
    responsables con borradores, anular tarea).
@@ -470,10 +615,60 @@ Tablas:
    que funcione en la práctica.
 5. Sync `ordenes_trabajo` ↔ `ordenes_trabajo_espejo` (script en
    `Informes/` + endpoint acá).
-6. `crear_ot.py` — solo después de (1) confirmado y aprobado explícitamente
-   por Javier.
+6. ~~`crear_ot.py`~~ — escrito (2026-09-22, ver decisiones abajo). **Todavía
+   no se corrió contra Advertys real** — falta tu confirmación explícita
+   (con un Anunciante/Resumen/Centro Costo reales) antes del primer alta
+   real, mismo criterio que `crear_estimado.py`/`cerrar_ot.py`.
 7. UI: vista unificada filtrable, vista por cliente, alta/edición de tarea
    con autocompletado de OT + botón "Generar OT en Advertys", vista
    `/facturacion/listas`.
 8. Deploy en Cloud Run + Neon — con OK explícito de Javier antes de
    desplegar.
+9. **Estimados de Costo** (agregado 2026-09-21, ver decisiones arriba) —
+   no depende de (5)/(6), puede avanzar en paralelo apuntando a OT ya
+   existentes en Advertys:
+   - ~~Modelo de datos: tabla `estimados` + FK `tareas.estimado_id`~~ —
+     hecho (`app/models.py` + migración `agrega_estimados`).
+   - ~~UI: selección de tareas (de una o varias `ot_interna` que compartan
+     `numero_ot_advertys`) → vista de "resumen de Estimado" (detalle + tipo
+     de tarea) para tener al lado de Advertys~~ — hecho (`app/routers/
+     estimados.py` + `app/templates/estimados/`, botón "Armar Estimado" en
+     `ordenes_trabajo/detalle.html` cuando la OT ya tiene OT de sistema,
+     ítem de sidebar propio). QA funcional + visual contra el server
+     descartable de `ot/tools/qa_server.py` (2026-09-21): alta, agregar,
+     quitar tareas, listado — todo probado, sin errores de servidor ni de
+     layout. Falta agregar validación de campos obligatorios espejo del
+     lado del cliente (hoy solo hay un `alert()` de JS, no bloqueo nativo
+     como en la sheet de tarea) si llega a hacer falta más adelante.
+   - ~~Script de escritura `Informes/modules/estimados_costos/
+     crear_estimado.py`~~ — hecho (2026-09-22): alta de encabezado
+     únicamente (Fecha Solicitada, Fecha Analisis, Titulo), mismo nivel de
+     cuidado que `crear_ot.py`/`cerrar_ot.py` (solo clickea "Nuevo
+     Estimado" y "Aceptar", nunca toca un estimado existente). Recupera el
+     número de Estimado que asigna Advertys comparando la grilla antes/
+     después del alta (el popup no lo muestra).
+     **Probado contra Advertys real (2026-09-22, con tu OK explícito):**
+     `python -m modules.estimados_costos.crear_estimado 258 "PRUEBA -
+     Claude Code"` sobre la OT 258 (la reabriste vos para la prueba —
+     estaba Anulada) creó el **Estimado N° 558** correctamente. El alta en
+     sí funcionó a la primera; lo que falló fue la lectura posterior del
+     script (la grilla se repinta async tras el postback, un solo
+     `wait_for_timeout` fijo no le daba tiempo) — se reemplazó por un
+     polling de hasta 10s, sin volver a correr todavía contra Advertys
+     para no dejar un tercer estimado de prueba en la OT 258. Pendiente:
+     que vos anules/borres el Estimado 558 de prueba en Advertys cuando
+     quieras (no lo hace este agente).
+   - **Decisión pendiente (2026-09-22): cómo dispara el botón "Generar
+     Estimado en Advertys" de esta app la ejecución de ese script.**
+     Explícitamente no definida todavía — `ot/` corre local hoy pero está
+     pensada para Cloud Run (roadmap ítem 8) y las credenciales de
+     Advertys nunca se copian a este proyecto (ver "Relación con
+     `Informes/` y con Advertys" arriba), así que un simple `subprocess`
+     desde acá no sobrevive el deploy. Opciones evaluadas sin resolver:
+     (a) subprocess local como MVP, revisar al desplegar; (b) el botón
+     solo prepara/marca el Estimado y `crear_estimado.py` se sigue
+     corriendo a mano como hoy con `cerrar_ot.py`, cargando después el
+     número resultante en `ot/`. Por ahora el flujo real es manual: correr
+     el script desde `Informes/` y cargar el `numero_estimado` a mano en
+     el Estimado correspondiente de `ot/`. El botón de la UI queda para
+     cuando se resuelva esto.

@@ -165,6 +165,7 @@ button {
   gap: 8px;
   width: 100%;
   text-align: left;
+  text-decoration: none;
   border: 0;
   border-radius: 6px;
   padding: 6px 9px;
@@ -1531,7 +1532,7 @@ select.chip-fac {
 }
 .table-head--ot-list,
 .row-ot {
-  grid-template-columns: 120px 110px 170px 90px 180px;
+  grid-template-columns: 26px 120px 110px 170px 90px 180px;
 }
 .row-ot {
   display: grid;
@@ -1540,20 +1541,44 @@ select.chip-fac {
   font-size: 13px;
   padding: 11px 14px;
   border-top: 1px solid var(--line-soft);
-  color: inherit;
-  text-decoration: none;
 }
 .row-ot:first-child {
   border-top: none;
 }
 .row-ot:hover {
   background: var(--hover);
+}
+.row-ot__select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.row-ot__link {
+  display: contents;
   color: inherit;
+  text-decoration: none;
 }
 .row-ot__n {
   font-family: var(--mono);
   font-weight: 500;
   color: var(--accent-text);
+}
+
+.card--asignar-lote {
+  max-width: 760px;
+  margin-bottom: 14px;
+}
+.asignar-lote__modos {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.asignar-lote__modos label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
 }
 
 .table-card--ot {
@@ -1603,6 +1628,12 @@ select.chip-fac {
   padding: 14px 20px 24px;
   flex-wrap: wrap;
   align-items: flex-start;
+  /* sin esto, con poco contenido (ej. un Estimado con pocas tareas) el
+     navegador reparte el espacio sobrante entre las "lineas" del wrap en
+     vez de apilarlas arriba -- se ve como un hueco enorme entre tarjetas.
+     Con muchas filas (OT con varias tareas, llena el viewport) no cambia
+     nada porque ahi no sobra espacio para repartir. */
+  align-content: flex-start;
 }
 
 .card {
@@ -1765,5 +1796,131 @@ select.chip-fac {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--muted);
+}
+
+/* ---- Estimados ---- */
+
+.ot-sistema__estimado-btn {
+  display: inline-block;
+  margin-top: 10px;
+  text-decoration: none;
+}
+
+.form-nota {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 640px;
+  margin: 4px 0 14px;
+}
+.form-nota--pageintro {
+  margin: 10px 20px 16px;
+}
+
+.card--estimado-form,
+.card--estimado-resumen {
+  flex: 1 1 100%;
+}
+.card__field-label--sep {
+  margin-top: 16px;
+}
+.input-full {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  /* background-color (no el shorthand background) a proposito -- mismo
+     gotcha documentado mas abajo para .chip-estado/.chip-fac: el shorthand
+     resetea background-image/position/size/repeat en los <select>, lo que
+     hace que el chevron propio se repita en mosaico en vez de quedar como
+     un icono chico a la derecha. */
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.input-full:focus-visible {
+  border-color: var(--accent);
+}
+.form-acciones {
+  margin-top: 14px;
+}
+
+.table-card--estimado-sel {
+  max-width: 760px;
+}
+.table-head--estimado-sel,
+.row-tarea--estimado-sel {
+  grid-template-columns: 30px 90px minmax(220px, 1fr) 150px;
+}
+.row-tarea--estimado-sel {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+}
+.row-tarea--estimado-sel:first-child {
+  border-top: none;
+}
+.row-tarea--estimado-sel:hover {
+  background: var(--hover);
+}
+
+.table-card--estimado-detalle {
+  min-width: 640px;
+}
+.table-head--estimado-detalle,
+.row-tarea--estimado-detalle {
+  grid-template-columns: 90px minmax(220px, 1fr) 150px 70px;
+}
+.row-tarea--estimado-detalle {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.row-tarea--estimado-detalle:first-child {
+  border-top: none;
+}
+
+.table-card--estimados-list {
+  min-width: 720px;
+  max-width: 900px;
+}
+.table-head--estimados-list,
+.row-estimado {
+  grid-template-columns: minmax(220px, 1fr) 120px 130px 80px 100px;
+}
+.row-estimado {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--line-soft);
+  color: inherit;
+  text-decoration: none;
+}
+.row-estimado:first-child {
+  border-top: none;
+}
+.row-estimado:hover {
+  background: var(--hover);
+  color: inherit;
+}
+
+.badge--estimado-borrador {
+  background: var(--surface2);
+  color: var(--muted);
+}
+.badge--estimado-generado {
+  background: var(--ok-soft);
+  color: var(--ok-text);
 }
 
