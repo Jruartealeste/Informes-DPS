@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS {config.DB_TABLE} (
     tiene_ncnd TEXT,
     tiene_ic TEXT,
     tiene_items_impresion TEXT,
+    nc_anula_referencia TEXT,
     fecha_ingesta TEXT
 );
 """
@@ -58,13 +59,18 @@ COLUMNAS_TABLA = [
     "numero_asiento", "cai", "producto", "subtotal_ml", "impuestos_ml",
     "total_ml", "moneda", "cotizacion", "subtotal_me", "impuestos_me",
     "total_me", "estado", "tiene_ncnd", "tiene_ic", "tiene_items_impresion",
-    "fecha_ingesta",
+    "nc_anula_referencia", "fecha_ingesta",
 ]
 
 
 def init_db():
     with db.get_connection() as conn:
         conn.execute(SCHEMA)
+        # nc_anula_referencia se sumo despues de que la tabla ya existia en
+        # bases previas -- CREATE TABLE IF NOT EXISTS no la agrega sola.
+        columnas_existentes = {fila[1] for fila in conn.execute(f"PRAGMA table_info({config.DB_TABLE})")}
+        if "nc_anula_referencia" not in columnas_existentes:
+            conn.execute(f"ALTER TABLE {config.DB_TABLE} ADD COLUMN nc_anula_referencia TEXT")
         conn.commit()
 
 

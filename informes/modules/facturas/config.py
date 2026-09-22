@@ -75,3 +75,53 @@ NUMERIC_COLUMNS = [
 DB_TABLE = "facturas"
 REPORT_OUTPUT_PATH = "informe_facturas.xlsx"
 REPORT_HTML_OUTPUT_PATH = "salida/informe_facturas.html"
+
+# --- Notas de Credito automaticas (ventas) ---
+# No conviven en la vista "Facturas" de Consultas (ObjectClassName=
+# DPS_Factura) por mas que su filtro este en "Todos" -- viven en vistas
+# propias bajo Administracion > Facturacion > <Segmento> > "N.Credito
+# Automatica". Se fusionan en esta misma tabla "facturas" como filas con
+# importe negativo (mismo criterio que Compras con su "Importe s/IVA"
+# signado, ver modules/compras/ingest.py), para que los totales del informe
+# y el dashboard las neteen automaticamente sin tocar generate_html_report.py.
+# Ver modules/facturas/export_nc.py e ingest_nc.py.
+NC_SEGMENTOS = {
+    "produccion": {"object_class": "NotaCreditoAutomatica", "tipo_asiento": "NCP"},
+    "medios": {"object_class": "NotaCreditoAutomaticaMedios", "tipo_asiento": "NCM"},
+    "representante": {"object_class": "NotaCreditoAutomaticaRepresentante", "tipo_asiento": "NCR"},
+}
+
+# Mapeo de columnas propio de estas vistas -- mas chico que COLUMN_MAP: no
+# traen AAAAMM, FCE, Cuit, TA, Cai, Moneda/Cotizacion/ME, ni los "Tiene *".
+# "Anunciante" solo existe en la vista de Produccion; en Medios/Representante
+# no viene en el Excel -- se usa Cliente como anunciante en ingest_nc.py,
+# mismo criterio que ya rige ahi para las facturas reales (anunciante ==
+# cliente en esos segmentos). "Anular Nº Referencia" es la referencia de la
+# factura que esta nota cancela/acredita -- se guarda en nc_anula_referencia
+# (columna nueva, NULL para facturas reales).
+#
+# Ojo con "N°/Nº": a diferencia de COLUMN_MAP (arriba), donde Facturas usa
+# "°" (grados, U+00B0) de forma consistente, este export de NC mezcla los
+# DOS caracteres en el mismo archivo -- "Anular Nº Referencia" y
+# "Nº Referencia" usan "º" (ordinal masculino, U+00BA, igual que Compras),
+# pero "N° Asiento" usa "°" (grados, U+00B0, igual que el resto de Facturas).
+# Verificado contra un export real; si un mapeo nuevo tira KeyError, revisar
+# el byte exacto de cada columna por separado, no asumir que son iguales.
+NC_COLUMN_MAP = {
+    "Anular Nº Referencia": "nc_anula_referencia",
+    "Fecha": "fecha",
+    "TR": "tipo_referencia",
+    "Nº Referencia": "numero_referencia",
+    "Cliente": "cliente",
+    "Anunciante": "anunciante",
+    "N° Asiento": "numero_asiento",
+    "Producto": "producto",
+    "Subtotal": "subtotal_ml",
+    "Impuestos": "impuestos_ml",
+    "Total": "total_ml",
+    "Estado": "estado",
+}
+
+NC_REQUIRED_COLUMNS = ["numero_referencia", "cliente", "fecha"]
+NC_DATE_COLUMNS = ["fecha"]
+NC_NUMERIC_COLUMNS = ["subtotal_ml", "impuestos_ml", "total_ml"]

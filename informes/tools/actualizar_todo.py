@@ -19,6 +19,14 @@ este script a proposito -- su export es mucho mas pesado (~22.700 filas
 vs. cientos en el resto) y no hace falta refrescarlo con la misma
 frecuencia que el resto.
 
+Notas de Credito de Ventas (Produccion/Medios/Representante, agregado
+2026-09-21): NO son un modulo mas de la lista MODULOS -- son 3 vistas
+aparte que se fusionan en la tabla "facturas" ya cargada por el modulo
+"facturas" de arriba (ver modules/facturas/export_nc.py e ingest_nc.py, y
+la nota "Notas de Credito de Ventas" en README.md). Compras no necesita
+este paso: sus notas de credito ya vienen en el mismo export de Compras,
+como filas con importe negativo.
+
 Uso (desde la raiz del proyecto, con -m para que 'modules' sea importable):
     python -m tools.actualizar_todo
 """
@@ -36,6 +44,8 @@ MODULOS = [
     "estimados_pendientes_facturar",
     "ordenes_trabajo",
 ]
+
+NC_VENTAS_SEGMENTOS = ["produccion", "medios", "representante"]
 
 REPORTES = ["ordenes_trabajo", "compras", "facturas", "pendientes"]
 
@@ -58,6 +68,24 @@ def exportar_e_ingerir(modulo: str) -> tuple[bool, str]:
 
     print(f"--- {modulo}: cargando {xlsx_path} en advertys.db...")
     resultado = _correr(["modules." + modulo + ".ingest", str(xlsx_path)])
+    if resultado.returncode != 0:
+        detalle = (resultado.stderr or resultado.stdout).strip().splitlines()
+        return False, f"ingest fallido: {detalle[-1] if detalle else 'sin detalle'}"
+
+    ultima_linea = resultado.stdout.strip().splitlines()
+    return True, ultima_linea[-1] if ultima_linea else "OK"
+
+
+def exportar_e_ingerir_nc_ventas(segmento: str) -> tuple[bool, str]:
+    print(f"--- facturas (NC {segmento}): exportando desde Advertys...")
+    try:
+        export_mod = import_module("modules.facturas.export_nc")
+        xlsx_path = export_mod.exportar(segmento)
+    except Exception as e:
+        return False, f"export fallido: {e}"
+
+    print(f"--- facturas (NC {segmento}): cargando {xlsx_path} en advertys.db...")
+    resultado = _correr(["modules.facturas.ingest_nc", str(xlsx_path), "--segmento", segmento])
     if resultado.returncode != 0:
         detalle = (resultado.stderr or resultado.stdout).strip().splitlines()
         return False, f"ingest fallido: {detalle[-1] if detalle else 'sin detalle'}"
@@ -89,6 +117,14 @@ def main():
             ok[modulo] = detalle
         else:
             errores[modulo] = detalle
+
+    for segmento in NC_VENTAS_SEGMENTOS:
+        clave = f"facturas (NC {segmento})"
+        exito, detalle = exportar_e_ingerir_nc_ventas(segmento)
+        if exito:
+            ok[clave] = detalle
+        else:
+            errores[clave] = detalle
 
     regenerar_reportes()
 

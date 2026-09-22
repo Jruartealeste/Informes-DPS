@@ -10,10 +10,12 @@ Exporta en vivo desde Advertys (login + navegar + descargar XLSX vía
 Playwright) y carga en `advertys.db` los 7 módulos que tienen
 `modules/<modulo>/export.py` — `compras`, `facturas`, `estimados_costos`,
 `ordenes_compra`, `oc_pendientes_generar`, `estimados_pendientes_facturar`,
-`ordenes_trabajo` — y después regenera todos los `salida/informe_<modulo>.html`
-y el `salida/dashboard.html` que los agrupa, en una sola pasada. El
-export ya no es manual para estos 7 módulos (era el comportamiento viejo
-de este skill; `tools/actualizar_todo.py` es el que reemplaza ese paso).
+`ordenes_trabajo` — más las 3 Notas de Crédito de Ventas (Producción,
+Medios, Representante; agregado 2026-09-21, ver "Notas de Crédito" abajo),
+y después regenera todos los `salida/informe_<modulo>.html` y el
+`salida/dashboard.html` que los agrupa, en una sola pasada. El export ya
+no es manual para estos módulos (era el comportamiento viejo de este
+skill; `tools/actualizar_todo.py` es el que reemplaza ese paso).
 
 **IIBB queda afuera de este script a propósito** — su export es mucho más
 pesado (~22.700 filas vs. cientos en el resto de los módulos) y además
@@ -27,15 +29,18 @@ aparte por el costo de tiempo.
 1. Correr `python -m tools.actualizar_todo` (parado en `informes/` — la
    raíz del pipeline, no la raíz del repo que también contiene `ot/` —
    con `-m` para que `modules` sea importable) — hace login a Advertys una
-   vez por módulo, exporta y carga los 7 módulos de arriba, y al final
-   regenera los 4 `generate_html_report.py` existentes
-   (`ordenes_trabajo`, `compras`, `facturas`, `pendientes`) y
-   `generate_dashboard.py`. Un fallo puntual en un módulo no aborta el
-   resto — al final del stdout hay un resumen con qué módulos quedaron OK
-   y cuáles fallaron (y por qué). Antes de asumir que la lista de 7
-   módulos sigue completa, chequear `MODULOS` en `tools/actualizar_todo.py`
-   — puede haberse sumado un módulo nuevo vía el skill `relevar-modulo`
-   (si el módulo nuevo tiene su propio `export.py`, agregarlo ahí también).
+   vez por módulo, exporta y carga los 7 módulos de arriba más las 3
+   Notas de Crédito de Ventas (login aparte por cada una, se fusionan en
+   la tabla `facturas` — ver `NC_VENTAS_SEGMENTOS` en
+   `tools/actualizar_todo.py`), y al final regenera los 4
+   `generate_html_report.py` existentes (`ordenes_trabajo`, `compras`,
+   `facturas`, `pendientes`) y `generate_dashboard.py`. Un fallo puntual
+   en un módulo no aborta el resto — al final del stdout hay un resumen
+   con qué módulos quedaron OK y cuáles fallaron (y por qué). Antes de
+   asumir que la lista de 7 módulos sigue completa, chequear `MODULOS` en
+   `tools/actualizar_todo.py` — puede haberse sumado un módulo nuevo vía
+   el skill `relevar-modulo` (si el módulo nuevo tiene su propio
+   `export.py`, agregarlo ahí también).
 2. **Fallback manual** — si Advertys está caído, el login falla, o Javier
    ya trae un Excel puntual en vez de dejar que el script lo exporte: usar
    el skill `actualizar-informe` para ese módulo en particular en lugar
@@ -75,3 +80,16 @@ aparte por el costo de tiempo.
 - Si en algún momento se agrega un `export.py` nuevo (módulo nuevo, o
   IIBB deja de ser manual), sumarlo a `MODULOS` en
   `tools/actualizar_todo.py` — no hay detección automática.
+- **Notas de Crédito (agregado 2026-09-21):** en Compras ya venían
+  incluidas en el mismo export (columna `importe_sin_iva_signado`, signo
+  negativo) — no requirió cambios. En Facturas (ventas) NO: viven en 3
+  vistas separadas de Advertys (`Administracion > Facturación >
+  Producción/Medios/Representante > N.Crédito Automática`, ObjectClassName
+  `NotaCreditoAutomatica[Medios|Representante]`) que nunca se mezclan con
+  el export de "Facturas" aunque su filtro esté en "Todos". Se agregaron
+  `modules/facturas/export_nc.py` + `ingest_nc.py`, que las cargan como
+  filas negativas en la misma tabla `facturas` (mismo criterio que
+  Compras) — netean solas en `informe_facturas.html` y el dashboard sin
+  tocar `generate_html_report.py`. Ver "Notas de Crédito de Ventas" en
+  `README.md` para el detalle completo (columnas, glyphs de "N°/Nº"
+  inconsistentes dentro del mismo export, etc.).

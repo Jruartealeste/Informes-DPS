@@ -374,6 +374,51 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   la marca/unidad de negocio, Cliente es la razón social facturada. Para
   cruces futuros, la entidad facturable real es `Cliente` + `Cuit`.
 
+#### Notas de Crédito de Ventas (agregado 2026-09-21)
+
+- A diferencia de Compras (donde las notas de crédito ya vienen mezcladas
+  en el mismo export, con signo negativo en `importe_sin_iva_signado`),
+  las Notas de Crédito de **ventas** viven en 3 vistas de Advertys
+  completamente separadas de "Facturas" — nunca se mezclan ahí, ni
+  poniendo el filtro en "Todos": la vista "Facturas" es
+  `ObjectClassName=DPS_Factura` y las NC son otra clase.
+- Ubicación en Advertys: `Administracion > Facturación > Producción /
+  Medios / Representante > N.Crédito Automática`. El nodo del árbol de
+  ese grupo (`Vertical_SHC_Menu_...`) es en realidad un shortcut de
+  "Quick create" que abre un alta vacía del mismo ObjectClassName, no el
+  listado — por eso `modules/facturas/export_nc.py` navega **directo por
+  URL** (`ViewID=<Clase>_ListView&ObjectClassName=DPS_SAS_SR.Module.<Clase>`,
+  mismo criterio que `estimados_costos/export.py`), no clickeando el árbol.
+- ObjectClassName por segmento: `NotaCreditoAutomatica` (Producción),
+  `NotaCreditoAutomaticaMedios`, `NotaCreditoAutomaticaRepresentante`.
+- El combo de filtro de esta vista tiene "**Todas**" (femenino, por "Nota
+  Crédito Automática"), no "Todos" como en Facturas/Compras — default
+  también "Mes Actual".
+- Columnas del Excel (más chicas que Facturas: no traen AAAAMM, FCE, Cuit,
+  TA, Cai, Moneda/Cotización/ME ni los "Tiene *"): `Anular Nº Referencia`,
+  Fecha, TR, `Nº Referencia`, Cliente, `N° Asiento`, Producto, Subtotal,
+  Impuestos, Total, Estado. "Anunciante" **solo existe en la vista de
+  Producción** — en Medios/Representante no viene en el Excel, se usa
+  Cliente como anunciante en `ingest_nc.py` (mismo criterio que ya rige
+  ahí para las facturas reales de esos segmentos).
+- Ojo con "N°/Nº": este export mezcla los DOS caracteres en el mismo
+  archivo — `Anular Nº Referencia` y `Nº Referencia` usan "º" (ordinal
+  masculino, U+00BA, igual que Compras), pero `N° Asiento` usa "°"
+  (grados, U+00B0, igual que el resto de Facturas). Verificado contra un
+  export real.
+- Integración: se fusionan en la misma tabla `facturas` como filas con
+  importe negativo (`subtotal_ml`/`impuestos_ml`/`total_ml` = -abs(valor),
+  la vista de Advertys los trae siempre positivos), con `tipo_asiento`
+  nuevo por segmento (`NCP`/`NCM`/`NCR`) para no colisionar con `FP`/`FM`
+  ni entre sí. Así `generate_html_report.py` y el dashboard las netean
+  automáticamente sin ningún cambio ahí — mismo espíritu que Compras.
+  `Anular Nº Referencia` (la factura que la nota cancela/acredita) se
+  guarda en la columna nueva `nc_anula_referencia` (NULL para facturas
+  reales).
+- `tools/actualizar_todo.py` las corre como paso aparte
+  (`NC_VENTAS_SEGMENTOS`), no como una entrada más de `MODULOS` — un login
+  distinto por segmento, todos fusionándose en el mismo `modules.facturas`.
+
 ### Notas del módulo IIBB
 
 - **Contexto:** ALESTE ADS S.A. es agencia (comisionista) y puede deducir de
