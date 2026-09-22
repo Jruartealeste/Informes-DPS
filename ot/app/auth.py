@@ -50,12 +50,15 @@ def procesar_login(db: Session, claims: dict) -> Usuario:
     return usuario
 
 
-_PREFIJOS_PUBLICOS = ("/auth/", "/static/")
+_PREFIJOS_PUBLICOS = ("/auth/", "/static/", "/api/sync/")
 
 
 class AuthMiddleware:
-    """Exige sesión iniciada para toda la app salvo /auth/* y /static/*.
-    Va montada después de SessionMiddleware (necesita request.session)."""
+    """Exige sesión iniciada para toda la app salvo /auth/*, /static/* y
+    /api/sync/*. Este último no queda "abierto" -- es server-a-server
+    (Informes/modules/sync_tareas_app/push.py) y valida su propio bearer
+    token adentro de app/routers/sync.py, no una sesión de usuario. Va
+    montada después de SessionMiddleware (necesita request.session)."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app

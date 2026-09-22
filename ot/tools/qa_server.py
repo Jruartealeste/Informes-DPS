@@ -37,6 +37,7 @@ os.environ["DATABASE_URL"] = "sqlite:///" + str(DB_PATH).replace("\\", "/")
 os.environ["SESSION_SECRET"] = "qa-local-secret-not-real"
 os.environ["AUTH_GOOGLE_CLIENT_ID"] = "qa-client-id"
 os.environ["AUTH_GOOGLE_CLIENT_SECRET"] = "qa-client-secret"
+os.environ["SYNC_TOKEN"] = "qa-local-sync-token-not-real"
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.models import Cliente, Usuario  # noqa: E402

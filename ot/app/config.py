@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     auth_google_client_id: str
     auth_google_client_secret: str
 
+    # Sync server-a-server desde Informes/ (ver "Relación con Informes/ y
+    # con Advertys" en CLAUDE.md, roadmap ítem 5) — bearer token fijo, no
+    # OAuth de usuario: no hay una persona logueada en ese flujo. Requerido
+    # sin default, mismo criterio que session_secret/auth_google_*: mejor
+    # que /api/sync/* no arranque a que acepte cualquier POST sin token.
+    sync_token: str
+
     # Envío de mail a responsables (Gmail API, remitente único — ver
     # "Mail a responsables" en CLAUDE.md). Quedan opcionales para que el
     # resto de la app funcione sin configurar esto: el envío falla con un

@@ -176,14 +176,39 @@ Tablas:
 
 - Esta app nunca habla directo con Advertys. Todo lo que sabe de OT viene
   de `ordenes_trabajo_espejo`, sincronizada desde `Informes/advertys.db`.
-- El único cambio que este proyecto le suma al pipeline padre es un script
-  chico ahí (`Informes/modules/sync_tareas_app/push.py`, a construir): lee
-  `ordenes_trabajo` con `db.get_connection()` y hace `POST` autenticado
-  (bearer token separado en `SYNC_TOKEN`, no OAuth de usuario) a
-  `/api/sync/ordenes-trabajo` acá. Se corre a mano después de un
-  `ingest.py`, igual de manual que el resto del pipeline hoy.
 - Las credenciales de Advertys (`.env` de `Informes/`) no se copian ni se
   usan en este proyecto.
+- **Sync `ordenes_trabajo` → `ordenes_trabajo_espejo`: construido y
+  probado (2026-09-22, roadmap ítem 5).**
+  - `Informes/modules/sync_tareas_app/push.py`: lee `ordenes_trabajo` con
+    `db.get_connection()` y hace `POST` de la lista completa a
+    `/api/sync/ordenes-trabajo` acá, autenticado con bearer token fijo
+    (`OT_SYNC_TOKEN` del lado de `Informes/`, tiene que matchear
+    `SYNC_TOKEN` acá — ambos viven en `.env`, no en `.env.example`). No es
+    un script de escritura contra Advertys (la salvaguarda de solo
+    lectura no aplica) — Advertys ni se toca, es Informes hablando con
+    otra app propia. Se corre a mano después de un `ingest.py` de
+    `ordenes_trabajo`, igual de manual que el resto del pipeline hoy; no
+    está sumado a `tools/actualizar_todo.py` todavía.
+  - `app/routers/sync.py`: valida el bearer token y hace upsert manual
+    (get-then-set, no `ON CONFLICT` de Postgres) por `numero_ot` contra
+    `ordenes_trabajo_espejo`, más un registro en `sync_log` por corrida
+    (éxito o error). El upsert manual es a propósito dialect-agnostic:
+    corre igual contra el sqlite descartable de `tools/qa_server.py`
+    (skill `qa-ot`) que contra Neon — nunca hizo falta la sintaxis
+    específica de Postgres para el volumen real (~300 OT).
+    `/api/sync/*` está exento de `AuthMiddleware` (no hay usuario
+    logueado en este flujo) y valida su propio token adentro.
+  - **Probado end-to-end**: `push.py` contra el server de QA (297 OT
+    reales sincronizadas), upsert confirmado corriendo dos veces sobre el
+    mismo `numero_ot` (actualiza, no duplica), y rechazo 401 sin token.
+    Falta correr `push.py` una vez contra el `ot/` de dev real (Neon) —
+    la migración (`c4e8a1f5d2b7_agrega_ordenes_trabajo_espejo_y_sync_log`)
+    ya está aplicada ahí.
+  - Nadie lee `ordenes_trabajo_espejo` todavía del lado de la UI (ni
+    autocompletado de `numero_ot_advertys`, ni nada) — esta vuelta solo
+    deja el espejo poblado y sincronizable a demanda. Consumirlo queda
+    para cuando haga falta (ej. roadmap ítem 7, autocompletado de OT).
 
 ## Quirks conocidos del Google Sheet real (relevado 2026-07-23)
 
@@ -613,8 +638,11 @@ Tablas:
    2026-08-21 (ver "Decisiones confirmadas con Javier (2026-08-21)"
    arriba); falta que vos cargues las credenciales reales en `.env` para
    que funcione en la práctica.
-5. Sync `ordenes_trabajo` ↔ `ordenes_trabajo_espejo` (script en
-   `Informes/` + endpoint acá).
+5. ~~Sync `ordenes_trabajo` ↔ `ordenes_trabajo_espejo` (script en
+   `Informes/` + endpoint acá)~~ — hecho y probado (2026-09-22, ver
+   "Relación con `Informes/` y con Advertys" arriba). Falta correr
+   `push.py` una vez contra Neon real (solo probado contra QA hasta
+   ahora) y, más adelante, consumir el espejo desde algún lado de la UI.
 6. ~~`crear_ot.py`~~ — escrito (2026-09-22, ver decisiones abajo). **Todavía
    no se corrió contra Advertys real** — falta tu confirmación explícita
    (con un Anunciante/Resumen/Centro Costo reales) antes del primer alta

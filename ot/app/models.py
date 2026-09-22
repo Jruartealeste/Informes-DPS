@@ -1,7 +1,7 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -122,6 +122,52 @@ class Estimado(Base):
 
     creado_por: Mapped["Usuario | None"] = relationship()
     tareas: Mapped[list["Tarea"]] = relationship(back_populates="estimado")
+
+
+class OrdenTrabajoEspejo(Base):
+    """Espejo de solo lectura de la tabla `ordenes_trabajo` de
+    Informes/advertys.db (roadmap ítem 5, ver "Relación con Informes/ y con
+    Advertys" en CLAUDE.md). Poblado únicamente por
+    POST /api/sync/ordenes-trabajo (bearer token SYNC_TOKEN, ver
+    app/routers/sync.py) -- ningún router de esta app escribe acá excepto
+    ese. `ot_interna.numero_ot_advertys` referencia este `numero_ot` una
+    vez que la OT de sistema ya existe, pero sin FK real todavía: una OT
+    interna puede apuntar a un `numero_ot_advertys` recién creado con
+    `crear_ot.py` antes de que corra el próximo sync."""
+
+    __tablename__ = "ordenes_trabajo_espejo"
+
+    numero_ot: Mapped[str] = mapped_column(String(20), primary_key=True)
+    id_advertys: Mapped[str | None] = mapped_column(String(20))
+    negocio: Mapped[str | None] = mapped_column(String(80))
+    anunciante: Mapped[str | None] = mapped_column(String(300))
+    marca: Mapped[str | None] = mapped_column(String(200))
+    producto: Mapped[str | None] = mapped_column(String(300))
+    resumen: Mapped[str | None] = mapped_column(Text)
+    fecha_abierta: Mapped[date | None] = mapped_column(Date)
+    fecha_cerrada: Mapped[date | None] = mapped_column(Date)
+    responsable: Mapped[str | None] = mapped_column(String(200))
+    equipo: Mapped[str | None] = mapped_column(String(200))
+    estado: Mapped[str | None] = mapped_column(String(40))
+    renta_teorica: Mapped[float | None] = mapped_column(Float)
+    renta_real: Mapped[float | None] = mapped_column(Float)
+    sincronizado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SyncLog(Base):
+    """Auditoría de cada sync recibido en /api/sync/* (ver
+    app/routers/sync.py). `origen` identifica qué se sincronizó
+    ("ordenes_trabajo" por ahora, más adelante "facturas" si se suma ese
+    sync)."""
+
+    __tablename__ = "sync_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    origen: Mapped[str] = mapped_column(String(40))
+    cantidad: Mapped[int] = mapped_column()
+    ok: Mapped[bool] = mapped_column()
+    detalle: Mapped[str | None] = mapped_column(Text)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Tarea(Base):
