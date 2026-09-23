@@ -25,10 +25,19 @@ confirmadas con Javier (2026-09-22)"):
   (Id Anunciante / Nombre). Si la busqueda no devuelve exactamente una
   fila (o una fila con Nombre exacto entre varias), se corta con error --
   nunca se asume cual eligio el usuario.
-- Producto y Contacto Anunciante dependen del Anunciante elegido
-  (cascada, vienen vacios hasta ese momento) y quedan SIN completar --
-  decision Javier (2026-09-22): se cargan a mano en Advertys si hace
-  falta, igual que los items de Estimados.
+- Producto depende del Anunciante elegido (cascada, vacio hasta ese
+  momento) -- la decision original (Javier, 2026-09-22) era dejarlo SIN
+  completar, pero la primera corrida real (2026-09-23, ver ot/CLAUDE.md
+  "Decisiones confirmadas con Javier (2026-09-23)") mostro que Advertys
+  exige completarlo para poder Guardar: "Falta Producto". Ahora es
+  **obligatorio**, y se valida (si el Anunciante ya esta relevado) contra
+  el catalogo por-cliente en `productos_por_anunciante.json` (mismo
+  directorio), poblado a mano con
+  `explore_producto_por_anunciante.py` cliente por cliente -- arranca con
+  ALUAR, se suma el resto a medida que haga falta.
+- Contacto Anunciante tambien depende del Anunciante (cascada) y queda
+  SIN completar -- decision Javier (2026-09-22): se carga a mano en
+  Advertys si hace falta, igual que los items de Estimados.
 - Tag tambien queda siempre sin completar (decision Javier, 2026-09-22).
 - Centro Costo es un combo fijo de 4 valores (ADMINISTRACION,
   AGENCIA - ESTRUCTURA, CREATIVIDAD - PRODUCCION, MEDIOS) -- **obligatorio**,
@@ -44,18 +53,21 @@ Advertys) -- a diferencia de crear_estimado.py, ese campo esta en la
 misma pagina asi que no hace falta comparar grillas antes/despues.
 
 Uso:
-    python -m modules.ordenes_trabajo.crear_ot "<anunciante>" "<resumen>" "<centro_costo>" [--equipo "<equipo>"]
+    python -m modules.ordenes_trabajo.crear_ot "<anunciante>" "<resumen>" "<producto>" "<centro_costo>" [--equipo "<equipo>"]
 
 Ejemplo:
-    python -m modules.ordenes_trabajo.crear_ot "ALUAR" "Campaña institucional Setiembre" "CREATIVIDAD - PRODUCCION"
+    python -m modules.ordenes_trabajo.crear_ot "ALUAR" "Campaña institucional Setiembre" "INSTITUCIONAL" "CREATIVIDAD - PRODUCCION"
 """
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
 from tools.advertys_session import AdvertysLoginError, base_url, esperar_postback, login
+
+CATALOGO_PRODUCTOS_PATH = Path(__file__).parent / "productos_por_anunciante.json"
 
 OUT_DIR = Path("exploracion")
 OUT_DIR.mkdir(exist_ok=True)
@@ -173,20 +185,53 @@ def seleccionar_anunciante(page, busqueda: str) -> str:
     fila.click(timeout=5000)
     page.wait_for_timeout(400)
 
-    if not click_boton_visible(frame, "Aceptar"):
-        raise CrearOtError("No se encontro (o esta deshabilitado) el boton 'Aceptar' del popup de Anunciante.")
+    # El click en la fila puede dejar el popup esperando un click en
+    # "Aceptar" (como asumia el relevamiento original), o puede disparar el
+    # postback y cerrar el iframe solo -- confirmado 2026-09-23 en la
+    # primera corrida real contra Advertys: el frame quedo detached antes
+    # de llegar a buscar "Aceptar", cortando el script con un error de
+    # Playwright en vez de uno de negocio. Se toleran ambos casos y se
+    # valida el resultado real releyendo el campo del formulario principal.
+    try:
+        click_boton_visible(frame, "Aceptar")
+    except Exception:
+        pass
     esperar_postback(page)
     page.wait_for_timeout(800)
 
     valor = page.locator("input[id$='_xaf_dviAnunciante_Edit_find_Edit_I']").first.input_value()
     if not valor or valor.strip() in ("", "N / D"):
+        shot(page, "crear_ot_error_anunciante_no_confirmado")
         raise CrearOtError("El Anunciante no quedo seleccionado tras el popup (sigue en N / D).")
     return valor.strip()
+
+
+def _validar_producto(anunciante: str, producto: str) -> None:
+    """Valida `producto` contra el catalogo por-cliente relevado a mano
+    (ver explore_producto_por_anunciante.py). Si el Anunciante todavia no
+    esta relevado ahi, no bloquea -- deja que Advertys sea la ultima
+    palabra y avisa por consola, en vez de impedir altas de clientes
+    nuevos por falta de relevamiento previo."""
+    if not producto.strip():
+        raise CrearOtError("El producto no puede estar vacio.")
+    if not CATALOGO_PRODUCTOS_PATH.exists():
+        print(f"  (aviso: no existe {CATALOGO_PRODUCTOS_PATH.name}, no se valida Producto contra un catalogo)")
+        return
+    catalogo = json.loads(CATALOGO_PRODUCTOS_PATH.read_text(encoding="utf-8"))
+    opciones = catalogo.get(anunciante)
+    if opciones is None:
+        print(f"  (aviso: '{anunciante}' todavia no esta relevado en {CATALOGO_PRODUCTOS_PATH.name}, no se valida Producto)")
+        return
+    if producto not in opciones:
+        raise CrearOtError(
+            f"Producto '{producto}' invalido para '{anunciante}'. Opciones relevadas: {', '.join(opciones)}"
+        )
 
 
 def crear_ot(
     anunciante: str,
     resumen: str,
+    producto: str,
     centro_costo: str,
     equipo: str | None = None,
 ) -> str:
@@ -198,6 +243,8 @@ def crear_ot(
         raise CrearOtError(
             f"Centro Costo '{centro_costo}' invalido. Opciones: {', '.join(CENTROS_COSTO_VALIDOS)}"
         )
+    if not producto.strip():
+        raise CrearOtError("El producto no puede estar vacio.")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -226,6 +273,10 @@ def crear_ot(
             print(f"Buscando Anunciante: {anunciante!r}")
             anunciante_resuelto = seleccionar_anunciante(page, anunciante)
             print(f"  Anunciante seleccionado: {anunciante_resuelto}")
+
+            _validar_producto(anunciante_resuelto, producto)
+            print(f"Seleccionando Producto: {producto!r}")
+            seleccionar_combo(page, "dviProducto", producto)
 
             print(f"Seleccionando Centro Costo: {centro_costo!r}")
             seleccionar_combo(page, "dviCentroCosto", centro_costo)
@@ -264,6 +315,10 @@ def main():
     parser.add_argument("anunciante", help="Texto a buscar en el popup de Anunciante (ej. 'ALUAR')")
     parser.add_argument("resumen", help="Texto del campo Resumen")
     parser.add_argument(
+        "producto",
+        help="Depende del Anunciante (cascada) -- ver productos_por_anunciante.json para los clientes ya relevados",
+    )
+    parser.add_argument(
         "centro_costo",
         help=f"Uno de: {', '.join(CENTROS_COSTO_VALIDOS)}",
     )
@@ -271,7 +326,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        numero = crear_ot(args.anunciante, args.resumen, args.centro_costo, args.equipo)
+        numero = crear_ot(args.anunciante, args.resumen, args.producto, args.centro_costo, args.equipo)
     except CrearOtError as e:
         print(f"ERROR: {e}")
         sys.exit(1)

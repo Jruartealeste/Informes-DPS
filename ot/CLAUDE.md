@@ -622,6 +622,52 @@ Tablas:
   Estimados arriba — mismo trade-off subprocess local vs. corrida manual,
   sin resolver todavía).
 
+## Decisiones confirmadas con Javier (2026-09-23) — Producto pasa a obligatorio
+
+- **Primera corrida real de `crear_ot.py` (Anunciante ALUAR, Resumen
+  "Prueba 123", Centro Costo CREATIVIDAD - PRODUCCION) reveló dos bugs
+  contra el relevamiento original de `explore_nueva_ot.py`:**
+  1. El popup de búsqueda de Anunciante no siempre espera un click en
+     "Aceptar" — a veces el click en la fila ya dispara el postback y
+     cierra el iframe solo (el relevamiento original nunca probó el flujo
+     completo de selección, solo abría y cerraba el popup con Escape).
+     Corregido en `seleccionar_anunciante`: tolera que el frame quede
+     detached y valida releyendo el campo del formulario principal.
+  2. **Advertys exige completar Producto para poder Guardar** ("Falta
+     Producto") — contradice la decisión original (2026-09-22) de dejarlo
+     siempre sin completar. Ninguna OT llegó a crearse en ninguno de los
+     dos intentos (el segundo cortó antes de Guardar, con el error de
+     validación, sin persistir nada).
+- **Decisión: Producto pasa a ser obligatorio**, tanto en `crear_ot.py`
+  como (a futuro) en el formulario de "Generar OT en Advertys" de esta
+  app — el conjunto obligatorio queda **Anunciante, Resumen, Producto y
+  Centro Costo** (Equipo sigue opcional).
+- **Producto es un catálogo propio de cada Anunciante** (combo en
+  cascada, no una lista fija global como Centro Costo) — hay que
+  relevarlo cliente por cliente a mano, no se puede asumir ni adivinar.
+  Nuevo script de solo lectura
+  `Informes/modules/ordenes_trabajo/explore_producto_por_anunciante.py`
+  (abre el form "Nuevo", selecciona el Anunciante, lee las opciones del
+  combo Producto, cierra sin Guardar) vuelca el resultado en
+  `Informes/modules/ordenes_trabajo/productos_por_anunciante.json`, que
+  `crear_ot.py` usa para validar el parámetro `producto` cuando el
+  Anunciante ya está relevado ahí (si no está, no bloquea — deja que
+  Advertys sea la última palabra, para no trabar altas de clientes
+  nuevos por falta de relevamiento previo).
+  - **Relevado hasta ahora: ALUAR** (9 productos, ver el JSON). Falta
+    relevar el resto de los clientes — se suma uno por uno a medida que
+    haga falta generar una OT para ellos (mismo criterio incremental que
+    "Alcance de datos: solo ALUAR primero" de la migración del Sheet).
+- **Probado contra Advertys real (2026-09-23, con tu OK explícito):**
+  `python -m modules.ordenes_trabajo.crear_ot "ALUAR" "Prueba 123"
+  "INSTITUCIONAL" "CREATIVIDAD - PRODUCCION"` creó la **OT 298**
+  correctamente de punta a punta (Anunciante resuelto por el popup,
+  Producto y Centro Costo seleccionados, Guardar, número leído del
+  campo). Los dos intentos previos (sin Producto) habían fallado antes de
+  Guardar sin dejar nada creado. Pendiente: que vos anules/borres la OT
+  298 de prueba en Advertys cuando quieras (no lo hace este agente, mismo
+  criterio que el Estimado 558 de prueba).
+
 ## Roadmap inmediato
 
 1. ~~Relevamiento de solo lectura del formulario "Nueva OT" en Advertys~~
@@ -643,10 +689,15 @@ Tablas:
    "Relación con `Informes/` y con Advertys" arriba). Falta correr
    `push.py` una vez contra Neon real (solo probado contra QA hasta
    ahora) y, más adelante, consumir el espejo desde algún lado de la UI.
-6. ~~`crear_ot.py`~~ — escrito (2026-09-22, ver decisiones abajo). **Todavía
-   no se corrió contra Advertys real** — falta tu confirmación explícita
-   (con un Anunciante/Resumen/Centro Costo reales) antes del primer alta
-   real, mismo criterio que `crear_estimado.py`/`cerrar_ot.py`.
+6. ~~`crear_ot.py`~~ — escrito (2026-09-22) y **probado con éxito contra
+   Advertys real** (2026-09-23, OT 298 de prueba, ver "Decisiones
+   confirmadas con Javier (2026-09-23) — Producto pasa a obligatorio"
+   arriba). Producto resultó ser un campo obligatorio no previsto en el
+   relevamiento original — ya está sumado como parámetro, validado contra
+   un catálogo por-cliente relevado a mano (`productos_por_anunciante.json`,
+   solo ALUAR por ahora). Sigue sin resolverse cómo el botón "Generar OT
+   en Advertys" de la UI dispara este script (ver ítem 7 y la decisión
+   pendiente de Estimados).
 7. UI: vista unificada filtrable, vista por cliente, alta/edición de tarea
    con autocompletado de OT + botón "Generar OT en Advertys", vista
    `/facturacion/listas`.
