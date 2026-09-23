@@ -342,7 +342,7 @@
         ? marcados.map(function (cb) {
             return cb.closest('.combo__check-row').querySelector('.combo__check-row__nombre').textContent;
           }).join(' / ')
-        : 'Sin responsables';
+        : (boton.dataset.vacio || 'Sin selección');
     }
 
     document.addEventListener('change', function (ev) {

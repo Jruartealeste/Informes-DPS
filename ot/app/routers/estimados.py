@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
+from app.labels import TIPO_TAREA_LABELS
 from app.models import EstadoEstimado, Estimado, OtInterna, Tarea, TareaTipoTarea
 from app.templating import templates
 
@@ -43,7 +44,7 @@ def _tarea_resumen_vm(t: Tarea) -> dict:
     return {
         "id": t.id,
         "detalle": t.detalle,
-        "tipos_label": ", ".join(tt.tipo_tarea.nombre for tt in t.tipos) or "—",
+        "tipos_label": ", ".join(TIPO_TAREA_LABELS.get(tt.tipo_tarea.nombre, tt.tipo_tarea.nombre) for tt in t.tipos) or "—",
         "ot_numero": t.ot_interna.numero_interno if t.ot_interna else "—",
     }
 

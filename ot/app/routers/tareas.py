@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app import cache
 from app.db import get_db
-from app.labels import ESTADO_LABELS, FACTURACION_LABELS
+from app.labels import ESTADO_LABELS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import (
     Cliente,
     EstadoFacturacion,
@@ -188,9 +188,9 @@ def contexto_detalle(db: Session, tarea_id: int) -> dict:
         "det": det,
         "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
         "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-        "todos_tipos": cache.tipos_nombres(db),
         "todos_ot_numeros": cache.ot_numeros(db),
         **combo_ctx(db, set(det["responsable_ids"])),
+        **tipos_combo_ctx(set(det["tipos"])),
     }
 
 
@@ -246,6 +246,19 @@ def _validar_campos_obligatorios(
         faltantes.append("responsables")
     if faltantes:
         raise HTTPException(422, f"Faltan campos obligatorios: {', '.join(faltantes)}.")
+
+
+def tipos_combo_ctx(seleccionados: set[str]) -> dict:
+    """Contexto para tareas/_campo_tipos.html: a diferencia de
+    combo_ctx (responsables), el catálogo es fijo (TIPO_TAREA_LABELS) y no
+    crece desde la UI, así que no hace falta tocar la DB acá."""
+    labels_sel = [label for nombre, label in TIPO_TAREA_LABELS.items() if nombre in seleccionados]
+    return {
+        "tipos_catalogo": list(TIPO_TAREA_LABELS.items()),
+        "tipos_sel": seleccionados,
+        "tipos_sel_csv": ",".join(sorted(seleccionados)),
+        "tipos_resumen": " / ".join(labels_sel) if labels_sel else "Sin tipo de tarea",
+    }
 
 
 def _guardar_tipos_responsables(db: Session, tarea: Tarea, tipos: list[str], responsable_ids: set[int]):
@@ -387,8 +400,8 @@ def form_nueva_tarea(request: Request, db: Session = Depends(get_db)):
             "det": None,
             "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
             "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-            "todos_tipos": cache.tipos_nombres(db),
             "todos_ot_numeros": cache.ot_numeros(db),
             **combo_ctx(db, set()),
+            **tipos_combo_ctx(set()),
         },
     )

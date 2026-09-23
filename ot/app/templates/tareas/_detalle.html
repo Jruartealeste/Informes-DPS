@@ -50,12 +50,8 @@
 
         <div class="field">
           <div class="field__label">Tipo de tarea <span class="field__req">*</span></div>
-          <input type="text" name="tipos" list="tipos-catalogo" required
-                 value="{{ det.tipos | join(', ') if det else '' }}"
-                 placeholder="diseño, redacción">
-          <datalist id="tipos-catalogo">
-            {% for nombre in todos_tipos %}<option value="{{ nombre }}">{% endfor %}
-          </datalist>
+          {% include "tareas/_campo_tipos.html" %}
+          <div class="field-error">Elegí al menos un tipo de tarea.</div>
         </div>
 
         <div class="field">

@@ -12,23 +12,11 @@ from types import SimpleNamespace
 from sqlalchemy import Integer, cast, select
 from sqlalchemy.orm import Session
 
-from app.models import OtInterna, Responsable, TipoTarea
+from app.models import OtInterna, Responsable
 
 _lock = threading.Lock()
-_tipos_nombres: list[str] | None = None
 _ot_numeros: list[str] | None = None
 _responsables_activos: list[SimpleNamespace] | None = None
-
-
-def tipos_nombres(db: Session) -> list[str]:
-    global _tipos_nombres
-    if _tipos_nombres is None:
-        with _lock:
-            if _tipos_nombres is None:
-                _tipos_nombres = [
-                    t.nombre for t in db.scalars(select(TipoTarea).order_by(TipoTarea.nombre))
-                ]
-    return _tipos_nombres
 
 
 def ot_numeros(db: Session) -> list[str]:
@@ -71,7 +59,6 @@ def reset() -> None:
     """Solo para tests: cada test arma su propia base desde cero (ver
     tests/conftest.py::db_session), así que hay que limpiar este cache de
     proceso entre corridas para no arrastrar datos de una base a otra."""
-    global _tipos_nombres, _ot_numeros, _responsables_activos
-    _tipos_nombres = None
+    global _ot_numeros, _responsables_activos
     _ot_numeros = None
     _responsables_activos = None

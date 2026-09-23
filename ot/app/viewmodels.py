@@ -1,4 +1,4 @@
-from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS
+from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import EstadoFacturacion, EstadoTarea, OtInterna, Tarea
 
 
@@ -52,7 +52,7 @@ def tarea_vm(t: Tarea) -> dict:
         "fecha_pedido": t.fecha_pedido.strftime("%d/%m") if t.fecha_pedido else "—",
         "fecha_pedido_iso": t.fecha_pedido.isoformat() if t.fecha_pedido else "",
         "tipos": tipos,
-        "tipos_label": ", ".join(tipos) if tipos else "—",
+        "tipos_label": ", ".join(TIPO_TAREA_LABELS.get(n, n) for n in tipos) if tipos else "—",
         "pedido_por": t.pedido_por or "—",
         "responsables": responsables,
         "responsables_label": " / ".join(responsables) if responsables else "—",
