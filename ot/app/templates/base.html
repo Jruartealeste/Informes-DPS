@@ -154,8 +154,28 @@
 </div>
 
 <script>
+  // snapshot del form de la sheet principal en el momento en que se abre
+  // (htmx:afterSwap), para poder detectar en cerrarDrawer si hay datos
+  // cargados/editados que se perderían al cerrar sin guardar.
+  var drawerSnapshotInicial = null;
+
+  function serializarDrawerForm(form) {
+    return new URLSearchParams(new FormData(form)).toString();
+  }
+
+  document.body.addEventListener('htmx:afterSwap', function (ev) {
+    if (ev.target && ev.target.id === 'drawer-root') {
+      var form = ev.target.querySelector('form');
+      drawerSnapshotInicial = form ? serializarDrawerForm(form) : null;
+    }
+  });
+
   function cerrarDrawer(ev) {
     if (ev) ev.stopPropagation();
+    var form = document.querySelector('#drawer-root form');
+    if (form && drawerSnapshotInicial !== null && serializarDrawerForm(form) !== drawerSnapshotInicial) {
+      if (!confirm('Hay datos cargados sin guardar. Si salís ahora se van a perder. ¿Cerrar igual?')) return;
+    }
     document.getElementById('drawer-root').innerHTML = '';
   }
 
