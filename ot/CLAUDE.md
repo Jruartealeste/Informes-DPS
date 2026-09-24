@@ -616,11 +616,13 @@ Tablas:
   explícita (con un Anunciante/Resumen/Centro Costo reales para la
   primera prueba) antes del primer alta real, no hay ambiente de prueba
   separado.
-- **Pendiente, mismo problema abierto que con Estimados:** cómo dispara
-  el botón "Generar OT en Advertys" de esta app la ejecución de
-  `crear_ot.py` (ver "Decisión pendiente (2026-09-22)" en la sección de
-  Estimados arriba — mismo trade-off subprocess local vs. corrida manual,
-  sin resolver todavía).
+- ~~Pendiente, mismo problema abierto que con Estimados: cómo dispara el
+  botón "Generar OT en Advertys" de esta app la ejecución de
+  `crear_ot.py`~~ — **resuelto para OT (2026-09-23), ver sección siguiente**
+  ("solicitud + corrida manual": la app arma el pedido, nunca corre el
+  script). El mismo trade-off para Estimados (botón "Generar Estimado en
+  Advertys") sigue sin resolverse — se decidió enfocar primero en OT
+  porque `crear_ot.py` ya estaba escrito y probado.
 
 ## Decisiones confirmadas con Javier (2026-09-23) — Producto pasa a obligatorio
 
@@ -668,6 +670,58 @@ Tablas:
   298 de prueba en Advertys cuando quieras (no lo hace este agente, mismo
   criterio que el Estimado 558 de prueba).
 
+## Decisiones confirmadas con Javier (2026-09-23) — Solicitud de alta en Advertys (UI)
+
+- **Resuelto el "cómo dispara el botón" para OT: "solicitud + corrida
+  manual"** (opción elegida sobre "subprocess local como MVP" -- ver
+  discusión en la sección "Decisiones confirmadas con Javier (2026-09-22)
+  — Generar OT en Advertys" arriba). Motivo: `ot/` va a Cloud Run (roadmap
+  ítem 8) y las credenciales de Advertys nunca se copian acá (ver
+  "Relación con `Informes/` y con Advertys"), así que un subprocess local
+  sería trabajo tirado apenas se despliegue. La app nunca corre
+  `crear_ot.py` ni va a correrlo.
+- **Modelo nuevo: `SolicitudAltaOt`** (`app/models.py`, migración
+  `a5c9e2f4b8d1_agrega_solicitudes_alta_ot`) — `anunciante`, `resumen`,
+  `producto`, `centro_costo`, `equipo` (nullable), `estado`
+  (`PENDIENTE`/`RESUELTA`), `numero_ot_advertys` (nullable hasta
+  resolverse), `creado_por_id`, timestamps. `OtInterna.solicitud_alta_id`
+  (FK nullable) agrupa qué OT internas quedan bajo un mismo pedido --
+  mismo patrón que `Tarea.estimado_id` → `Estimado`.
+- **Flujo implementado** (`app/routers/ordenes_trabajo.py`,
+  `app/templates/ordenes_trabajo/list.html` +
+  `app/templates/ordenes_trabajo/solicitudes.html`):
+  1. En el listado de OT internas, el panel de selección en lote suma un
+     tercer modo "Generar OT en Advertys" (junto a "Cargar número" y
+     "Asignar a una ya usada") -- pide Resumen, Producto (texto libre,
+     catálogo por Anunciante todavía no vive acá) y Centro Costo
+     (obligatorio, combo fijo de 4 valores), Equipo opcional (combo fijo
+     de 4 valores). El Anunciante NO se tipea: se toma de
+     `cliente.anunciante_advertys` de las OT internas tildadas, que tienen
+     que ser todas del mismo cliente (`POST /ordenes-trabajo/generar-ot`
+     corta con 422 si no).
+  2. Eso crea una `SolicitudAltaOt` PENDIENTE y redirige a
+     `/ordenes-trabajo/solicitudes` -- un listado de pedidos con los datos
+     confirmados, un botón "Copiar" con la línea exacta de
+     `crear_ot.py` lista para pegar en la terminal de `informes/`, y un
+     campo para cargar el número de OT resultante
+     (`POST /ordenes-trabajo/solicitudes/{id}/resolver`) que propaga
+     `numero_ot_advertys` a todas las OT internas del pedido de una. Hay
+     también "Cancelar pedido" (`.../cancelar`) para pedidos tipeados mal,
+     que libera las OT internas para armar otro.
+  3. El listado de OT internas suma un link "Solicitudes de alta
+     pendientes" con contador (junto al filtro "Sin OT de sistema" ya
+     existente) para no perder de vista pedidos sin resolver.
+- **Validado con el server descartable de QA** (`tools/qa_server.py
+  --reset`, no contra Neon real): armar solicitud con 2 OT internas
+  ALUAR, ver el comando generado, resolver con un número de prueba y
+  confirmar que se propagó a ambas OT internas (`compartida con 1 OT
+  interna más`) -- flujo completo probado por navegador, no solo capturas.
+  Suite de tests (`pytest`, 30 casos) sigue en verde.
+- **Mismo patrón queda disponible para Estimados** (la decisión pendiente
+  de "Generar Estimado en Advertys" que seguía abierta) pero no se tocó
+  todavía -- explícitamente fuera de esta vuelta, Javier pidió enfocar en
+  OT primero.
+
 ## Roadmap inmediato
 
 1. ~~Relevamiento de solo lectura del formulario "Nueva OT" en Advertys~~
@@ -695,9 +749,12 @@ Tablas:
    arriba). Producto resultó ser un campo obligatorio no previsto en el
    relevamiento original — ya está sumado como parámetro, validado contra
    un catálogo por-cliente relevado a mano (`productos_por_anunciante.json`,
-   solo ALUAR por ahora). Sigue sin resolverse cómo el botón "Generar OT
-   en Advertys" de la UI dispara este script (ver ítem 7 y la decisión
-   pendiente de Estimados).
+   solo ALUAR por ahora). ~~Sigue sin resolverse cómo el botón "Generar OT
+   en Advertys" de la UI dispara este script~~ — resuelto (2026-09-23,
+   patrón "solicitud + corrida manual", ver "Decisiones confirmadas con
+   Javier (2026-09-23) — Solicitud de alta en Advertys (UI)" arriba): el
+   botón arma el pedido, vos corrés `crear_ot.py` a mano y pegás el
+   número. Mismo trade-off sigue abierto para el botón de Estimados.
 7. UI: vista unificada filtrable, vista por cliente, alta/edición de tarea
    con autocompletado de OT + botón "Generar OT en Advertys", vista
    `/facturacion/listas`.

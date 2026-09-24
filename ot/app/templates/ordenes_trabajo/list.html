@@ -5,37 +5,87 @@
 <div class="page-header">
   <div class="page-header__row">
     <div>
-      <div class="page-header__kicker">ALUAR · {{ total_ots }} OT internas</div>
+      <div class="page-header__kicker">
+        ALUAR · {{ ots | length if sin_dps else total_ots }} OT interna{{ 's' if (ots | length if sin_dps else total_ots) != 1 }}{{ ' sin OT de sistema' if sin_dps }}
+      </div>
       <h1 class="page-header__title">OT internas</h1>
+    </div>
+    <div class="page-header__spacer"></div>
+    <div class="page-header__actions">
+      <a href="/ordenes-trabajo/solicitudes" class="filters__revision {{ 'is-active' if n_solicitudes_pendientes }}">
+        Solicitudes de alta{% if n_solicitudes_pendientes %} <strong>{{ n_solicitudes_pendientes }}</strong>{% endif %}
+      </a>
+      <a href="/ordenes-trabajo{{ '' if sin_dps else '?sin_dps=1' }}" class="filters__revision {{ 'is-active' if sin_dps }}">
+        Sin OT de sistema <strong>{{ n_sin_dps }}</strong>
+      </a>
     </div>
   </div>
 </div>
 
-<form method="post" action="/ordenes-trabajo/asignar-lote" id="form-asignar-lote" class="card card--asignar-lote">
+<form method="post" id="form-asignar-lote" class="card card--asignar-lote">
   <input type="hidden" name="ot_ids" id="ot_ids_input">
   <input type="hidden" name="numero_ot_advertys" id="numero_ot_advertys_input">
-  <div class="card__field-label">Asignar OT de sistema a las OT internas tildadas</div>
-  <p class="form-nota">
-    Tildá una o más OT internas en la tabla de abajo (varias pueden compartir la misma OT de sistema, para no
-    generar de más en Advertys) y elegí si van a un número nuevo o a una OT de sistema que ya está en uso.
-  </p>
-  <div class="asignar-lote__modos">
-    <label><input type="radio" name="modo_ot_sistema" value="nuevo" checked> Cargar número</label>
-    <label><input type="radio" name="modo_ot_sistema" value="existente"> Asignar a una ya usada</label>
+  <input type="hidden" name="resumen" id="resumen_input">
+  <input type="hidden" name="producto" id="producto_input">
+  <input type="hidden" name="centro_costo" id="centro_costo_input">
+  <input type="hidden" name="equipo" id="equipo_input">
+  <div class="card__field-label">
+    OT de sistema para las OT internas tildadas
+    <span class="info-tip">
+      <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+      <div class="info-tip__panel" role="note">
+        Tildá una o más OT internas en la tabla de abajo — varias pueden compartir la misma OT de sistema, para
+        no generar de más en Advertys.
+      </div>
+    </span>
   </div>
-  <div id="campo-ot-nuevo">
-    <input type="text" id="input-ot-nuevo" class="input-full" placeholder="Número de OT de sistema">
+  <div class="segmented" id="segmented-modo">
+    <label class="segmented__opt is-active"><input type="radio" name="modo_ot_sistema" value="existente" checked>Usar existente</label>
+    <label class="segmented__opt"><input type="radio" name="modo_ot_sistema" value="generar">Generar OT en Advertys</label>
+    <label class="segmented__opt"><input type="radio" name="modo_ot_sistema" value="nuevo">Cargar número</label>
   </div>
-  <div id="campo-ot-existente" style="display:none">
+  <div id="campo-ot-nuevo" style="display:none">
+    <input type="text" id="input-ot-nuevo" class="input-full" placeholder="Número de OT">
+  </div>
+  <div id="campo-ot-existente">
     <select id="select-ot-existente" class="input-full">
-      <option value="">Elegí una OT de sistema…</option>
+      <option value="">Elegí una OT…</option>
       {% for d in dps_existentes %}
       <option value="{{ d.valor }}">OT de sistema {{ d.valor }} ({{ d.n_ots }} OT interna{{ 's' if d.n_ots != 1 }})</option>
       {% endfor %}
     </select>
   </div>
+  <div id="campo-ot-generar" style="display:none">
+    <p class="form-nota" style="display:flex;align-items:center;margin:0 0 10px">
+      No crea nada en Advertys todavía — arma un pedido para correr <code>crear_ot.py</code> a mano.
+      <span class="info-tip">
+        <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+        <div class="info-tip__panel" role="note">
+          El Anunciante lo toma del cliente de las OT internas tildadas — tienen que ser todas del mismo cliente,
+          si no el pedido no se puede armar. Producto, Centro Costo y Equipo se completan a mano acá.
+        </div>
+      </span>
+    </p>
+    <div class="card__grid2">
+      <input type="text" id="input-resumen" class="input-full" placeholder="Resumen">
+      <input type="text" id="input-producto" class="input-full" placeholder="Producto">
+      <select id="select-centro-costo" class="input-full">
+        <option value="">Centro Costo…</option>
+        {% for c in centro_costo_opciones %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+      <select id="select-equipo" class="input-full">
+        <option value="">Equipo (opcional)…</option>
+        {% for eq in equipo_opciones %}
+        <option value="{{ eq }}">{{ eq }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-error" id="form-error-lote"></div>
   <div class="form-acciones">
-    <button type="submit" class="btn btn--primary btn--small">Asignar OT de sistema</button>
+    <button type="submit" id="btn-submit-lote" class="btn btn--primary btn--small">Asignar OT de sistema</button>
     <button type="button" id="btn-limpiar-seleccion" class="btn btn--small">Ninguna</button>
     <button type="button" id="btn-tildar-todas" class="btn btn--small">Todas</button>
     <span id="seleccion-count" class="form-nota" style="display:inline;margin:0 0 0 8px"></span>
@@ -74,11 +124,25 @@
 (function () {
   var form = document.getElementById('form-asignar-lote');
   var contador = document.getElementById('seleccion-count');
+  var btnSubmit = document.getElementById('btn-submit-lote');
   var campoNuevo = document.getElementById('campo-ot-nuevo');
   var campoExistente = document.getElementById('campo-ot-existente');
+  var campoGenerar = document.getElementById('campo-ot-generar');
+  var errorBox = document.getElementById('form-error-lote');
+  var ETIQUETAS_BOTON = { nuevo: 'Asignar OT de sistema', existente: 'Asignar OT de sistema', generar: 'Generar OT en Advertys' };
+  var ACTIONS = { nuevo: '/ordenes-trabajo/asignar-lote', existente: '/ordenes-trabajo/asignar-lote', generar: '/ordenes-trabajo/generar-ot' };
 
   function marcadas() {
     return Array.prototype.filter.call(document.querySelectorAll('.chk-ot'), function (c) { return c.checked; });
+  }
+
+  function mostrarError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('is-visible');
+  }
+
+  function ocultarError() {
+    errorBox.classList.remove('is-visible');
   }
 
   function actualizarContador() {
@@ -86,10 +150,21 @@
     contador.textContent = n ? n + ' seleccionada' + (n !== 1 ? 's' : '') : '';
   }
 
+  function modoActual() {
+    return document.querySelector('input[name="modo_ot_sistema"]:checked').value;
+  }
+
   function actualizarModo() {
-    var modo = document.querySelector('input[name="modo_ot_sistema"]:checked').value;
+    var modo = modoActual();
     campoNuevo.style.display = modo === 'nuevo' ? '' : 'none';
     campoExistente.style.display = modo === 'existente' ? '' : 'none';
+    campoGenerar.style.display = modo === 'generar' ? '' : 'none';
+    btnSubmit.textContent = ETIQUETAS_BOTON[modo];
+    form.action = ACTIONS[modo];
+    Array.prototype.forEach.call(document.querySelectorAll('.segmented__opt'), function (opt) {
+      opt.classList.toggle('is-active', opt.querySelector('input').value === modo);
+    });
+    ocultarError();
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('input[name="modo_ot_sistema"]'), function (r) {
@@ -111,19 +186,46 @@
   actualizarContador();
 
   form.addEventListener('submit', function (ev) {
+    ocultarError();
     var sel = marcadas();
     if (!sel.length) {
       ev.preventDefault();
-      alert('Tildá al menos una OT interna.');
+      mostrarError('Tildá al menos una OT interna.');
       return;
     }
-    var modo = document.querySelector('input[name="modo_ot_sistema"]:checked').value;
+    var ids = sel.map(function (c) { return c.value; }).join(',');
+    var modo = modoActual();
+
+    if (modo === 'generar') {
+      var conDps = sel.filter(function (c) { return c.dataset.dps; });
+      if (conDps.length) {
+        ev.preventDefault();
+        mostrarError('OT interna(s) ' + conDps.map(function (c) { return c.value; }).join(', ') + ' ya tienen OT de sistema -- sacalas de la selección.');
+        return;
+      }
+      var resumen = document.getElementById('input-resumen').value.trim();
+      var producto = document.getElementById('input-producto').value.trim();
+      var centroCosto = document.getElementById('select-centro-costo').value;
+      var equipo = document.getElementById('select-equipo').value;
+      if (!resumen || !producto || !centroCosto) {
+        ev.preventDefault();
+        mostrarError('Completá Resumen, Producto y Centro Costo.');
+        return;
+      }
+      document.getElementById('ot_ids_input').value = ids;
+      document.getElementById('resumen_input').value = resumen;
+      document.getElementById('producto_input').value = producto;
+      document.getElementById('centro_costo_input').value = centroCosto;
+      document.getElementById('equipo_input').value = equipo;
+      return;
+    }
+
     var valor = (modo === 'nuevo'
       ? document.getElementById('input-ot-nuevo').value
       : document.getElementById('select-ot-existente').value).trim();
     if (!valor) {
       ev.preventDefault();
-      alert('Cargá o elegí un número de OT de sistema.');
+      mostrarError('Cargá o elegí un número de OT de sistema.');
       return;
     }
     var conflictos = sel.filter(function (c) { return c.dataset.dps && c.dataset.dps !== valor; });
@@ -140,7 +242,7 @@
         return;
       }
     }
-    document.getElementById('ot_ids_input').value = sel.map(function (c) { return c.value; }).join(',');
+    document.getElementById('ot_ids_input').value = ids;
     document.getElementById('numero_ot_advertys_input').value = valor;
   });
 })();

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block titulo %}Solicitudes de alta · OT internas · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <a href="/ordenes-trabajo" class="ot-header__back">← OT internas</a>
+      <h1 class="page-header__title">
+        Solicitudes de alta en Advertys
+        <span class="info-tip">
+          <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+          <div class="info-tip__panel" role="note">
+            Esta app no crea la OT en Advertys ella misma — cada fila es un pedido con los datos ya
+            confirmados, listo para correr <code>crear_ot.py</code> a mano desde <code>informes/</code>.
+            Cuando tengas el número resultante, pegalo acá abajo para propagarlo a las OT internas del pedido.
+          </div>
+        </span>
+      </h1>
+    </div>
+  </div>
+</div>
+
+<div>
+    {% for s in solicitudes %}
+    <div class="card card--solicitud">
+      <div class="card--solicitud__head">
+        <div class="card--solicitud__ref">
+          <span class="solicitud-ots">
+            {% for ot in s.ots[:8] %}<span class="chip-ot">{{ ot }}</span>{% endfor %}
+            {% if s.ots | length > 8 %}<span class="chip-ot chip-ot--more">+{{ s.ots | length - 8 }}</span>{% endif %}
+          </span>
+          <span class="card--solicitud__anunciante">{{ s.anunciante }}</span>
+        </div>
+        <span class="badge {{ 'badge--estimado-generado' if s.estado == 'RESUELTA' else 'badge--estimado-borrador' }}">
+          {{ 'RESUELTA' if s.estado == 'RESUELTA' else 'PENDIENTE' }}
+        </span>
+      </div>
+      <p class="card--solicitud__resumen">{{ s.resumen }}</p>
+      <p class="form-nota" style="margin-top:2px">
+        Producto: {{ s.producto }} · Centro Costo: {{ s.centro_costo }}
+        {% if s.equipo %} · Equipo: {{ s.equipo }}{% endif %}
+        · pedido el {{ s.creado_en }}
+      </p>
+
+      {% if s.es_pendiente %}
+      <div class="cmd-box">
+        <code class="cmd-box__cmd">{{ s.comando }}</code>
+        <button type="button" class="btn btn--small cmd-box__copiar" data-cmd="{{ s.comando }}" aria-label="Copiar comando" title="Copiar comando">
+          <svg class="cmd-box__copiar__copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <svg class="cmd-box__copiar__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+      </div>
+      <div class="form-acciones" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <form method="post" action="/ordenes-trabajo/solicitudes/{{ s.id }}/resolver" class="form-resolver-solicitud" style="display:flex;gap:8px">
+          <input type="text" name="numero_ot_advertys" placeholder="Número de OT" required class="input-full" style="width:200px">
+          <button type="submit" class="btn btn--primary btn--small">Cargar número</button>
+        </form>
+        <form method="post" action="/ordenes-trabajo/solicitudes/{{ s.id }}/cancelar" class="form-cancelar-solicitud">
+          <button type="submit" class="btn btn--small btn--peligro">Cancelar pedido</button>
+        </form>
+      </div>
+      {% else %}
+      <p class="form-nota" style="margin-top:6px">
+        → OT de sistema <strong>{{ s.numero_ot_advertys }}</strong>
+      </p>
+      {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% if not solicitudes %}
+<p class="empty-state">Todavía no hay ninguna solicitud de alta.</p>
+{% endif %}
+
+<script>
+(function () {
+  Array.prototype.forEach.call(document.querySelectorAll('.cmd-box__copiar'), function (btn) {
+    btn.addEventListener('click', function () {
+      var texto = btn.dataset.cmd;
+      var listo = function () {
+        btn.classList.add('is-copiado');
+        btn.setAttribute('aria-label', 'Comando copiado');
+        setTimeout(function () {
+          btn.classList.remove('is-copiado');
+          btn.setAttribute('aria-label', 'Copiar comando');
+        }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(listo, function () {});
+      }
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.form-cancelar-solicitud'), function (f) {
+    f.addEventListener('submit', function (ev) {
+      if (!confirm('¿Cancelar este pedido de alta? Las OT internas quedan libres para armar otro.')) ev.preventDefault();
+    });
+  });
+})();
+</script>
+
+{% endblock %}

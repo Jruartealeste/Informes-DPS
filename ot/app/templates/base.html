@@ -76,15 +76,6 @@
             </svg>
             <span class="sidebar__item-label">Estimados</span>
           </a>
-          <button type="button" class="sidebar__item is-disabled" disabled title="Agrupar OT · todavía no construido">
-            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="18" cy="18" r="3"></circle>
-              <circle cx="6" cy="6" r="3"></circle>
-              <path d="M6 21V9a9 9 0 0 0 9 9"></path>
-            </svg>
-            <span class="sidebar__item-label">Agrupar OT</span>
-            <span class="sidebar__badge">pronto</span>
-          </button>
           <button type="button" class="sidebar__item is-disabled" disabled title="Facturación · todavía no construido">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" x2="12" y1="2" y2="22"></line>
@@ -357,6 +348,49 @@
       ev.target.closest('.combo--multi').querySelectorAll('.combo__check-row').forEach(function (row) {
         row.style.display = !q || row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
       });
+    });
+  })();
+
+  // info-tip: botón "?" que revela un texto explicativo al lado (evita
+  // dejar párrafos largos siempre visibles en pantallas chicas) — mismo
+  // patrón de abrir/cerrar por click y Escape que los .combo de arriba.
+  (function () {
+    function cerrarTips(excepto) {
+      document.querySelectorAll('.info-tip.is-open').forEach(function (t) {
+        if (t === excepto) return;
+        t.classList.remove('is-open');
+        t.querySelector('.info-tip__btn').setAttribute('aria-expanded', 'false');
+      });
+    }
+    document.addEventListener('click', function (ev) {
+      var btn = ev.target.closest && ev.target.closest('.info-tip__btn');
+      if (btn) {
+        var tip = btn.closest('.info-tip');
+        var abierto = tip.classList.contains('is-open');
+        cerrarTips();
+        if (!abierto) {
+          tip.classList.add('is-open');
+          btn.setAttribute('aria-expanded', 'true');
+          var panel = tip.querySelector('.info-tip__panel');
+          panel.style.left = '';
+          panel.style.right = '';
+          var rect = panel.getBoundingClientRect();
+          if (rect.right > window.innerWidth - 8) {
+            panel.style.right = '0';
+            panel.style.left = 'auto';
+            rect = panel.getBoundingClientRect();
+          }
+          if (rect.left < 8) {
+            panel.style.left = (8 - tip.getBoundingClientRect().left) + 'px';
+            panel.style.right = 'auto';
+          }
+        }
+        return;
+      }
+      if (!ev.target.closest || !ev.target.closest('.info-tip')) cerrarTips();
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') cerrarTips();
     });
   })();
 

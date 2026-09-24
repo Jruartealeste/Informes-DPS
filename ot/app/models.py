@@ -35,6 +35,11 @@ class EstadoEstimado(str, enum.Enum):
     GENERADO = "GENERADO"
 
 
+class EstadoSolicitudAltaOt(str, enum.Enum):
+    PENDIENTE = "PENDIENTE"
+    RESUELTA = "RESUELTA"
+
+
 class EstadoMail(str, enum.Enum):
     BORRADOR = "BORRADOR"
     ENVIADO = "ENVIADO"
@@ -95,9 +100,39 @@ class OtInterna(Base):
         default=EstadoOtInterna.ABIERTA
     )
     numero_ot_advertys: Mapped[str | None] = mapped_column(String(20))
+    solicitud_alta_id: Mapped[int | None] = mapped_column(ForeignKey("solicitudes_alta_ot.id"))
 
     cliente: Mapped["Cliente"] = relationship(back_populates="ots")
     tareas: Mapped[list["Tarea"]] = relationship(back_populates="ot_interna")
+    solicitud_alta: Mapped["SolicitudAltaOt | None"] = relationship(back_populates="ots")
+
+
+class SolicitudAltaOt(Base):
+    """Pedido de alta de encabezado de OT en Advertys, generado desde el
+    botón "Generar OT en Advertys" (ver ot/CLAUDE.md, decisión 2026-09-23:
+    "solicitud + corrida manual"). La app nunca corre `crear_ot.py` ella
+    misma -- no tiene ni va a tener las credenciales de Advertys (ver
+    salvaguarda en el CLAUDE.md raíz) -- solo junta acá los datos ya
+    confirmados con Javier para que él corra el script a mano desde
+    `Informes/` y después pegue el número resultante, que se propaga a
+    todas las `ot_interna` agrupadas bajo este pedido."""
+
+    __tablename__ = "solicitudes_alta_ot"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    anunciante: Mapped[str] = mapped_column(String(200))
+    resumen: Mapped[str] = mapped_column(String(300))
+    producto: Mapped[str] = mapped_column(String(200))
+    centro_costo: Mapped[str] = mapped_column(String(60))
+    equipo: Mapped[str | None] = mapped_column(String(60))
+    estado: Mapped[EstadoSolicitudAltaOt] = mapped_column(default=EstadoSolicitudAltaOt.PENDIENTE)
+    numero_ot_advertys: Mapped[str | None] = mapped_column(String(20))
+    creado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    resuelto_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    creado_por: Mapped["Usuario | None"] = relationship()
+    ots: Mapped[list["OtInterna"]] = relationship(back_populates="solicitud_alta")
 
 
 class Estimado(Base):

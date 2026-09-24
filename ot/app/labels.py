@@ -21,6 +21,23 @@ FACTURACION_LABELS: dict[EstadoFacturacion, str] = {
 ESTADOS_FACTURADOS = {EstadoFacturacion.FACTURADO, EstadoFacturacion.NO_CORRESPONDE}
 ESTADOS_TAREA_CERRADA = {EstadoTarea.FINALIZADO, EstadoTarea.APROBADO}
 
+# Combos fijos del formulario "Nueva OT" de Advertys, relevados el
+# 2026-09-22 (ver ot/CLAUDE.md, "Generar OT en Advertys") -- no dependen
+# del cliente, a diferencia de Producto (catálogo propio por Anunciante,
+# ver Informes/modules/ordenes_trabajo/productos_por_anunciante.json).
+CENTRO_COSTO_OPCIONES = [
+    "ADMINISTRACION",
+    "AGENCIA - ESTRUCTURA",
+    "CREATIVIDAD - PRODUCCION",
+    "MEDIOS",
+]
+EQUIPO_OPCIONES = [
+    "ALUAR-LA RESPUESTA",
+    "Area Beta",
+    "Equipo Grafica",
+    "Riádigos",
+]
+
 # Etiquetas lindas para el dropdown fijo de "Tipo de tarea" (pedido de
 # Javier, 2026-09-23) — las claves son los `nombre` reales del catálogo
 # `tipos_tarea` (ver ot/CLAUDE.md), heredados tal cual de la migración del

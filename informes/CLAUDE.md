@@ -29,6 +29,10 @@ workflow correspondiente:
   Advertys los Estimados de Costo listos según el informe de Estimados
   Pendientes, de cualquier OT (abierta o cerrada) — skill
   `finalizar-estimados-pendientes`.
+- `workflows/crear_ot.md` — dar de alta el encabezado de una OT nueva en
+  Advertys corriendo `modules/ordenes_trabajo/crear_ot.py`, con
+  confirmación explícita de Javier en cada corrida — skill
+  `crear-ot-advertys`.
 - `workflows/arquitectura_claude_code.md` — cómo mapear estas 3 capas a
   los mecanismos reales de Claude Code (Skills, Subagents, Agent Teams) y
   la regla de decisión para sumar automatización nueva. Leerlo cuando el

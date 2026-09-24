@@ -40,6 +40,33 @@ def _tareas_candidatas(db: Session, numero_ot_advertys: str) -> list[Tarea]:
     return list(db.scalars(stmt).unique())
 
 
+def _cargar_tareas_validadas(db: Session, ids: list[int], numero_ot_advertys: str) -> list[Tarea]:
+    """Carga las tareas pedidas y corta con 422 si alguna no está libre
+    (ya tiene estimado_id) o pertenece a una ot_interna con otra OT de
+    sistema -- un Estimado no puede mezclar dos OT de sistema distintas
+    (confirmado con Javier, 2026-09-21). No se filtra en silencio: si algo
+    no matchea es señal de un bug de UI o de alguien pegando directo
+    contra el endpoint, y conviene que falle explícito."""
+    tareas = list(
+        db.scalars(
+            select(Tarea).where(Tarea.id.in_(ids)).options(joinedload(Tarea.ot_interna))
+        ).unique()
+    )
+    encontrados = {t.id for t in tareas}
+    faltantes = set(ids) - encontrados
+    if faltantes:
+        raise HTTPException(422, f"Tarea(s) inexistente(s): {sorted(faltantes)}")
+    for t in tareas:
+        if t.estimado_id is not None:
+            raise HTTPException(422, f"La tarea {t.id} ya pertenece a otro Estimado.")
+        if not t.ot_interna or t.ot_interna.numero_ot_advertys != numero_ot_advertys:
+            raise HTTPException(
+                422,
+                f"La tarea {t.id} no pertenece a la OT de sistema {numero_ot_advertys}.",
+            )
+    return tareas
+
+
 def _tarea_resumen_vm(t: Tarea) -> dict:
     return {
         "id": t.id,
@@ -121,15 +148,17 @@ def crear_estimado(
     if not titulo.strip():
         raise HTTPException(422, "El título es obligatorio.")
 
+    numero_ot_advertys = numero_ot_advertys.strip()
+    tareas = _cargar_tareas_validadas(db, ids, numero_ot_advertys)
+
     estimado = Estimado(
         titulo=titulo.strip(),
-        numero_ot_advertys=numero_ot_advertys.strip(),
+        numero_ot_advertys=numero_ot_advertys,
         creado_por_id=request.session.get("user_id"),
     )
     db.add(estimado)
     db.flush()
 
-    tareas = list(db.scalars(select(Tarea).where(Tarea.id.in_(ids), Tarea.estimado_id.is_(None))))
     for t in tareas:
         t.estimado_id = estimado.id
     db.commit()
@@ -157,7 +186,9 @@ def agregar_tareas(estimado_id: int, db: Session = Depends(get_db), tarea_ids: s
     if estimado.estado != EstadoEstimado.BORRADOR:
         raise HTTPException(409, "Este Estimado ya fue generado en Advertys, no se puede editar.")
     ids = [int(x) for x in tarea_ids.split(",") if x.strip()]
-    tareas = list(db.scalars(select(Tarea).where(Tarea.id.in_(ids), Tarea.estimado_id.is_(None))))
+    if not ids:
+        return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
+    tareas = _cargar_tareas_validadas(db, ids, estimado.numero_ot_advertys)
     for t in tareas:
         t.estimado_id = estimado.id
     db.commit()

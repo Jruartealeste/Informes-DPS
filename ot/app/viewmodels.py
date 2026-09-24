@@ -1,5 +1,5 @@
 from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
-from app.models import EstadoFacturacion, EstadoTarea, OtInterna, Tarea
+from app.models import EstadoFacturacion, EstadoSolicitudAltaOt, EstadoTarea, OtInterna, SolicitudAltaOt, Tarea
 
 
 def grupo_key(t: Tarea) -> str:
@@ -130,6 +130,39 @@ def ot_interna_vm(ot: OtInterna) -> dict:
             "progreso": "0/0",
         }
     return grupo_vm(ot.numero_interno, ot.tareas)
+
+
+def _comando_crear_ot(s: SolicitudAltaOt) -> str:
+    """Línea lista para copiar y correr a mano desde `informes/` (ver
+    workflow `crear_ot.md`) -- esta app nunca ejecuta el script ella
+    misma."""
+    partes = [
+        "python -m modules.ordenes_trabajo.crear_ot",
+        f'"{s.anunciante}"',
+        f'"{s.resumen}"',
+        f'"{s.producto}"',
+        f'"{s.centro_costo}"',
+    ]
+    if s.equipo:
+        partes.append(f'--equipo "{s.equipo}"')
+    return " ".join(partes)
+
+
+def solicitud_alta_vm(s: SolicitudAltaOt) -> dict:
+    return {
+        "id": s.id,
+        "anunciante": s.anunciante,
+        "resumen": s.resumen,
+        "producto": s.producto,
+        "centro_costo": s.centro_costo,
+        "equipo": s.equipo,
+        "estado": s.estado.name,
+        "es_pendiente": s.estado == EstadoSolicitudAltaOt.PENDIENTE,
+        "numero_ot_advertys": s.numero_ot_advertys,
+        "comando": _comando_crear_ot(s),
+        "ots": [ot.numero_interno for ot in s.ots],
+        "creado_en": s.creado_en.strftime("%d/%m/%Y %H:%M"),
+    }
 
 
 def desglose_facturacion_vm(tareas: list[Tarea]) -> list[dict]:
