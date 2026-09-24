@@ -67,6 +67,7 @@ def tarea_vm(t: Tarea) -> dict:
         "ot_ambigua": t.ot_ambigua,
         "detalle": t.detalle,
         "otN": grupo_key(t),
+        "ot_dps": t.ot_interna.numero_ot_advertys if t.ot_interna else None,
         "ot_numero_form": t.ot_interna.numero_interno if t.ot_interna else (t.ot_ambigua or ""),
         "ot_cliente": t.ot_interna.cliente.nombre if t.ot_interna else "ALUAR",
         "ot_bloqueada": bool(t.ot_interna_id),

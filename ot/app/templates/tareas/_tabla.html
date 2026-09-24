@@ -55,7 +55,7 @@
     <div class="row-tarea row-tarea--plana" hx-get="/tareas/{{ t.id }}" hx-target="#drawer-root" hx-swap="innerHTML">
       <div class="cell-mono">{{ t.fecha_pedido }}</div>
       <div class="cell-ot">{{ t.otN }}{% if t.necesita_revision and t.ot_ambigua %}<span class="cell-ot__warn" title="OT ambigua — revisar">⚠</span>{% endif %}</div>
-      <div class="cell-dps">—</div>
+      <div class="cell-dps">{{ t.ot_dps or "—" }}</div>
       <div class="cell-muted">{{ t.tipos_label }}</div>
       <div class="cell-detalle">{{ t.detalle }}</div>
       <div class="cell-muted">{{ t.pedido_por }}</div>

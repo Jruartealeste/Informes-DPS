@@ -25,7 +25,7 @@ def test_crear_tarea_nueva_ot(client, db_session):
     )
     assert r.status_code == 200
     assert "Diseño de flyer institucional" in r.text
-    assert "OT 4200" in r.text
+    assert "4200" in r.text
 
     ot = db_session.query(OtInterna).filter_by(numero_interno="4200").one()
     assert ot.estado == EstadoOtInterna.ABIERTA

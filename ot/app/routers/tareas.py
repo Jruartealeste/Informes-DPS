@@ -100,7 +100,7 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
     f_fac = qp.get("f_fac", "")
     f_resp = qp.get("f_resp", "")
     revision = qp.get("revision") == "1"
-    agrupado = qp.get("agrupado", "1") != "0"
+    agrupado = qp.get("agrupado", "0") == "1"
 
     todas = _cargar_tareas(db)
     filtradas = _filtrar(todas, q, f_est, f_fac, f_resp, revision)
