@@ -6,7 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import AuthMiddleware
 from app.config import settings
-from app.routers import auth_routes, estimados, mail, ordenes_trabajo, responsables, sync, tareas
+from app.routers import auth_routes, estimados, facturacion, mail, ordenes_trabajo, responsables, sync, tareas
 
 app = FastAPI(title="Órdenes de trabajo")
 
@@ -27,4 +27,5 @@ app.include_router(ordenes_trabajo.router_paginas)
 app.include_router(responsables.router)
 app.include_router(mail.router)
 app.include_router(estimados.router)
+app.include_router(facturacion.router)
 app.include_router(sync.router)

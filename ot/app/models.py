@@ -40,6 +40,11 @@ class EstadoSolicitudAltaOt(str, enum.Enum):
     RESUELTA = "RESUELTA"
 
 
+class EstadoSolicitudAltaEstimado(str, enum.Enum):
+    PENDIENTE = "PENDIENTE"
+    RESUELTA = "RESUELTA"
+
+
 class EstadoMail(str, enum.Enum):
     BORRADOR = "BORRADOR"
     ENVIADO = "ENVIADO"
@@ -149,6 +154,7 @@ class Estimado(Base):
     numero_ot_advertys: Mapped[str] = mapped_column(String(20))
     numero_estimado: Mapped[str | None] = mapped_column(String(20))
     estado: Mapped[EstadoEstimado] = mapped_column(default=EstadoEstimado.BORRADOR)
+    solicitud_alta_id: Mapped[int | None] = mapped_column(ForeignKey("solicitudes_alta_estimado.id"))
     creado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     actualizado_en: Mapped[datetime] = mapped_column(
@@ -157,6 +163,32 @@ class Estimado(Base):
 
     creado_por: Mapped["Usuario | None"] = relationship()
     tareas: Mapped[list["Tarea"]] = relationship(back_populates="estimado")
+    solicitud_alta: Mapped["SolicitudAltaEstimado | None"] = relationship(back_populates="estimados")
+
+
+class SolicitudAltaEstimado(Base):
+    """Pedido de alta de encabezado de Estimado de Costo en Advertys,
+    generado desde el botón "Generar Estimado en Advertys" del detalle de
+    un Estimado local -- mismo patrón "solicitud + corrida manual" que
+    `SolicitudAltaOt` (ver ot/CLAUDE.md, decisión 2026-09-23), la app nunca
+    corre `crear_estimado.py` ella misma. A diferencia de `SolicitudAltaOt`,
+    no duplica título ni OT de sistema: esos datos ya viven en el `Estimado`
+    local que referencia (siempre 1 a 1 en la práctica -- una OT de sistema
+    puede tener varios Estimados en paralelo, pero cada uno arma su propio
+    pedido por separado, ver ot/CLAUDE.md 2026-09-24)."""
+
+    __tablename__ = "solicitudes_alta_estimado"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fecha_solicitada: Mapped[str | None] = mapped_column(String(10))
+    fecha_analisis: Mapped[str | None] = mapped_column(String(10))
+    estado: Mapped[EstadoSolicitudAltaEstimado] = mapped_column(default=EstadoSolicitudAltaEstimado.PENDIENTE)
+    creado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    resuelto_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    creado_por: Mapped["Usuario | None"] = relationship()
+    estimados: Mapped[list["Estimado"]] = relationship(back_populates="solicitud_alta")
 
 
 class OrdenTrabajoEspejo(Base):

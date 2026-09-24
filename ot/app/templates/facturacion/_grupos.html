@@ -1,0 +1,42 @@
+<div id="lista-facturacion" class="ot-cards-row">
+  {% for g in grupos %}
+  <div class="card card--facturacion-grupo">
+    <div class="fact-grupo__head">
+      <a href="/estimados/{{ g.estimado_id }}" class="fact-grupo__titulo">{{ g.titulo }}</a>
+      <span class="badge {{ 'badge--estimado-generado' if g.numero_estimado else 'badge--estimado-borrador' }}">
+        {{ 'ESTIMADO N° ' + g.numero_estimado if g.numero_estimado else 'ESTIMADO BORRADOR' }}
+      </span>
+    </div>
+    <div class="fact-grupo__meta">
+      {{ g.cliente }} · OT sistema {{ g.numero_ot_advertys }} · {{ g.facturadas }}/{{ g.total }} facturadas
+    </div>
+
+    <div class="table-card table-card--facturacion-grupo">
+      <div class="table-head table-head--facturacion-grupo">
+        <div>OT</div><div>Detalle</div><div>Tipo</div><div>Facturación</div>
+      </div>
+      {% for t in g.tareas %}
+      <div class="row-tarea--facturacion-grupo">
+        <div class="cell-mono">OT {{ t.ot_numero }}</div>
+        <div class="cell-detalle">{{ t.detalle }}</div>
+        <div class="cell-muted">{{ t.tipos_label }}</div>
+        <div>
+          <select class="chip-fac" data-valor="{{ t.estado_facturacion }}" name="estado_facturacion"
+            hx-post="/facturacion/tareas/{{ t.id }}/estado" hx-trigger="change" hx-target="#lista-facturacion" hx-swap="outerHTML">
+            {% for valor, label in opt_fac %}
+            <option value="{{ valor }}" {{ "selected" if t.estado_facturacion == valor }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% if not grupos %}
+  <p class="empty-state">
+    Todavía no hay tareas listas para facturar. Para entrar a esta cola, una tarea necesita OT de sistema
+    asignada (ver "OT internas") y estar agregada a un Estimado (ver "Estimados").
+  </p>
+  {% endif %}
+</div>

@@ -8,6 +8,12 @@
       <div class="page-header__kicker">ALUAR · {{ estimados | length }} Estimados</div>
       <h1 class="page-header__title">Estimados</h1>
     </div>
+    <div class="page-header__spacer"></div>
+    <div class="page-header__actions">
+      <a href="/estimados/solicitudes" class="filters__revision {{ 'is-active' if n_solicitudes_pendientes }}">
+        Solicitudes de alta{% if n_solicitudes_pendientes %} <strong>{{ n_solicitudes_pendientes }}</strong>{% endif %}
+      </a>
+    </div>
   </div>
 </div>
 

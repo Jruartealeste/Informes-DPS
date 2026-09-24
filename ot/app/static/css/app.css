@@ -1569,7 +1569,7 @@ select.chip-fac {
 
 .card--asignar-lote {
   max-width: 760px;
-  margin-bottom: 14px;
+  margin: 0 20px 14px;
 }
 
 .segmented {
@@ -1680,7 +1680,7 @@ select.chip-fac {
 
 .card--solicitud {
   max-width: 760px;
-  margin-bottom: 14px;
+  margin: 0 20px 14px;
 }
 .card--solicitud__head {
   display: flex;
@@ -2117,5 +2117,54 @@ select.chip-fac {
 .badge--estimado-generado {
   background: var(--ok-soft);
   color: var(--ok-text);
+}
+
+.card--facturacion-grupo {
+  flex: 1 1 480px;
+  min-width: 420px;
+  max-width: 640px;
+}
+.fact-grupo__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fact-grupo__titulo {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+}
+.fact-grupo__titulo:hover {
+  color: var(--accent-text);
+}
+.fact-grupo__meta {
+  font-size: 12px;
+  color: var(--faint);
+  margin-top: 4px;
+}
+
+.table-card--facturacion-grupo {
+  margin-top: 12px;
+}
+.table-head--facturacion-grupo,
+.row-tarea--facturacion-grupo {
+  grid-template-columns: 90px minmax(180px, 1fr) 130px 150px;
+}
+.row-tarea--facturacion-grupo {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.row-tarea--facturacion-grupo:first-child {
+  border-top: none;
+}
+
+.form-alta-estimado input[type="text"] {
+  width: 200px;
 }
 

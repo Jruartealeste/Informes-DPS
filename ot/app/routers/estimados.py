@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
@@ -5,8 +7,17 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
 from app.labels import TIPO_TAREA_LABELS
-from app.models import EstadoEstimado, Estimado, OtInterna, Tarea, TareaTipoTarea
+from app.models import (
+    EstadoEstimado,
+    EstadoSolicitudAltaEstimado,
+    Estimado,
+    OtInterna,
+    SolicitudAltaEstimado,
+    Tarea,
+    TareaTipoTarea,
+)
 from app.templating import templates
+from app.viewmodels import solicitud_alta_estimado_vm
 
 router = APIRouter()
 
@@ -84,6 +95,9 @@ def _estimado_vm(e: Estimado) -> dict:
         "numero_estimado": e.numero_estimado,
         "estado": e.estado.name,
         "es_borrador": e.estado == EstadoEstimado.BORRADOR,
+        "solicitud_pendiente": bool(
+            e.solicitud_alta and e.solicitud_alta.estado == EstadoSolicitudAltaEstimado.PENDIENTE
+        ),
         "creado_en": e.creado_en.strftime("%d/%m/%Y"),
         "tareas": [_tarea_resumen_vm(t) for t in e.tareas],
     }
@@ -96,6 +110,7 @@ def _cargar_estimado(db: Session, estimado_id: int) -> Estimado:
         options=[
             selectinload(Estimado.tareas).selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
             selectinload(Estimado.tareas).joinedload(Tarea.ot_interna),
+            joinedload(Estimado.solicitud_alta),
         ],
     )
     if not estimado:
@@ -107,13 +122,43 @@ def _cargar_estimado(db: Session, estimado_id: int) -> Estimado:
 def listado_estimados(request: Request, db: Session = Depends(get_db)):
     estimados = list(
         db.scalars(
-            select(Estimado).options(selectinload(Estimado.tareas)).order_by(Estimado.creado_en.desc())
+            select(Estimado)
+            .options(selectinload(Estimado.tareas), joinedload(Estimado.solicitud_alta))
+            .order_by(Estimado.creado_en.desc())
         )
+    )
+    n_solicitudes_pendientes = (
+        db.scalar(
+            select(func.count())
+            .select_from(SolicitudAltaEstimado)
+            .where(SolicitudAltaEstimado.estado == EstadoSolicitudAltaEstimado.PENDIENTE)
+        )
+        or 0
     )
     return templates.TemplateResponse(
         request,
         "estimados/list.html",
-        {"estimados": [_estimado_vm(e) for e in estimados], **_ctx_base(request, db)},
+        {
+            "estimados": [_estimado_vm(e) for e in estimados],
+            "n_solicitudes_pendientes": n_solicitudes_pendientes,
+            **_ctx_base(request, db),
+        },
+    )
+
+
+@router.get("/estimados/solicitudes")
+def listado_solicitudes_estimado(request: Request, db: Session = Depends(get_db)):
+    solicitudes = list(
+        db.scalars(
+            select(SolicitudAltaEstimado)
+            .options(selectinload(SolicitudAltaEstimado.estimados))
+            .order_by(SolicitudAltaEstimado.creado_en.desc())
+        )
+    )
+    return templates.TemplateResponse(
+        request,
+        "estimados/solicitudes.html",
+        {"solicitudes": [solicitud_alta_estimado_vm(s) for s in solicitudes], **_ctx_base(request, db)},
     )
 
 
@@ -205,3 +250,89 @@ def quitar_tarea(estimado_id: int, tarea_id: int, db: Session = Depends(get_db))
         tarea.estimado_id = None
         db.commit()
     return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
+
+
+@router.post("/estimados/{estimado_id}/cargar-numero")
+def cargar_numero_estimado(estimado_id: int, db: Session = Depends(get_db), numero_estimado: str = Form(...)):
+    """Carga directa de un número de Estimado ya existente en Advertys (creado
+    por otra vía, sin pasar por una solicitud acá) -- mismo criterio que
+    "Cargar número" para OT internas."""
+    estimado = _cargar_estimado(db, estimado_id)
+    if estimado.estado != EstadoEstimado.BORRADOR:
+        raise HTTPException(409, "Este Estimado ya tiene un número cargado.")
+    valor = numero_estimado.strip()
+    if not valor:
+        raise HTTPException(422, "Falta el número de Estimado.")
+    estimado.numero_estimado = valor
+    estimado.estado = EstadoEstimado.GENERADO
+    db.commit()
+    return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
+
+
+@router.post("/estimados/{estimado_id}/generar-en-advertys")
+def generar_estimado_en_advertys(
+    estimado_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    fecha_solicitada: str = Form(""),
+    fecha_analisis: str = Form(""),
+):
+    """Junta los datos para correr `crear_estimado.py` a mano desde
+    `informes/` (ver ot/CLAUDE.md, "solicitud + corrida manual" -- esta app
+    nunca corre el script ella misma). Título y OT de sistema no se piden
+    acá: ya viven en el Estimado local."""
+    estimado = _cargar_estimado(db, estimado_id)
+    if estimado.estado != EstadoEstimado.BORRADOR:
+        raise HTTPException(409, "Este Estimado ya tiene un número cargado.")
+    if estimado.solicitud_alta_id:
+        raise HTTPException(422, "Este Estimado ya tiene un pedido de alta pendiente.")
+
+    solicitud = SolicitudAltaEstimado(
+        fecha_solicitada=fecha_solicitada.strip() or None,
+        fecha_analisis=fecha_analisis.strip() or None,
+        creado_por_id=request.session.get("user_id"),
+    )
+    db.add(solicitud)
+    db.flush()
+    estimado.solicitud_alta_id = solicitud.id
+    db.commit()
+    return RedirectResponse("/estimados/solicitudes", status_code=303)
+
+
+@router.post("/estimados/solicitudes/{solicitud_id}/resolver")
+def resolver_solicitud_estimado(
+    solicitud_id: int, db: Session = Depends(get_db), numero_estimado: str = Form("")
+):
+    solicitud = db.get(
+        SolicitudAltaEstimado, solicitud_id, options=[selectinload(SolicitudAltaEstimado.estimados)]
+    )
+    if not solicitud:
+        raise HTTPException(404, "Solicitud no encontrada")
+    if solicitud.estado != EstadoSolicitudAltaEstimado.PENDIENTE:
+        raise HTTPException(409, "Esta solicitud ya fue resuelta.")
+    valor = numero_estimado.strip()
+    if not valor:
+        raise HTTPException(422, "Falta el número de Estimado resultante.")
+    solicitud.estado = EstadoSolicitudAltaEstimado.RESUELTA
+    solicitud.resuelto_en = datetime.now(timezone.utc)
+    for estimado in solicitud.estimados:
+        estimado.numero_estimado = valor
+        estimado.estado = EstadoEstimado.GENERADO
+    db.commit()
+    return RedirectResponse("/estimados/solicitudes", status_code=303)
+
+
+@router.post("/estimados/solicitudes/{solicitud_id}/cancelar")
+def cancelar_solicitud_estimado(solicitud_id: int, db: Session = Depends(get_db)):
+    solicitud = db.get(
+        SolicitudAltaEstimado, solicitud_id, options=[selectinload(SolicitudAltaEstimado.estimados)]
+    )
+    if not solicitud:
+        raise HTTPException(404, "Solicitud no encontrada")
+    if solicitud.estado != EstadoSolicitudAltaEstimado.PENDIENTE:
+        raise HTTPException(409, "Esta solicitud ya fue resuelta.")
+    for estimado in solicitud.estimados:
+        estimado.solicitud_alta_id = None
+    db.delete(solicitud)
+    db.commit()
+    return RedirectResponse("/estimados/solicitudes", status_code=303)

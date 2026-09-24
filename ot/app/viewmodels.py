@@ -1,5 +1,15 @@
 from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
-from app.models import EstadoFacturacion, EstadoSolicitudAltaOt, EstadoTarea, OtInterna, SolicitudAltaOt, Tarea
+from app.models import (
+    Estimado,
+    EstadoFacturacion,
+    EstadoSolicitudAltaEstimado,
+    EstadoSolicitudAltaOt,
+    EstadoTarea,
+    OtInterna,
+    SolicitudAltaEstimado,
+    SolicitudAltaOt,
+    Tarea,
+)
 
 
 def grupo_key(t: Tarea) -> str:
@@ -162,6 +172,40 @@ def solicitud_alta_vm(s: SolicitudAltaOt) -> dict:
         "numero_ot_advertys": s.numero_ot_advertys,
         "comando": _comando_crear_ot(s),
         "ots": [ot.numero_interno for ot in s.ots],
+        "creado_en": s.creado_en.strftime("%d/%m/%Y %H:%M"),
+    }
+
+
+def _comando_crear_estimado(s: SolicitudAltaEstimado, estimado: Estimado) -> str:
+    """Línea lista para copiar y correr a mano desde `informes/` -- esta app
+    nunca ejecuta `crear_estimado.py` ella misma (mismo criterio que
+    `_comando_crear_ot`). OT de sistema y título no viajan en la solicitud:
+    ya viven en el `Estimado` local que referencia."""
+    partes = [
+        "python -m modules.estimados_costos.crear_estimado",
+        estimado.numero_ot_advertys,
+        f'"{estimado.titulo}"',
+    ]
+    if s.fecha_solicitada:
+        partes.append(f"--fecha-solicitada {s.fecha_solicitada}")
+    if s.fecha_analisis:
+        partes.append(f"--fecha-analisis {s.fecha_analisis}")
+    return " ".join(partes)
+
+
+def solicitud_alta_estimado_vm(s: SolicitudAltaEstimado) -> dict:
+    estimado = s.estimados[0] if s.estimados else None
+    return {
+        "id": s.id,
+        "estimado_id": estimado.id if estimado else None,
+        "estimado_titulo": estimado.titulo if estimado else "—",
+        "numero_ot_advertys": estimado.numero_ot_advertys if estimado else "—",
+        "numero_estimado": estimado.numero_estimado if estimado else None,
+        "fecha_solicitada": s.fecha_solicitada,
+        "fecha_analisis": s.fecha_analisis,
+        "estado": s.estado.name,
+        "es_pendiente": s.estado == EstadoSolicitudAltaEstimado.PENDIENTE,
+        "comando": _comando_crear_estimado(s, estimado) if estimado else "",
         "creado_en": s.creado_en.strftime("%d/%m/%Y %H:%M"),
     }
 

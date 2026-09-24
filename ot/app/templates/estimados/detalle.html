@@ -27,6 +27,34 @@
     </p>
   </div>
 
+  {% if est.es_borrador %}
+  <div class="card card--estimado-resumen">
+    <div class="card__eyebrow">Alta en Advertys</div>
+    {% if est.solicitud_pendiente %}
+    <p class="form-nota">
+      Ya hay un pedido de alta pendiente para este Estimado —
+      <a href="/estimados/solicitudes">ver en Solicitudes de alta</a> para copiar el comando o cargar el
+      número resultante.
+    </p>
+    {% else %}
+    <p class="form-nota">
+      Esta app nunca crea el Estimado en Advertys sola: o cargás el número si ya existe, o armás un pedido
+      para correr <code>crear_estimado.py</code> a mano desde <code>informes/</code>.
+    </p>
+    <form method="post" action="/estimados/{{ est.id }}/cargar-numero" class="ot-sistema__form form-alta-estimado">
+      <input type="text" name="numero_estimado" placeholder="N° de Estimado existente">
+      <button type="submit" class="btn btn--small">Cargar número</button>
+    </form>
+    <form method="post" action="/estimados/{{ est.id }}/generar-en-advertys" class="ot-sistema__form form-alta-estimado" style="margin-top:8px">
+      <input type="text" name="fecha_solicitada" placeholder="Fecha solicitada — opcional">
+      <input type="text" name="fecha_analisis" placeholder="Fecha análisis — opcional">
+      <button type="submit" class="btn btn--small btn--primary">Generar Estimado en Advertys</button>
+    </form>
+    <p class="form-nota" style="margin-top:4px">Fechas en formato D/M/AAAA — si se dejan vacías, Advertys precarga la fecha de hoy.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <div class="card card--tareas table-scroll">
     <div class="table-card table-card--estimado-detalle">
       <div class="table-head table-head--estimado-detalle">

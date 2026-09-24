@@ -722,6 +722,108 @@ Tablas:
   todavía -- explícitamente fuera de esta vuelta, Javier pidió enfocar en
   OT primero.
 
+## Decisiones confirmadas con Javier (2026-09-24) — Sección Facturación
+
+- **Habilitada la sección "Facturación" del sidebar** (antes placeholder
+  deshabilitado "todavía no construido") — primera pieza de la vista
+  `/facturacion/listas` prevista en el roadmap ítem 7, con la condición de
+  negocio confirmada por Javier: **una tarea entra a la cola de facturación
+  cuando tiene OT de sistema asignada Y está agrupada en un Estimado** —
+  porque Advertys, cuando exista el script de alta automática, va a
+  facturar por Estimado (no tarea por tarea), así que agrupar por ahí es lo
+  que después va a mapear 1 a 1 con esa facturación.
+  - Implementado en `app/routers/facturacion.py` (nuevo router, montado en
+    `main.py`) + `app/templates/facturacion/list.html` y `_grupos.html`.
+    `GET /facturacion` arma la cola agrupando por `Estimado` las tareas con
+    `estimado_id` no nulo Y `ot_interna.numero_ot_advertys` no nulo (ambas
+    condiciones explícitas, aunque hoy la segunda ya suele venir implícita
+    de la primera por cómo `estimados.py` valida el alta — se chequea igual
+    por si `numero_ot_advertys` de la OT interna se reasigna después).
+  - Cada grupo (Estimado) se muestra como card con sus tareas y el mismo
+    `<select class="chip-fac">` de facturación por tarea que ya existía en
+    la tabla de Tareas (mismo componente visual, mismo enum
+    `EstadoFacturacion`) — `POST /facturacion/tareas/{id}/estado` actualiza
+    el estado y reusa el patrón de `tareas.py` para re-renderizar solo el
+    fragmento (`facturacion/_grupos.html`) vía htmx.
+  - Grupos ordenados con los que tienen tareas pendientes primero
+    (`pendientes` desc, después `titulo`) — para que lo que falta accionar
+    quede arriba.
+  - **Gotcha de implementación (htmx out-of-band + `{% include %}`):** el
+    kicker del header (`ALUAR · N Estimados en cola · M tareas pendientes`)
+    necesita actualizarse en vivo cuando cambia el estado de una tarea, pero
+    vive fuera del contenedor que hace swap (`#lista-facturacion`). Poner el
+    `<div hx-swap-oob="true">` del kicker *dentro* de `_grupos.html` rompe
+    todo: como esa plantilla también se renderiza con `{% include %}` en la
+    carga normal de página, el id del kicker queda duplicado en el HTML
+    inicial y el navegador vacía ambos nodos. Solución: el `<div
+    hx-swap-oob>` del kicker se arma aparte, solo en la respuesta del POST
+    (`HTMLResponse` con el fragmento renderizado + el div oob concatenado a
+    mano, mismo patrón que `_tabla_y_cerrar_drawer` en `tareas.py`) — nunca
+    dentro de la plantilla que también se incluye en la carga normal.
+  - QA funcional contra `ot/tools/qa_server.py --reset`-style (server
+    descartable, se resetea al reiniciar sin flag): armado un Estimado
+    desde una OT con OT de sistema real, confirmado que aparece en
+    `/facturacion`, que cambiar el estado de facturación de una tarea
+    actualiza la card y el kicker del header en vivo, y probado con dos
+    Estimados a la vez para el orden de las cards. Suite `pytest` (30 casos)
+    sigue en verde — sin tests nuevos para este router todavía (pendiente,
+    no bloqueante).
+  - **Fuera de esta vuelta:** ningún botón de "marcar Estimado completo
+    como facturado" en lote, ni el script `.py` que va a automatizar el
+    alta de la factura en Advertys por Estimado (ese es el próximo paso
+    real, todavía no arrancado — hoy la cola es de lectura + edición manual
+    del estado de facturación por tarea, como ya existía en Tareas/OT).
+
+## Decisiones confirmadas con Javier (2026-09-24) — Alta de Estimado en Advertys
+
+- **Resuelto el "cómo dispara el botón" para Estimados, mismo patrón "solicitud
+  + corrida manual" que OT** (ver "Decisiones confirmadas con Javier
+  (2026-09-23) — Solicitud de alta en Advertys (UI)" arriba) — decisión
+  pendiente desde el 2026-09-22, ahora cerrada. Punto clave que ajustó el
+  diseño respecto a OT: **una OT de sistema puede tener varios Estimados en
+  paralelo** (confirmado con Javier), así que el pedido de alta cuelga del
+  **Estimado local** (ya es la unidad de agrupamiento de tareas en la app),
+  no de la OT de sistema — dos Estimados de la misma OT arman y resuelven
+  pedidos totalmente independientes.
+- **Modelo nuevo: `SolicitudAltaEstimado`** (`app/models.py`, migración
+  `f3c8a2e1b9d4_agrega_solicitudes_alta_estimado`) — a diferencia de
+  `SolicitudAltaOt`, no duplica título ni OT de sistema (ya viven en el
+  `Estimado` que referencia): solo `fecha_solicitada`/`fecha_analisis`
+  (ambas opcionales, texto libre D/M/AAAA, tal cual las recibe
+  `crear_estimado.py` -- vacías, Advertys precarga "hoy"), `estado`
+  (`EstadoSolicitudAltaEstimado`: PENDIENTE/RESUELTA), auditoría.
+  `Estimado.solicitud_alta_id` (FK nullable) es el lado que engancha, mismo
+  patrón que `OtInterna.solicitud_alta_id` → `SolicitudAltaOt`.
+- **Tres caminos en el detalle de un Estimado BORRADOR**
+  (`app/templates/estimados/detalle.html`, card "Alta en Advertys"):
+  1. **Cargar número** (`POST /estimados/{id}/cargar-numero`) — pega a mano
+     un `numero_estimado` ya existente (creado por otro lado), sin pasar por
+     solicitud. Pone el Estimado en GENERADO directo.
+  2. **Generar Estimado en Advertys** (`POST
+     /estimados/{id}/generar-en-advertys`) — arma una `SolicitudAltaEstimado`
+     PENDIENTE (fechas opcionales) y redirige a `/estimados/solicitudes`.
+  3. Desde ahí, **`/estimados/solicitudes/{id}/resolver`** (pegar el
+     `numero_estimado` que devolvió correr `crear_estimado.py` a mano) o
+     **`.../cancelar`** (libera el Estimado para reintentar, borra la
+     solicitud) — mismo patrón exacto que `/ordenes-trabajo/solicitudes`,
+     incluye el botón "Copiar comando" con la línea lista para pegar en
+     `informes/` (`_comando_crear_estimado` en `app/viewmodels.py`).
+  - Implementado en `app/routers/estimados.py` +
+    `app/templates/estimados/solicitudes.html` (nueva) + link "Solicitudes
+    de alta" con contador de pendientes en `estimados/list.html`, mismo
+    patrón visual que la página equivalente de OT internas.
+- **QA funcional contra `ot/tools/qa_server.py`** (server descartable,
+  reseteado antes de la corrida): probados los tres caminos -- "Generar
+  Estimado en Advertys" con fecha de análisis retroactiva (comando generado
+  verificado carácter por carácter contra la firma real de
+  `crear_estimado.py`), resolver con número de prueba (propaga a
+  `numero_estimado` + estado GENERADO), "Cargar número" directo sin
+  solicitud, y "Cancelar pedido" (libera el Estimado, confirmado que vuelve
+  a mostrar el formulario de alta). Probado explícitamente el caso que
+  motivó el diseño: dos Estimados de la misma OT de sistema 260, cada uno
+  con su propio pedido resuelto por separado (Estimado N° 999-QA y 1002).
+  Suite `pytest` (30 casos) sigue en verde.
+
 ## Roadmap inmediato
 
 1. ~~Relevamiento de solo lectura del formulario "Nueva OT" en Advertys~~
@@ -756,8 +858,12 @@ Tablas:
    botón arma el pedido, vos corrés `crear_ot.py` a mano y pegás el
    número. Mismo trade-off sigue abierto para el botón de Estimados.
 7. UI: vista unificada filtrable, vista por cliente, alta/edición de tarea
-   con autocompletado de OT + botón "Generar OT en Advertys", vista
-   `/facturacion/listas`.
+   con autocompletado de OT + botón "Generar OT en Advertys". ~~Vista
+   `/facturacion/listas`~~ — primera versión hecha (2026-09-24, ver
+   "Decisiones confirmadas con Javier (2026-09-24) — Sección Facturación"
+   arriba): cola agrupada por Estimado, lectura + edición manual del estado
+   de facturación por tarea. Falta el script de alta automática de factura
+   en Advertys (ver nota de alcance ahí mismo).
 8. Deploy en Cloud Run + Neon — con OK explícito de Javier antes de
    desplegar.
 9. **Estimados de Costo** (agregado 2026-09-21, ver decisiones arriba) —
@@ -794,17 +900,13 @@ Tablas:
      para no dejar un tercer estimado de prueba en la OT 258. Pendiente:
      que vos anules/borres el Estimado 558 de prueba en Advertys cuando
      quieras (no lo hace este agente).
-   - **Decisión pendiente (2026-09-22): cómo dispara el botón "Generar
-     Estimado en Advertys" de esta app la ejecución de ese script.**
-     Explícitamente no definida todavía — `ot/` corre local hoy pero está
-     pensada para Cloud Run (roadmap ítem 8) y las credenciales de
-     Advertys nunca se copian a este proyecto (ver "Relación con
-     `Informes/` y con Advertys" arriba), así que un simple `subprocess`
-     desde acá no sobrevive el deploy. Opciones evaluadas sin resolver:
-     (a) subprocess local como MVP, revisar al desplegar; (b) el botón
-     solo prepara/marca el Estimado y `crear_estimado.py` se sigue
-     corriendo a mano como hoy con `cerrar_ot.py`, cargando después el
-     número resultante en `ot/`. Por ahora el flujo real es manual: correr
-     el script desde `Informes/` y cargar el `numero_estimado` a mano en
-     el Estimado correspondiente de `ot/`. El botón de la UI queda para
-     cuando se resuelva esto.
+   - ~~Decisión pendiente (2026-09-22): cómo dispara el botón "Generar
+     Estimado en Advertys" de esta app la ejecución de ese script.~~ —
+     **resuelto (2026-09-24), mismo patrón "solicitud + corrida manual" que
+     OT** (ver "Decisiones confirmadas con Javier (2026-09-24) — Alta de
+     Estimado en Advertys" arriba): el botón arma el pedido
+     (`SolicitudAltaEstimado`), vos corrés `crear_estimado.py` a mano y
+     pegás el número en `/estimados/solicitudes`. Ajuste clave sobre el
+     patrón de OT: el pedido cuelga del Estimado local, no de la OT de
+     sistema, porque una OT de sistema puede tener varios Estimados en
+     paralelo.

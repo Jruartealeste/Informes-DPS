@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Facturación · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <div class="page-header__kicker" id="fact-kicker">{{ kicker }}</div>
+      <h1 class="page-header__title">Facturación</h1>
+    </div>
+  </div>
+</div>
+
+<p class="form-nota form-nota--pageintro">
+  Cola de tareas listas para facturar: ya tienen OT de sistema asignada y están agrupadas en un Estimado de
+  Costo. Advertys va a facturar automáticamente por Estimado una vez que exista el script de alta — mientras
+  tanto, marcá acá el estado de facturación de cada tarea para tener la cola al día.
+</p>
+
+{% include "facturacion/_grupos.html" %}
+
+{% endblock %}
