@@ -6,10 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app import cache
+from app.cliente_ctx import cliente_activo
 from app.db import get_db
 from app.labels import ESTADO_LABELS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import (
-    Cliente,
     EstadoFacturacion,
     EstadoTarea,
     OtInterna,
@@ -25,9 +25,11 @@ from app.viewmodels import construir_grupos, puede_anular, tarea_vm
 router = APIRouter()
 
 
-def _cargar_tareas(db: Session) -> list[Tarea]:
+def _cargar_tareas(db: Session, cliente_id: int) -> list[Tarea]:
     stmt = (
         select(Tarea)
+        .join(Tarea.ot_interna)
+        .where(OtInterna.cliente_id == cliente_id)
         .options(
             joinedload(Tarea.ot_interna).joinedload(OtInterna.cliente),
             selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
@@ -102,13 +104,15 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
     revision = qp.get("revision") == "1"
     agrupado = qp.get("agrupado", "0") == "1"
 
-    todas = _cargar_tareas(db)
+    cliente = cliente_activo(request, db)
+    todas = _cargar_tareas(db, cliente.id) if cliente else []
     filtradas = _filtrar(todas, q, f_est, f_fac, f_resp, revision)
 
     grupos_todos = construir_grupos(todas)
     grupos_filtrados = construir_grupos(filtradas)
 
     return {
+        "cliente_nombre": cliente.nombre if cliente else "",
         "q": q,
         "f_est": f_est,
         "f_fac": f_fac,
@@ -199,9 +203,11 @@ def tarea_detalle(tarea_id: int, request: Request, db: Session = Depends(get_db)
     return templates.TemplateResponse(request, "tareas/_detalle.html", contexto_detalle(db, tarea_id))
 
 
-def _resolver_ot_interna(db: Session, numero: str) -> tuple[int | None, str | None]:
+def _resolver_ot_interna(db: Session, numero: str, cliente_id: int) -> tuple[int | None, str | None]:
     """Devuelve (ot_interna_id, ot_ambigua). Crea la OT interna si el número es
-    limpio y todavía no existe (numeración interna, no toca Advertys)."""
+    limpio y todavía no existe (numeración interna, no toca Advertys) —
+    bajo el cliente activo (sidebar), la numeración sigue siendo una
+    secuencia global compartida entre clientes."""
     numero = (numero or "").strip()
     if not numero:
         return None, None
@@ -210,10 +216,9 @@ def _resolver_ot_interna(db: Session, numero: str) -> tuple[int | None, str | No
         return existente.id, None
     if "/" in numero or " " in numero or "-" in numero:
         return None, numero
-    cliente = db.scalar(select(Cliente).where(Cliente.nombre == "ALUAR"))
     nueva = OtInterna(
         numero_interno=numero,
-        cliente_id=cliente.id,
+        cliente_id=cliente_id,
         fecha_apertura=dt.date.today(),
     )
     db.add(nueva)
@@ -295,7 +300,8 @@ def crear_tarea(
     responsables = parse_ids(responsable_ids)
     _validar_campos_obligatorios(True, ot_numero, fecha_pedido, tipos_lista, responsables)
 
-    ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero)
+    cliente = cliente_activo(request, db)
+    ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero, cliente.id)
     tarea = Tarea(
         ot_interna_id=ot_interna_id,
         ot_ambigua=ot_ambigua,
@@ -337,7 +343,8 @@ def editar_tarea(
     _validar_campos_obligatorios(tarea.ot_interna_id is None, ot_numero, fecha_pedido, tipos_lista, responsables)
 
     if tarea.ot_interna_id is None:
-        ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero)
+        cliente = cliente_activo(request, db)
+        ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero, cliente.id)
         tarea.ot_interna_id = ot_interna_id
         tarea.ot_ambigua = ot_ambigua
     tarea.detalle = detalle

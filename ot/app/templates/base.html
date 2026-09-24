@@ -30,17 +30,12 @@
       <div class="sidebar__group">
         <div class="sidebar__group-label">Cliente</div>
         <div class="sidebar__list">
-          <button type="button" class="sidebar__item is-active" title="ALUAR">
-            <span class="sidebar__item-icon">AL</span>
-            <span class="sidebar__item-label">ALUAR</span>
-            <span class="sidebar__pill">{{ total_tareas | default(0) }}</span>
-          </button>
-          {% for nombre in ["FATE", "Consultatio", "Nordelta", "FAA"] %}
-          <button type="button" class="sidebar__item is-disabled" disabled title="{{ nombre }} · todavía no migrado">
-            <span class="sidebar__item-icon">{{ nombre[:2] | upper }}</span>
-            <span class="sidebar__item-label">{{ nombre }}</span>
-            <span class="sidebar__pill">pronto</span>
-          </button>
+          {% for c in clientes_sidebar %}
+          <a href="/clientes/{{ c.id }}/activar" class="sidebar__item {{ 'is-active' if c.id == cliente_activo_id else '' }}" title="{{ c.nombre }}">
+            <span class="sidebar__item-icon">{{ c.nombre[:2] | upper }}</span>
+            <span class="sidebar__item-label">{{ c.nombre }}</span>
+            <span class="sidebar__pill">{{ c.total_tareas }}</span>
+          </a>
           {% endfor %}
         </div>
       </div>
