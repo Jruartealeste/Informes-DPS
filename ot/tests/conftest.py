@@ -18,7 +18,7 @@ from app import cache
 from app.config import settings
 from app.db import Base, get_db
 from app.main import app
-from app.models import Cliente, Responsable, TipoTarea, Usuario
+from app.models import Cliente, ClienteAnunciante, Responsable, TipoTarea, Usuario
 
 TIPOS_TAREA = [
     "diseño", "redaccion", "produccion", "estrategia",
@@ -40,7 +40,10 @@ def db_session():
     TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     session = TestingSessionLocal()
-    session.add(Cliente(nombre="ALUAR", anunciante_advertys="ALUAR ALUMINIO ARG."))
+    cliente_aluar = Cliente(nombre="ALUAR")
+    session.add(cliente_aluar)
+    session.flush()
+    session.add(ClienteAnunciante(cliente_id=cliente_aluar.id, anunciante="ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM"))
     for nombre in TIPOS_TAREA:
         session.add(TipoTarea(nombre=nombre))
     for nombre in RESPONSABLES:

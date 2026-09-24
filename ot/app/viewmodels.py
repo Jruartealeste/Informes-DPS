@@ -100,6 +100,7 @@ def grupo_vm(key: str, tareas_orm: list[Tarea]) -> dict:
     return {
         "n": key,
         "amb": amb,
+        "cliente_id": ot.cliente_id if ot else None,
         "dps": ot.numero_ot_advertys if ot else None,
         "dps_label": f"OT sistema {ot.numero_ot_advertys}" if ot and ot.numero_ot_advertys else "sin OT de sistema",
         "ot_estado": ot.estado.value if ot else None,
@@ -126,6 +127,7 @@ def ot_interna_vm(ot: OtInterna) -> dict:
         return {
             "n": ot.numero_interno,
             "amb": False,
+            "cliente_id": ot.cliente_id,
             "dps": ot.numero_ot_advertys,
             "dps_label": f"OT sistema {ot.numero_ot_advertys}" if ot.numero_ot_advertys else "sin OT de sistema",
             "ot_estado": ot.estado.value,

@@ -14,6 +14,7 @@ import datetime as dt
 from app.db import SessionLocal
 from app.models import (
     Cliente,
+    ClienteAnunciante,
     EstadoFacturacion,
     EstadoOtInterna,
     EstadoTarea,
@@ -150,11 +151,14 @@ def main() -> None:
         db.query(OtInterna).delete()
         db.query(TipoTarea).delete()
         db.query(Responsable).delete()
+        db.query(ClienteAnunciante).delete()
         db.query(Cliente).delete()
         db.flush()
 
-        cliente = Cliente(nombre="ALUAR", anunciante_advertys="ALUAR ALUMINIO ARG.")
+        cliente = Cliente(nombre="ALUAR")
         db.add(cliente)
+        db.flush()
+        db.add(ClienteAnunciante(cliente_id=cliente.id, anunciante="ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM"))
         db.flush()
 
         tipos_por_nombre = {}

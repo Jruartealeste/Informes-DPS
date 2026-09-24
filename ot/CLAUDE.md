@@ -136,9 +136,11 @@ Enums (normalizan los valores reales del Sheet, typos incluidos):
 Tablas:
 
 - `usuarios` — id, email (único), nombre, rol, activo, ultimo_login.
-- `clientes` — id, nombre, `anunciante_advertys` (alias hacia
-  `ordenes_trabajo_espejo.anunciante`; el nombre de cuenta interno no
-  siempre coincide 1:1 con el de Advertys).
+- `clientes` — id, nombre. `cliente_anunciantes` (id, cliente_id, anunciante)
+  es 1 a N contra `clientes` — confirmado 2026-09-24 relevando la tabla
+  "Clientes" de Advertys que un cliente de acá puede tener varios
+  Anunciantes reales (ver decisión abajo), así que dejó de ser un campo
+  suelto en `clientes`.
 - `ot_interna` (agregada 2026-07-31, reemplaza el campo suelto
   `tareas.numero_ot` del diseño original) — id, `numero_interno` (el
   número que hoy es la columna "OT" del Sheet, único), cliente_id,
@@ -823,6 +825,89 @@ Tablas:
   motivó el diseño: dos Estimados de la misma OT de sistema 260, cada uno
   con su propio pedido resuelto por separado (Estimado N° 999-QA y 1002).
   Suite `pytest` (30 casos) sigue en verde.
+
+## Decisiones confirmadas con Javier (2026-09-24) — Multi-cliente y Cliente↔Anunciante
+
+- **Se activaron el resto de los clientes del sidebar** (FATE, Consultatio,
+  Nordelta, FAA — antes placeholders deshabilitados "todavía no migrado")
+  para que el equipo les pueda cargar tareas nuevas, **sin migrar historial**
+  (eso sigue siendo alcance de `scripts/migrar_sheet.py`, roadmap ítem 3,
+  todavía sin construir). Hasta esta vuelta toda la app estaba hardcodeada
+  a un único cliente (ALUAR) — no existía ningún filtro por cliente en
+  ningún lado del backend.
+  - Nuevo mecanismo: cliente activo elegido en el sidebar, persistido en
+    cookie (`cliente_id`, mismo patrón que `tema`/`sidebar`/`densidad`) vía
+    `GET /clientes/{id}/activar` (`app/routers/clientes.py`, `app/
+    cliente_ctx.py::cliente_activo`). Filtra `/tareas` y decide bajo qué
+    cliente se crea una OT interna nueva (`_resolver_ot_interna`, antes
+    hardcodeado a `Cliente.nombre == "ALUAR"`).
+  - La numeración de OT interna **sigue siendo una secuencia global
+    compartida entre clientes** (`MAX(numero_interno)+1`) — decisión
+    explícita de Javier, no independiente por cliente.
+  - El sidebar (lista de clientes + contador de tareas) se arma con un
+    Jinja `context_processor` (`app/templating.py::_contexto_clientes`) en
+    vez de repetirlo en cada router — resuelve `get_db` a mano respetando
+    `app.dependency_overrides` (necesario para que seguiera funcionando
+    bajo el `db_session` fixture de los tests).
+  - **Fuera de esta vuelta:** Estimados, Facturación y "Generar OT en
+    Advertys" ya funcionan genéricamente por cliente (cuelgan de
+    `ot_interna.cliente`), pero `/ordenes-trabajo` (el listado de OT
+    internas) sigue sin filtrar por cliente activo — muestra todas mezcladas
+    a propósito, no se tocó todavía.
+
+- **Cliente↔Anunciante de Advertys: NO es 1 a 1.** Al ir a completar el
+  Anunciante real de los clientes nuevos, relevando en modo lectura la
+  tabla maestra "Clientes" de Advertys (Entidades > Generales > Clientes >
+  Clientes, `ViewID=Cliente_ListView` — nuevo script
+  `Informes/modules/ordenes_trabajo/explore_lista_clientes.py`, screenshots
+  en vez de scraping de grilla porque el id de tabla de DevExpress ahí es
+  dinámico por sesión) se confirmó que **un cliente de esta app puede
+  corresponder a varios Anunciantes reales de Advertys** — ej. FATE son
+  6 Anunciantes separados (`FATE S.A.I.C.I.`, `FATE - AGRICOLA`,
+  `FATE - AUTO Y CAMIONETA`, `FATE - MARKETING`, `FATE - PUNTOS DE VENTA`,
+  `FATE - TRANSPORTE`). El campo único `Cliente.anunciante_advertys` (con
+  el que se había cargado ALUAR de arranque, y con un valor además
+  **incorrecto/abreviado**: `"ALUAR ALUMINIO ARG."` en vez del real
+  `"ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM"`) no alcanzaba para
+  representar esto.
+  - **Modelo nuevo: tabla `cliente_anunciantes`** (1 a N contra `clientes`
+    — ver "Modelo de datos" arriba), migración
+    `e332c0e4f95d_agrega_cliente_anunciantes` (backfillea el valor único
+    viejo antes de dropear la columna; en prod se pisó después con los
+    valores reales relevados).
+  - **`POST /ordenes-trabajo/generar-ot` deja de derivar el Anunciante
+    automáticamente** del cliente (antes exigía que todas las OT internas
+    tildadas compartieran el mismo `anunciante_advertys`, lo cual en la
+    práctica solo funcionaba porque había un único valor por cliente). Ahora
+    valida que compartan el mismo **cliente** (no anunciante) y el
+    Anunciante pasa a ser un campo de texto libre obligatorio en el panel
+    ("Generar OT en Advertys"), con un `<datalist>` que sugiere los
+    Anunciantes ya conocidos de ese cliente (`cliente_anunciantes`, mapa
+    `{cliente_id: [anunciante,...]}` embebido en la página) — si el cliente
+    tiene exactamente uno conocido se precarga solo, si tiene varios el
+    campo queda vacío para elegir a mano.
+  - **Datos reales cargados en producción (2026-09-24):** ALUAR (corregido
+    al nombre completo), los 6 de FATE, `CONSULTATIO S.A.` (Consultatio —
+    ojo, en el historial de `ordenes_trabajo.anunciante` de `Informes/`
+    aparece también como `"Consultatio"` sin sufijo societario en algunas
+    filas viejas, tratado como variante/typo, no como Anunciante real
+    aparte — la tabla maestra "Clientes" solo tiene `CONSULTATIO S.A.`),
+    `NORDELTA S.A.` (Nordelta — sin confundir con `Asociación Vecinal
+    Nordelta S.A. - AVN`, un Cliente/Anunciante real pero distinto). **FAA
+    quedó sin ningún Anunciante cargado** — no aparece ni en la tabla
+    "Clientes" de Advertys ni en el historial de `ordenes_trabajo.anunciante`
+    — se releva cuando haga falta generar la primera OT real para ese
+    cliente (mismo criterio incremental que `productos_por_anunciante.json`).
+  - Durante este relevamiento, un click en un link de menú de Advertys
+    (buscando el listado de "Anunciante") aterrizó por error en un
+    formulario de alta de Anunciante **en blanco** (`ViewID=
+    Anunciante_DetailView&NewObject=true`) — nunca se tocó "Guardar", no se
+    creó nada, pero quedó registrado acá por la salvaguarda de solo lectura
+    de `Informes/CLAUDE.md`: ese link de menú (id tipo
+    `Vertical_SHC_Menu_DXI0iNN_T`) resultó ser un índice alfabético de
+    accesos directos de "alta rápida" por entidad, no una navegación segura
+    — para releer cualquier listado maestro de Advertys, navegar por URL
+    directa (`ViewID=<Entidad>_ListView`), no por ese menú.
 
 ## Roadmap inmediato
 

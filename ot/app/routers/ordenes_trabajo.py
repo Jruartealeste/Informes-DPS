@@ -7,9 +7,17 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
 from app.labels import CENTRO_COSTO_OPCIONES, EQUIPO_OPCIONES
-from app.models import EstadoSolicitudAltaOt, OtInterna, SolicitudAltaOt, Tarea, TareaResponsable, TareaTipoTarea
+from app.models import Cliente, EstadoSolicitudAltaOt, OtInterna, SolicitudAltaOt, Tarea, TareaResponsable, TareaTipoTarea
 from app.templating import templates
 from app.viewmodels import desglose_facturacion_vm, ot_interna_vm, solicitud_alta_vm
+
+
+def _clientes_anunciantes(db: Session) -> dict[str, list[str]]:
+    """{cliente_id: [anunciante, ...]} para sugerir el Anunciante al armar
+    un pedido de alta de OT -- un cliente puede tener varios (ver
+    ClienteAnunciante en models.py)."""
+    clientes = list(db.scalars(select(Cliente).options(selectinload(Cliente.anunciantes))))
+    return {str(c.id): [a.anunciante for a in c.anunciantes] for c in clientes}
 
 router = APIRouter(prefix="/api/ordenes-trabajo")
 router_paginas = APIRouter()
@@ -106,6 +114,7 @@ def listado_ordenes_trabajo(request: Request, sin_dps: bool = False, db: Session
             "dps_existentes": _dps_existentes(db),
             "centro_costo_opciones": CENTRO_COSTO_OPCIONES,
             "equipo_opciones": EQUIPO_OPCIONES,
+            "clientes_anunciantes": _clientes_anunciantes(db),
             "seccion_activa": "ordenes_trabajo",
             "tema": request.cookies.get("tema", "dark"),
             "densidad": request.cookies.get("densidad", "1") != "0",
@@ -160,7 +169,7 @@ def detalle_orden_trabajo(numero_interno: str, request: Request, db: Session = D
         {
             "ot": vm,
             "cliente": ot.cliente.nombre,
-            "anunciante": ot.cliente.anunciante_advertys,
+            "anunciante": ", ".join(a.anunciante for a in ot.cliente.anunciantes) or None,
             "desglose": desglose_facturacion_vm(ot.tareas),
             "total_ots": total_ots,
             "total_tareas": _total_tareas(db),
@@ -207,6 +216,7 @@ def generar_ot(
     request: Request,
     db: Session = Depends(get_db),
     ot_ids: str = Form(""),
+    anunciante: str = Form(...),
     resumen: str = Form(...),
     producto: str = Form(...),
     centro_costo: str = Form(...),
@@ -216,12 +226,19 @@ def generar_ot(
     con Javier, para que corra `crear_ot.py` a mano desde `informes/` (ver
     ot/CLAUDE.md, decisión 2026-09-23 "solicitud + corrida manual" -- esta
     app nunca tiene ni va a tener las credenciales de Advertys). No dispara
-    ningún subprocess."""
+    ningún subprocess. El Anunciante lo elige quien arma el pedido (texto
+    libre, sugerido desde `cliente_anunciantes`) -- un Cliente de acá puede
+    corresponder a varios Anunciantes reales de Advertys (relevado
+    2026-09-24: FATE son ~6 anunciantes separados), así que ya no se puede
+    derivar automáticamente de un único valor por cliente."""
     numeros = [n.strip() for n in ot_ids.split(",") if n.strip()]
+    anunciante = anunciante.strip()
     centro_costo = centro_costo.strip()
     equipo = equipo.strip()
     if not numeros:
         raise HTTPException(422, "Seleccioná al menos una OT interna.")
+    if not anunciante:
+        raise HTTPException(422, "Falta el Anunciante.")
     if centro_costo not in CENTRO_COSTO_OPCIONES:
         raise HTTPException(422, "Centro Costo inválido.")
     if equipo and equipo not in EQUIPO_OPCIONES:
@@ -248,14 +265,14 @@ def generar_ot(
         raise HTTPException(
             422, f"OT interna(s) {', '.join(ya_en_solicitud)} ya tienen un pedido de alta pendiente."
         )
-    anunciantes = {ot.cliente.anunciante_advertys for ot in ots}
-    if len(anunciantes) > 1 or not all(anunciantes):
+    clientes_ids = {ot.cliente_id for ot in ots}
+    if len(clientes_ids) > 1:
         raise HTTPException(
-            422, "Las OT internas seleccionadas no comparten el mismo Anunciante de Advertys."
+            422, "Las OT internas seleccionadas no son todas del mismo cliente."
         )
 
     solicitud = SolicitudAltaOt(
-        anunciante=anunciantes.pop(),
+        anunciante=anunciante,
         resumen=resumen.strip(),
         producto=producto.strip(),
         centro_costo=centro_costo,

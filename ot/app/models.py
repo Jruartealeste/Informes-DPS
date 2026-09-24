@@ -73,9 +73,28 @@ class Cliente(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(80), unique=True)
-    anunciante_advertys: Mapped[str | None] = mapped_column(String(200))
 
     ots: Mapped[list["OtInterna"]] = relationship(back_populates="cliente")
+    anunciantes: Mapped[list["ClienteAnunciante"]] = relationship(
+        back_populates="cliente", order_by="ClienteAnunciante.anunciante"
+    )
+
+
+class ClienteAnunciante(Base):
+    """Un Cliente de esta app puede corresponder a varios Anunciantes reales
+    de Advertys -- confirmado relevando la tabla "Clientes" de Advertys: p.ej.
+    FATE ahí son ~6 anunciantes separados (FATE S.A.I.C.I., FATE - AGRICOLA,
+    FATE - AUTO Y CAMIONETA, ...), no uno solo. Por eso esto es una tabla
+    aparte (1 a N) y no un campo suelto en Cliente."""
+
+    __tablename__ = "cliente_anunciantes"
+    __table_args__ = (UniqueConstraint("cliente_id", "anunciante"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cliente_id: Mapped[int] = mapped_column(ForeignKey("clientes.id"))
+    anunciante: Mapped[str] = mapped_column(String(200))
+
+    cliente: Mapped["Cliente"] = relationship(back_populates="anunciantes")
 
 
 class TipoTarea(Base):

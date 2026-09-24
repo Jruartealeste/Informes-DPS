@@ -25,6 +25,7 @@
 <form method="post" id="form-asignar-lote" class="card card--asignar-lote">
   <input type="hidden" name="ot_ids" id="ot_ids_input">
   <input type="hidden" name="numero_ot_advertys" id="numero_ot_advertys_input">
+  <input type="hidden" name="anunciante" id="anunciante_input">
   <input type="hidden" name="resumen" id="resumen_input">
   <input type="hidden" name="producto" id="producto_input">
   <input type="hidden" name="centro_costo" id="centro_costo_input">
@@ -61,12 +62,15 @@
       <span class="info-tip">
         <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
         <div class="info-tip__panel" role="note">
-          El Anunciante lo toma del cliente de las OT internas tildadas — tienen que ser todas del mismo cliente,
-          si no el pedido no se puede armar. Producto, Centro Costo y Equipo se completan a mano acá.
+          Las OT internas tildadas tienen que ser todas del mismo cliente. El Anunciante es texto libre —
+          se sugieren los ya conocidos de ese cliente, pero un cliente de acá puede corresponder a más de un
+          Anunciante real en Advertys (p. ej. FATE tiene varios), así que elegís el que corresponda.
         </div>
       </span>
     </p>
     <div class="card__grid2">
+      <input type="text" id="input-anunciante" class="input-full" placeholder="Anunciante" list="anunciante-catalogo">
+      <datalist id="anunciante-catalogo"></datalist>
       <input type="text" id="input-resumen" class="input-full" placeholder="Resumen">
       <input type="text" id="input-producto" class="input-full" placeholder="Producto">
       <select id="select-centro-costo" class="input-full">
@@ -100,7 +104,7 @@
     {% for ot in ots %}
     <div class="row-ot">
       <label class="row-ot__select">
-        <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}">
+        <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}">
       </label>
       <a href="/ordenes-trabajo/{{ ot.n }}" class="row-ot__link">
         <div class="row-ot__n">OT {{ ot.n }}</div>
@@ -120,6 +124,7 @@
   {% endif %}
 </div>
 
+<script id="clientes-anunciantes-data" type="application/json">{{ clientes_anunciantes | tojson }}</script>
 <script>
 (function () {
   var form = document.getElementById('form-asignar-lote');
@@ -129,6 +134,20 @@
   var campoExistente = document.getElementById('campo-ot-existente');
   var campoGenerar = document.getElementById('campo-ot-generar');
   var errorBox = document.getElementById('form-error-lote');
+  var inputAnunciante = document.getElementById('input-anunciante');
+  var catalogoAnunciante = document.getElementById('anunciante-catalogo');
+  var CLIENTES_ANUNCIANTES = JSON.parse(document.getElementById('clientes-anunciantes-data').textContent || '{}');
+
+  function actualizarCatalogoAnunciante() {
+    var clientesSel = {};
+    marcadas().forEach(function (c) { if (c.dataset.cliente) clientesSel[c.dataset.cliente] = true; });
+    var ids = Object.keys(clientesSel);
+    var opciones = ids.length === 1 ? (CLIENTES_ANUNCIANTES[ids[0]] || []) : [];
+    catalogoAnunciante.innerHTML = opciones.map(function (a) {
+      return '<option value="' + a.replace(/"/g, '&quot;') + '">';
+    }).join('');
+    if (opciones.length === 1 && !inputAnunciante.value) inputAnunciante.value = opciones[0];
+  }
   var ETIQUETAS_BOTON = { nuevo: 'Asignar OT de sistema', existente: 'Asignar OT de sistema', generar: 'Generar OT en Advertys' };
   var ACTIONS = { nuevo: '/ordenes-trabajo/asignar-lote', existente: '/ordenes-trabajo/asignar-lote', generar: '/ordenes-trabajo/generar-ot' };
 
@@ -148,6 +167,7 @@
   function actualizarContador() {
     var n = marcadas().length;
     contador.textContent = n ? n + ' seleccionada' + (n !== 1 ? 's' : '') : '';
+    actualizarCatalogoAnunciante();
   }
 
   function modoActual() {
@@ -203,16 +223,25 @@
         mostrarError('OT interna(s) ' + conDps.map(function (c) { return c.value; }).join(', ') + ' ya tienen OT de sistema -- sacalas de la selección.');
         return;
       }
+      var clientesSel = {};
+      sel.forEach(function (c) { clientesSel[c.dataset.cliente || ''] = true; });
+      if (Object.keys(clientesSel).length > 1) {
+        ev.preventDefault();
+        mostrarError('Las OT internas tildadas no son todas del mismo cliente.');
+        return;
+      }
+      var anunciante = inputAnunciante.value.trim();
       var resumen = document.getElementById('input-resumen').value.trim();
       var producto = document.getElementById('input-producto').value.trim();
       var centroCosto = document.getElementById('select-centro-costo').value;
       var equipo = document.getElementById('select-equipo').value;
-      if (!resumen || !producto || !centroCosto) {
+      if (!anunciante || !resumen || !producto || !centroCosto) {
         ev.preventDefault();
-        mostrarError('Completá Resumen, Producto y Centro Costo.');
+        mostrarError('Completá Anunciante, Resumen, Producto y Centro Costo.');
         return;
       }
       document.getElementById('ot_ids_input').value = ids;
+      document.getElementById('anunciante_input').value = anunciante;
       document.getElementById('resumen_input').value = resumen;
       document.getElementById('producto_input').value = producto;
       document.getElementById('centro_costo_input').value = centroCosto;
