@@ -153,6 +153,42 @@ button {
   margin-bottom: 6px;
 }
 
+.sidebar__select {
+  width: 100%;
+  background-color: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-size: 13px;
+  transition: border-color 0.15s ease;
+}
+.sidebar__select:hover {
+  background-color: var(--hover);
+}
+.sidebar__select:focus-visible {
+  border-color: var(--accent);
+}
+[data-sidebar="collapsed"] .sidebar__select {
+  display: none;
+}
+
+.sidebar__select-badge {
+  display: none;
+}
+[data-sidebar="collapsed"] .sidebar__select-badge {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
+  border-radius: 5px;
+  background: var(--surface2);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+}
+
 .sidebar__list {
   display: flex;
   flex-direction: column;

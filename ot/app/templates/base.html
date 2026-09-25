@@ -28,16 +28,14 @@
       </div>
 
       <div class="sidebar__group">
-        <div class="sidebar__group-label">Cliente</div>
-        <div class="sidebar__list">
+        <div class="sidebar__group-label" id="sidebar-anunciante-label">Anunciante</div>
+        <select class="sidebar__select" aria-labelledby="sidebar-anunciante-label" onchange="location.href = '/clientes/' + this.value + '/activar'">
           {% for c in clientes_sidebar %}
-          <a href="/clientes/{{ c.id }}/activar" class="sidebar__item {{ 'is-active' if c.id == cliente_activo_id else '' }}" title="{{ c.nombre }}">
-            <span class="sidebar__item-icon">{{ c.nombre[:2] | upper }}</span>
-            <span class="sidebar__item-label">{{ c.nombre }}</span>
-            <span class="sidebar__pill">{{ c.total_tareas }}</span>
-          </a>
+          <option value="{{ c.id }}" title="{{ c.nombre }}" {{ 'selected' if c.id == cliente_activo_id else '' }}>{{ c.nombre }} ({{ c.total_tareas }})</option>
           {% endfor %}
-        </div>
+        </select>
+        {% set _activo = clientes_sidebar | selectattr('id', 'equalto', cliente_activo_id) | list %}
+        <div class="sidebar__select-badge" title="{{ _activo[0].nombre if _activo else '' }}">{{ (_activo[0].nombre[:2] | upper) if _activo else '' }}</div>
       </div>
 
       <div class="sidebar__group">
@@ -78,14 +76,14 @@
             </svg>
             <span class="sidebar__item-label">Facturación</span>
           </a>
-          <button type="button" class="sidebar__item is-disabled" disabled title="Cliente · todavía no construido">
+          <button type="button" class="sidebar__item is-disabled" disabled title="Anunciante · todavía no construido">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 3v18h18"></path>
               <path d="M18 17V9"></path>
               <path d="M13 17V5"></path>
               <path d="M8 17v-3"></path>
             </svg>
-            <span class="sidebar__item-label">Cliente</span>
+            <span class="sidebar__item-label">Anunciante</span>
             <span class="sidebar__badge">pronto</span>
           </button>
         </div>

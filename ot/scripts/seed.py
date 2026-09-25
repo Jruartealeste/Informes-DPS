@@ -161,6 +161,27 @@ def main() -> None:
         db.add(ClienteAnunciante(cliente_id=cliente.id, anunciante="ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM"))
         db.flush()
 
+        # Resto de los anunciantes activos en el sidebar (relevados en modo
+        # lectura contra la tabla "Clientes" de Advertys, 2026-09-25) --
+        # sin tareas propias todavía (no se migró ningún Sheet para ellos),
+        # solo para que el sidebar/dropdown de Anunciante tenga datos reales.
+        # Fundación Aurora Austral no tiene ningún Anunciante cargado en
+        # Advertys (confirmado, no está en la tabla maestra "Clientes").
+        OTROS_CLIENTES = {
+            "Fundación Aurora Austral": [],
+            "INFA": ["Infa S.A."],
+            "Consultatio": ["CONSULTATIO S.A."],
+            "Gihon": ["GIHON - LABORATORIOS QUIMICOS SRL"],
+            "INCAA": ["INCAA"],
+        }
+        for nombre, anunciantes in OTROS_CLIENTES.items():
+            otro_cliente = Cliente(nombre=nombre)
+            db.add(otro_cliente)
+            db.flush()
+            for anunciante in anunciantes:
+                db.add(ClienteAnunciante(cliente_id=otro_cliente.id, anunciante=anunciante))
+        db.flush()
+
         tipos_por_nombre = {}
         for nombre in TIPOS_TAREA:
             tipo = TipoTarea(nombre=nombre)
