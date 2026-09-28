@@ -14,6 +14,9 @@
     ]
   },
   "permissions": {
+    "allow": [
+      "Bash(*scripts.cargar_anunciantes_prod_20260925*)"
+    ],
     "deny": [
       "Bash(rm -rf *)",
       "Bash(git push --force*)",
