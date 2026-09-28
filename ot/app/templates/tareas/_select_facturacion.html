@@ -1,7 +1,10 @@
-<select class="chip-fac" data-valor="{{ t.estado_facturacion }}" name="estado_facturacion"
-  hx-post="/tareas/{{ t.id }}/facturacion" hx-trigger="change" hx-target="#tabla-tareas" hx-swap="outerHTML"
-  onclick="event.stopPropagation()">
-  {% for valor, label in opt_fac %}
-  <option value="{{ valor }}" {{ "selected" if t.estado_facturacion == valor }}>{{ label }}</option>
-  {% endfor %}
-</select>
+<div class="combo combo--select combo--chip" onclick="event.stopPropagation()">
+  <button type="button" class="combo__display chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</button>
+  <input type="hidden" class="combo__hidden" name="estado_facturacion" value="{{ t.estado_facturacion }}"
+    hx-post="/tareas/{{ t.id }}/facturacion" hx-trigger="change" hx-target="#tabla-tareas" hx-swap="outerHTML">
+  <div class="combo__menu">
+    {% for valor, label in opt_fac %}
+    <div class="combo__item {{ 'is-selected' if t.estado_facturacion == valor }}" role="option" data-valor="{{ valor }}">{{ label }}</div>
+    {% endfor %}
+  </div>
+</div>

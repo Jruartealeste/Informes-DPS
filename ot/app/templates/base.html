@@ -228,8 +228,22 @@
     function elegirOpcion(wrap, item) {
       var display = wrap.querySelector('.combo__display');
       var hidden = wrap.querySelector('.combo__hidden');
+      var valor = item.getAttribute('data-valor') || '';
       display.textContent = item.textContent;
-      hidden.value = item.getAttribute('data-valor') || '';
+      hidden.value = valor;
+      // combo--chip (chip-fac/chip-estado): a diferencia de OT interna o
+      // Tipo de tarea, acá no hay botón "Guardar" separado — el cambio se
+      // manda solo, como hacía el <select> nativo con hx-trigger="change".
+      // Pintamos el color nuevo ya mismo (antes de que vuelva la respuesta)
+      // para que no quede el color viejo durante el ida-y-vuelta a htmx.
+      if (wrap.classList.contains('combo--chip')) {
+        // chip-estado usa "" como valor posteado de su opcion en blanco "—",
+        // pero el color de esa opcion se pinta con data-valor="SIN_ESTADO"
+        // (ver chip-estado[data-valor="SIN_ESTADO"] en app.css) — el fallback
+        // es un no-op para chip-fac, que no tiene opcion en blanco.
+        display.setAttribute('data-valor', valor || 'SIN_ESTADO');
+        htmx.trigger(hidden, 'change');
+      }
     }
 
     document.addEventListener('click', function (ev) {

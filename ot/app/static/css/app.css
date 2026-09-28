@@ -1184,6 +1184,50 @@ select.chip-fac {
 .combo--select .combo__item {
   font-family: inherit;
 }
+
+/* variante "chip": combo--select pero el boton reusa el look compacto de
+   .chip-fac/.chip-estado (reemplaza esos <select> nativos — su menú
+   desplegable es UI propia del navegador/SO: ignora el border-radius y el
+   borde de la card que lo contiene, se pinta encima de lo que haya debajo,
+   y no se puede tematizar con los tokens de la app). El menú de esta
+   variante sí es un elemento normal del DOM, posicionado con CSS, así que
+   queda contenido visualmente como cualquier otro combo de la app. */
+.combo--chip {
+  display: inline-block;
+  width: auto;
+  flex: none;
+}
+.combo--chip .combo__display {
+  display: inline-block;
+  width: auto;
+  padding: 3px 20px 3px 8px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 9px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%239aa0a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+:root[data-tema="light"] .combo--chip .combo__display {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%235f636a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+.combo--chip .combo__menu {
+  left: auto;
+  right: 0;
+  width: max-content;
+  min-width: 160px;
+}
+.combo--chip .combo__item {
+  font-family: var(--font);
+  font-size: 13px;
+}
+.combo--chip .combo__item.is-selected {
+  font-weight: 600;
+  color: var(--text);
+}
 .field-ot__n {
   font-family: var(--mono);
   font-weight: 500;
@@ -1571,7 +1615,7 @@ select.chip-fac {
 }
 .table-head--ot-list,
 .row-ot {
-  grid-template-columns: 26px 120px 110px 170px 90px 180px;
+  grid-template-columns: 26px 120px 110px 170px 90px 90px;
 }
 .row-ot {
   display: grid;

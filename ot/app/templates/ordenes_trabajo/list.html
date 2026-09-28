@@ -111,10 +111,7 @@
         <div><span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span></div>
         <div><span class="badge badge--dps {{ 'has-dps' if ot.dps else 'no-dps' }}">{{ ot.dps_label }}</span></div>
         <div class="cell-mono">{{ ot.total }}</div>
-        <div class="group-progress">
-          <div class="group-progress__track"><div class="group-progress__fill" style="width:{{ ot.pct }}%"></div></div>
-          <span class="group-progress__label">{{ ot.progreso }}</span>
-        </div>
+        <div class="cell-mono">{{ ot.progreso }}</div>
       </a>
     </div>
     {% endfor %}

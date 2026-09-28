@@ -52,6 +52,7 @@ def _tarea_fila_vm(t: Tarea) -> dict:
         or "—",
         "ot_numero": t.ot_interna.numero_interno,
         "estado_facturacion": t.estado_facturacion.name,
+        "estado_facturacion_label": FACTURACION_LABELS[t.estado_facturacion],
     }
 
 

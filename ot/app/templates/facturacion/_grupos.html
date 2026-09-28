@@ -20,13 +20,15 @@
         <div class="cell-mono">OT {{ t.ot_numero }}</div>
         <div class="cell-detalle">{{ t.detalle }}</div>
         <div class="cell-muted">{{ t.tipos_label }}</div>
-        <div>
-          <select class="chip-fac" data-valor="{{ t.estado_facturacion }}" name="estado_facturacion"
+        <div class="combo combo--select combo--chip">
+          <button type="button" class="combo__display chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</button>
+          <input type="hidden" class="combo__hidden" name="estado_facturacion" value="{{ t.estado_facturacion }}"
             hx-post="/facturacion/tareas/{{ t.id }}/estado" hx-trigger="change" hx-target="#lista-facturacion" hx-swap="outerHTML">
+          <div class="combo__menu">
             {% for valor, label in opt_fac %}
-            <option value="{{ valor }}" {{ "selected" if t.estado_facturacion == valor }}>{{ label }}</option>
+            <div class="combo__item {{ 'is-selected' if t.estado_facturacion == valor }}" role="option" data-valor="{{ valor }}">{{ label }}</div>
             {% endfor %}
-          </select>
+          </div>
         </div>
       </div>
       {% endfor %}
