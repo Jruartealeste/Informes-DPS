@@ -15,7 +15,7 @@ Cadena Cobrado -> Facturado -> Detalle de lo Facturado:
                     -> ordenes_publicidad (proveedor, importe_sin_iva,      (modules/ordenes_publicidad)
                        estado), para facturas Medios (TA=FM)
 
-No tiene ingest propio (igual que modules/pendientes): cruza 6 tablas ya
+No tiene ingest propio (igual que modules/pendientes): cruza 7 tablas ya
 cargadas por otros scripts. Antes de correr esto conviene tener
 actualizado, en este orden:
     python -m modules.recibos.ingest <export ultimo>
@@ -24,6 +24,7 @@ actualizado, en este orden:
     python -m modules.cobranza_proveedores.crawl_oc_por_factura
     python -m modules.ordenes_compra.ingest <export ultimo>
     python -m modules.ordenes_publicidad.ingest <export ultimo>
+    python -m modules.cobranza_proveedores.crawl_facturas_compra_por_oc
 
 Ventana rodante de 2 meses (no un periodo elegible por el usuario -- ver
 config.VENTANA_MESES; empezo en 6 meses como IIBB pero se acorto el mismo
@@ -122,11 +123,18 @@ def cargar_datos():
         except Exception:
             ordenes_publicidad = pd.DataFrame(columns=["ano_op", "numero_oc", "proveedor", "importe_sin_iva", "estado"])
 
+        try:
+            facturas_compra = pd.read_sql_query("SELECT * FROM facturas_compra_oc_cobranza", conn)
+        except Exception:
+            facturas_compra = pd.DataFrame(columns=[
+                "numero_oc", "proveedor_oc", "tr", "numero_referencia_compra", "leyenda",
+            ])
+
     if not recibos.empty:
         recibos["fecha"] = pd.to_datetime(recibos["fecha"], errors="coerce")
     if not facturas.empty:
         facturas["fecha"] = pd.to_datetime(facturas["fecha"], errors="coerce")
-    return recibos, referencias, facturas, items_oc, ordenes_compra, ordenes_publicidad
+    return recibos, referencias, facturas, items_oc, ordenes_compra, ordenes_publicidad, facturas_compra
 
 
 def _recortar_ultimos_n_meses(recibos: pd.DataFrame, n_meses: int) -> tuple[pd.DataFrame, pd.Timestamp, pd.Timestamp]:
@@ -197,9 +205,29 @@ def _oc_por_factura(items_oc: pd.DataFrame, ordenes_compra: pd.DataFrame,
     return resuelto[_COLUMNAS_OC]
 
 
+def _facturas_compra_por_oc(facturas_compra: pd.DataFrame) -> pd.DataFrame:
+    """Una fila por (numero_oc, proveedor) con las facturas de compra
+    imputadas a esa orden y sus leyendas, unidas en un solo texto -- una fila
+    por factura multiplicaria las filas de detalle de la OC y distorsionaria
+    los totales del informe. Ver crawl_facturas_compra_por_oc.py."""
+    cols = ["numero_oc", "proveedor", "factura_compra", "leyenda_compra"]
+    if facturas_compra.empty:
+        return pd.DataFrame(columns=cols)
+    fc = facturas_compra.drop_duplicates(subset=["numero_oc", "proveedor_oc", "tr", "numero_referencia_compra"]).copy()
+    fc["_txt_factura"] = fc["numero_referencia_compra"].astype(str) + fc["tr"].apply(
+        lambda t: " (NC)" if t == "CA" else ""
+    )
+    fc["_txt_leyenda"] = fc["leyenda"].fillna("").str.strip()
+    agrupado = fc.groupby(["numero_oc", "proveedor_oc"], as_index=False).agg(
+        factura_compra=("_txt_factura", " / ".join),
+        leyenda_compra=("_txt_leyenda", lambda v: " / ".join(dict.fromkeys(x for x in v if x))),
+    )
+    return agrupado.rename(columns={"proveedor_oc": "proveedor"})[cols]
+
+
 def armar_tabla(recibos_6m: pd.DataFrame, referencias: pd.DataFrame, facturas: pd.DataFrame,
                  items_oc: pd.DataFrame, ordenes_compra: pd.DataFrame,
-                 ordenes_publicidad: pd.DataFrame) -> pd.DataFrame:
+                 ordenes_publicidad: pd.DataFrame, facturas_compra: pd.DataFrame | None = None) -> pd.DataFrame:
     referencias_ventana = referencias[referencias["numero_recibo"].isin(recibos_6m["numero_recibo"])]
     matcheadas = _matchear_facturas(referencias_ventana, facturas)
     oc_detalle = _oc_por_factura(items_oc, ordenes_compra, ordenes_publicidad)
@@ -215,6 +243,12 @@ def armar_tabla(recibos_6m: pd.DataFrame, referencias: pd.DataFrame, facturas: p
         right_on=["numero_referencia", "tipo_asiento_inferido"], how="left",
         suffixes=("", "_oc"),
     )
+    tabla = tabla.merge(
+        _facturas_compra_por_oc(facturas_compra if facturas_compra is not None else pd.DataFrame()),
+        on=["numero_oc", "proveedor"], how="left",
+    )
+    tabla["factura_compra"] = tabla["factura_compra"].fillna("")
+    tabla["leyenda_compra"] = tabla["leyenda_compra"].fillna("")
     tabla["monto_aplicado"] = tabla["aplicar"].abs()
     tabla["proveedor"] = tabla["proveedor"].fillna("(sin OC vinculada)")
     tabla["oc_origen"] = tabla["oc_origen"].fillna("")
@@ -222,7 +256,7 @@ def armar_tabla(recibos_6m: pd.DataFrame, referencias: pd.DataFrame, facturas: p
 
 
 def main():
-    recibos, referencias, facturas, items_oc, ordenes_compra, ordenes_publicidad = cargar_datos()
+    recibos, referencias, facturas, items_oc, ordenes_compra, ordenes_publicidad, facturas_compra = cargar_datos()
     if recibos.empty:
         print("No hay recibos cargados todavia. Corre 'python -m modules.recibos.ingest' primero.")
         return
@@ -236,7 +270,7 @@ def main():
         print(f"No hay recibos entre {desde.date()} y {hasta.date()}. Nada para informar.")
         return
 
-    tabla = armar_tabla(recibos_6m, referencias, facturas, items_oc, ordenes_compra, ordenes_publicidad)
+    tabla = armar_tabla(recibos_6m, referencias, facturas, items_oc, ordenes_compra, ordenes_publicidad, facturas_compra)
     if tabla.empty:
         print("No se pudo armar el cruce (revisar que los crawls de referencias/OC se hayan corrido).")
         return
@@ -269,7 +303,7 @@ def main():
     records = hr.records_from_df(tabla, [
         "fecha_recibo", "numero_recibo", "cliente_recibo", "numero_referencia",
         "monto_aplicado", "monto_cobrado_unico", "numero_oc", "proveedor",
-        "oc_saldo", "oc_estado",
+        "oc_saldo", "oc_estado", "factura_compra", "leyenda_compra",
         "oc_origen", "tiene_oc", "ambiguo_txt", "_periodo",
     ])
 
@@ -318,10 +352,15 @@ def main():
                     ["_saldo_oc", "Saldo a Pagar"],
                 ],
                 "groupNumericCols": ["_total_cobrado", "_saldo_oc"],
+                # Mobile: la fila muestra N° Recibo, Total Cobrado y Saldo a Pagar; el
+                # resto (fecha, cliente, cantidades) va en una ficha dentro del detalle.
+                "groupMobileHide": ["fecha_recibo", "cliente_recibo", "_cant_facturas", "_cant_proveedores"],
+                "groupMobileWidths": {"_total_cobrado": 108, "_saldo_oc": 108},
                 "detailColumns": [
                     ["numero_referencia", "N° Factura"], ["monto_aplicado", "Monto Cobrado"],
                     ["numero_oc", "N° OC/OP"], ["proveedor", "Proveedor"],
                     ["oc_saldo", "Saldo a Pagar"],
+                    ["factura_compra", "Factura de Compra"], ["leyenda_compra", "Leyenda Factura Compra"],
                     ["oc_estado", "Estado OC"], ["oc_origen", "Origen OC"], ["ambiguo_txt", "Aviso"],
                 ],
                 "detailNumericCols": ["monto_aplicado", "oc_saldo"],

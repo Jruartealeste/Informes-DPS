@@ -19,6 +19,11 @@ este script a proposito -- su export es mucho mas pesado (~22.700 filas
 vs. cientos en el resto) y no hace falta refrescarlo con la misma
 frecuencia que el resto.
 
+Cobranza x Proveedores (agregado 2026-09-30): este script solo corre el
+crawl de facturas de compra por OC/OP y regenera el informe; los crawls de
+recibos/referencias canceladas/items de factura siguen siendo manuales (ver
+docstring de modules/cobranza_proveedores/generate_html_report.py).
+
 Notas de Credito de Ventas (Produccion/Medios/Representante, agregado
 2026-09-21): NO son un modulo mas de la lista MODULOS -- son 3 vistas
 aparte que se fusionan en la tabla "facturas" ya cargada por el modulo
@@ -47,7 +52,7 @@ MODULOS = [
 
 NC_VENTAS_SEGMENTOS = ["produccion", "medios", "representante"]
 
-REPORTES = ["ordenes_trabajo", "compras", "facturas", "pendientes"]
+REPORTES = ["ordenes_trabajo", "compras", "facturas", "pendientes", "cobranza_proveedores"]
 
 
 def _correr(args: list[str]) -> subprocess.CompletedProcess:
@@ -125,6 +130,18 @@ def main():
             ok[clave] = detalle
         else:
             errores[clave] = detalle
+
+    # Facturas de compra de cada OC/OP del informe de Cobranza x Proveedores
+    # (crawl de solo lectura, ~10 min). Lee las OC/OP de las tablas de
+    # cobranza ya cargadas y de ordenes_compra/ordenes_publicidad, que se
+    # refrescaron arriba.
+    print("--- cobranza_proveedores: crawleando facturas de compra por OC/OP (Playwright, tarda varios minutos)...")
+    resultado = _correr(["modules.cobranza_proveedores.crawl_facturas_compra_por_oc"])
+    if resultado.returncode != 0:
+        detalle = (resultado.stderr or resultado.stdout).strip().splitlines()
+        errores["cobranza_proveedores (crawl)"] = detalle[-1] if detalle else "sin detalle"
+    else:
+        ok["cobranza_proveedores (crawl)"] = resultado.stdout.strip().splitlines()[-1]
 
     regenerar_reportes()
 
