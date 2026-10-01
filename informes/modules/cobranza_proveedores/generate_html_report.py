@@ -231,14 +231,18 @@ def _detalle_por_factura(items_oc: pd.DataFrame) -> pd.DataFrame:
     fila de detalle del informe -- una por factura x OC -- muestre el detalle
     de SUS items; si hay varios, van unidos con " / ". Los items sin OC
     quedan bajo OC vacia (filas "sin OC vinculada")."""
-    cols = ["numero_referencia", "_ta_det", "_oc", "detalle_factura"]
+    cols = ["numero_referencia", "_ta_det", "_oc", "detalle_factura", "texto_cabecera"]
     if items_oc.empty or "detalle" not in items_oc.columns:
         return pd.DataFrame(columns=cols)
     it = items_oc.copy()
+    if "texto_cabecera" not in it.columns:  # base crawleada antes de esta columna
+        it["texto_cabecera"] = ""
+    it["texto_cabecera"] = it["texto_cabecera"].fillna("").str.strip()
     it["_oc"] = it["numero_oc"].fillna("")
     it["detalle"] = it["detalle"].fillna("").str.strip()
     agrupado = it.groupby(["numero_referencia", "tipo_asiento_inferido", "_oc"], as_index=False).agg(
         detalle_factura=("detalle", lambda v: " / ".join(dict.fromkeys(x for x in v if x))),
+        texto_cabecera=("texto_cabecera", lambda v: next((x for x in v if x), "")),
     )
     return agrupado.rename(columns={"tipo_asiento_inferido": "_ta_det"})[cols]
 
@@ -268,6 +272,7 @@ def armar_tabla(recibos_6m: pd.DataFrame, referencias: pd.DataFrame, facturas: p
         right_on=["numero_referencia", "_ta_det", "_oc"], how="left",
     ).drop(columns=["_ta_det", "_oc"])
     tabla["detalle_factura"] = tabla["detalle_factura"].fillna("")
+    tabla["texto_cabecera"] = tabla["texto_cabecera"].fillna("")
     tabla = tabla.merge(
         _facturas_compra_por_oc(facturas_compra if facturas_compra is not None else pd.DataFrame()),
         on=["numero_oc", "proveedor"], how="left",
@@ -327,7 +332,7 @@ def main():
 
     records = hr.records_from_df(tabla, [
         "fecha_recibo", "numero_recibo", "cliente_recibo", "numero_referencia",
-        "detalle_factura", "monto_aplicado", "monto_cobrado_unico", "numero_oc", "proveedor",
+        "detalle_factura", "texto_cabecera", "monto_aplicado", "monto_cobrado_unico", "numero_oc", "proveedor",
         "oc_saldo", "oc_estado", "factura_compra", "leyenda_compra",
         "oc_origen", "tiene_oc", "ambiguo_txt", "_periodo",
     ])
@@ -378,6 +383,7 @@ def main():
                         "_saldo_oc": "Saldo a Pagar del recibo",
                         "numero_referencia": "N° Factura de Venta",
                         "detalle_factura": "Detalle Factura de Venta",
+                        "texto_cabecera": "Texto Cabecera de la Factura",
                         "monto_aplicado": "Monto Cobrado de la factura",
                         "numero_oc": "N° OC/OP",
                         "proveedor": "Proveedor",
@@ -422,6 +428,7 @@ def main():
                 "groupMobileWidths": {"_total_cobrado": 108, "_saldo_oc": 108},
                 "detailColumns": [
                     ["numero_referencia", "N° Factura"], ["detalle_factura", "Detalle Factura"],
+                    ["texto_cabecera", "Texto Cabecera"],
                     ["monto_aplicado", "Monto Cobrado"],
                     ["numero_oc", "N° OC/OP"], ["proveedor", "Proveedor"],
                     ["oc_saldo", "Saldo a Pagar"],

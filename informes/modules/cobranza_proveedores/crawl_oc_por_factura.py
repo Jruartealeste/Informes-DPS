@@ -70,20 +70,26 @@ CREATE TABLE IF NOT EXISTS items_factura_oc_cobranza (
     estimado_costos_raw TEXT,
     orden_compra_raw TEXT,
     numero_oc TEXT,
-    fecha_crawl TEXT
+    fecha_crawl TEXT,
+    texto_cabecera TEXT
 );
 """
 
 COLUMNAS_TABLA = [
     "numero_referencia", "tipo_asiento_inferido", "detalle", "neto_sin_iva",
     "orden_trabajo_raw", "estimado_costos_raw", "orden_compra_raw",
-    "numero_oc", "fecha_crawl",
+    "numero_oc", "fecha_crawl", "texto_cabecera",
 ]
 
 
 def init_db():
     with db.get_connection() as conn:
         conn.execute(SCHEMA)
+        # Tabla creada antes de texto_cabecera (2026-10-01): se agrega la
+        # columna en vez de perder lo ya crawleado.
+        columnas = {r[1] for r in conn.execute("PRAGMA table_info(items_factura_oc_cobranza)")}
+        if "texto_cabecera" not in columnas:
+            conn.execute("ALTER TABLE items_factura_oc_cobranza ADD COLUMN texto_cabecera TEXT")
         conn.commit()
 
 
@@ -323,7 +329,29 @@ def filas_candidatas(page, numero_referencia: str) -> int:
 PESTANAS_ITEMS = (("Items Facturas Medios", "FM"), ("Items Facturas", "FP"))
 
 
+def leer_texto_cabecera(page) -> str:
+    """Pestana "Texto cabecera" de la ficha de la factura (ej. "Ceco:
+    AL10100077 / Orden de compra Nro. 40002922", pedido de Javier,
+    2026-10-01). Es un <span id=...dviTextoCabecera_View> de solo lectura;
+    las lineas se unen con " | ". Vacio si la pestana no existe o no tiene
+    texto."""
+    if not click_boton_visible(page, "Texto cabecera"):
+        return ""
+    esperar_postback(page)
+    page.wait_for_timeout(500)
+    campo = page.locator("span[id$='_dviTextoCabecera_View']")
+    for i in range(campo.count()):
+        try:
+            if campo.nth(i).is_visible():
+                lineas = [l.strip() for l in campo.nth(i).inner_text().splitlines()]
+                return " | ".join(l for l in lineas if l)
+        except Exception:
+            continue
+    return ""
+
+
 def leer_items_factura(page, numero_referencia: str) -> tuple[list[dict], str | None]:
+    texto_cabecera = leer_texto_cabecera(page)
     tipo_inferido = None
     for pestana, ta in PESTANAS_ITEMS:
         if click_boton_visible(page, pestana):
@@ -352,6 +380,7 @@ def leer_items_factura(page, numero_referencia: str) -> tuple[list[dict], str | 
             "estimado_costos_raw": estimado_costos,
             "orden_compra_raw": orden_compra_raw,
             "numero_oc": parsear_numero_oc(orden_compra_raw),
+            "texto_cabecera": texto_cabecera,
         })
     return items, tipo_inferido
 
