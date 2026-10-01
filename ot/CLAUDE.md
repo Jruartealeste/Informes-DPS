@@ -87,7 +87,7 @@ app/
 │   ├── sync.py                 # /api/sync/ordenes-trabajo, /api/sync/facturas
 │   └── auth_routes.py           # /auth/login, /auth/callback, /auth/logout
 ├── templates/                    # Jinja2
-└── static/                        # HTMX vendorizado, CSS propio
+└── (static vive en public/static/: HTMX vendorizado, CSS propio)
 migrations/                         # Alembic
 scripts/
 └── migrar_sheet.py                 # migración one-off del Google Sheet real
@@ -475,7 +475,7 @@ Tablas:
     desde el drawer, el checkbox resuelve a un booleano explícito.
   - Implementado en `app/templates/tareas/_detalle.html`,
     `_campo_ot.html`, `_campo_responsables.html`, `app/templates/base.html`
-    (validación de submit + sync del checkbox), `app/static/css/app.css` y
+    (validación de submit + sync del checkbox), `public/static/css/app.css` y
     `app/routers/tareas.py`.
 
 ## Decisiones confirmadas con Javier (2026-09-21) — Estimados de Costo

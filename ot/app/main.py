@@ -20,8 +20,22 @@ from app.routers import (
 
 app = FastAPI(title="Órdenes de trabajo")
 
+class _StaticInmutable(StaticFiles):
+    """Cache de un año: las URLs llevan ?v=<versión de deploy/mtime> (ver
+    templating.static_version), así que un archivo nuevo siempre es otra URL."""
+
+    def file_response(self, *args, **kwargs):
+        resp = super().file_response(*args, **kwargs)
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resp
+
+
+# En Vercel esto casi no se usa: public/static lo sirve el CDN antes de llegar
+# acá. Queda para dev local, Docker/Cloud Run y los tests.
 app.mount(
-    "/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static"
+    "/static",
+    _StaticInmutable(directory=Path(__file__).parent.parent / "public" / "static"),
+    name="static",
 )
 
 # Orden importa: AuthMiddleware necesita request.session, así que

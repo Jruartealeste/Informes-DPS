@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import Request
@@ -8,7 +9,9 @@ from app.cliente_ctx import cliente_activo
 from app.db import get_db
 from app.models import Cliente, OtInterna, Tarea
 
-STATIC_DIR = Path(__file__).parent / "static"
+# public/ (no app/): en Vercel el CDN sirve public/** sin pasar por la función
+# Python. Ver vercel.json (headers de cache) y app/main.py (mount local).
+STATIC_DIR = Path(__file__).parent.parent / "public" / "static"
 
 
 def _contexto_clientes(request: Request) -> dict:
@@ -50,14 +53,18 @@ templates = Jinja2Templates(
 )
 
 
-def static_version(rel_path: str) -> int:
-    """mtime de un archivo estático, para invalidar el cache del browser en cada
-    cambio (StaticFiles no manda Cache-Control propio; sin esto, un CSS editado
-    puede quedar cacheado con contenido viejo hasta un hard-refresh manual)."""
+def static_version(rel_path: str) -> str:
+    """Versión para el ?v= de los estáticos. Como /static/* se sirve con
+    `immutable` (cache de un año), la versión TIENE que cambiar en cada deploy:
+    en Vercel el mtime de los archivos es fijo, así que se usa el id del
+    deploy. En local/Docker, el mtime del archivo (invalida al editar)."""
+    deploy = os.environ.get("VERCEL_DEPLOYMENT_ID") or os.environ.get("VERCEL_GIT_COMMIT_SHA")
+    if deploy:
+        return deploy[-12:]
     try:
-        return int((STATIC_DIR / rel_path).stat().st_mtime)
+        return str(int((STATIC_DIR / rel_path).stat().st_mtime))
     except FileNotFoundError:
-        return 0
+        return "0"
 
 
 templates.env.globals["static_version"] = static_version
