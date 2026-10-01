@@ -31,39 +31,98 @@
   <input type="hidden" id="input-agrupado" name="agrupado" value="{{ '1' if agrupado else '0' }}">
   <input type="hidden" id="input-revision" name="revision" value="{{ '1' if revision else '0' }}">
   <div class="filters__search">
-    <input type="text" name="q" value="{{ q }}" placeholder="Buscar en detalle, OT, responsable…">
+    <svg class="filters__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="text" name="q" value="{{ q }}" placeholder="Buscar en detalle, OT, responsable…" aria-label="Buscar tareas">
   </div>
-  <select name="f_est">
-    <option value="">Todos los estados</option>
-    {% for valor, label in opt_estado %}
-    <option value="{{ valor }}" {{ "selected" if valor == f_est }}>{{ label }}</option>
-    {% endfor %}
-  </select>
-  <select name="f_fac">
-    <option value="">Toda la facturación</option>
-    {% for valor, label in opt_fac %}
-    <option value="{{ valor }}" {{ "selected" if valor == f_fac }}>{{ label }}</option>
-    {% endfor %}
-  </select>
-  <select name="f_resp">
-    <option value="">Todos los responsables</option>
-    {% for nombre in opt_resp %}
-    <option value="{{ nombre }}" {{ "selected" if nombre == f_resp }}>{{ nombre }}</option>
-    {% endfor %}
-  </select>
-  <button type="button" id="btn-revision" class="filters__revision {{ 'is-active' if revision }}"
-    hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
-    hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='f_resp']"
-    hx-vals='{"revision": "{{ revision_next }}", "agrupado": "{{ 1 if agrupado else 0 }}"}'>
-    ⚠ Necesitan revisión <strong>{{ n_revision }}</strong>
-  </button>
+
+  <div class="filtros">
+    <button type="button" id="btn-filtros" class="filters__btn" aria-expanded="false" aria-controls="filtros-panel">
+      <svg class="filters__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h12"/><path d="M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>
+      Filtros
+      <span class="filters__count" id="filtros-count" hidden></span>
+    </button>
+    <div class="filtros__panel" id="filtros-panel" role="group" aria-label="Filtros de tareas" hidden>
+      <label class="filtros__campo">
+        <span class="filtros__label">Estado</span>
+        <select name="f_est">
+          <option value="">Todos los estados</option>
+          {% for valor, label in opt_estado %}
+          <option value="{{ valor }}" {{ "selected" if valor == f_est }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="filtros__campo">
+        <span class="filtros__label">Facturación</span>
+        <select name="f_fac">
+          <option value="">Toda la facturación</option>
+          {% for valor, label in opt_fac %}
+          <option value="{{ valor }}" {{ "selected" if valor == f_fac }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="filtros__campo">
+        <span class="filtros__label">Responsable</span>
+        <select name="f_resp">
+          <option value="">Todos los responsables</option>
+          {% for nombre in opt_resp %}
+          <option value="{{ nombre }}" {{ "selected" if nombre == f_resp }}>{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="filtros__foot">
+        <a href="/tareas" class="filters__clear" id="filtros-reset">Limpiar filtros</a>
+      </div>
+    </div>
+  </div>
+
+  {% include "tareas/_btn_revision.html" %}
   <div class="filters__spacer"></div>
-  <div class="filters__summary">{{ resumen_filtro }}</div>
-  {% if hay_filtros %}
-  <a href="/tareas" class="filters__clear">Limpiar</a>
-  {% endif %}
+  <div class="filters__summary" id="filtros-resumen">{{ resumen_filtro }}</div>
+  <a href="/tareas" class="filters__clear" id="filtros-clear" {{ "" if hay_filtros else "hidden" }}>Limpiar</a>
 </form>
 
 {% include "tareas/_tabla.html" %}
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById("filtros-form");
+  var btn = document.getElementById("btn-filtros");
+  var panel = document.getElementById("filtros-panel");
+  if (!form || !btn || !panel) return;
+
+  function abrir(v) {
+    panel.hidden = !v;
+    btn.setAttribute("aria-expanded", v ? "true" : "false");
+  }
+
+  // Contador y link "Limpiar" se recalculan desde el DOM, no desde el
+  // servidor: la tabla se actualiza por htmx sin re-renderizar este form.
+  function actualizar() {
+    var n = 0;
+    form.querySelectorAll("#filtros-panel select").forEach(function (s) { if (s.value) n++; });
+    var c = document.getElementById("filtros-count");
+    c.textContent = n;
+    c.hidden = n === 0;
+    btn.classList.toggle("is-active", n > 0);
+    var q = form.querySelector("[name=q]").value.trim();
+    var rev = (document.getElementById("input-revision") || {}).value === "1";
+    document.getElementById("filtros-clear").hidden = !(n > 0 || q || rev);
+  }
+
+  btn.addEventListener("click", function () { abrir(panel.hidden); });
+  document.addEventListener("click", function (e) {
+    if (!panel.hidden && !panel.contains(e.target) && !btn.contains(e.target)) abrir(false);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !panel.hidden) { abrir(false); btn.focus(); }
+  });
+  form.addEventListener("change", actualizar);
+  form.addEventListener("input", actualizar);
+  document.body.addEventListener("htmx:afterSettle", actualizar);
+  actualizar();
+})();
+</script>
 {% endblock %}
