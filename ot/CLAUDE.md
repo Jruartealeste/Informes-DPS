@@ -995,3 +995,26 @@ Tablas:
      patrón de OT: el pedido cuelga del Estimado local, no de la OT de
      sistema, porque una OT de sistema puede tener varios Estimados en
      paralelo.
+
+## Rendimiento y backups (2026-10-01)
+
+- **Región:** la función de Vercel corre en `gru1` (São Paulo) porque la base de
+  producción (Neon) está en `sa-east-1`. Producción y desarrollo NO están en la
+  misma región (dev: `us-east-2`) — medir latencia contra `.env.prod`, no `.env`.
+  Se llegó ahí con la cabecera `Server-Timing` (`app/timing.py`: total, tiempo y
+  cantidad de queries de cada respuesta).
+- **Estáticos:** viven en `public/static/` (el CDN de Vercel los sirve sin pasar
+  por Python) con `Cache-Control: immutable`; el `?v=` depende del deploy
+  (`templating.static_version`), no del mtime.
+- **Neon Free se suspende a los 5 min** y el primer query tarda varios segundos.
+  `GET /auth/despertar` (público, `SELECT 1`, 1 vez cada 20 s por instancia) lo
+  llama la página de login para despertar la base mientras la persona se loguea.
+- **Backups** (`.github/workflows/backup-neon.yml`, raíz del repo): `pg_dump`
+  diario a las 03:17 (hora Argentina), cifrado con GPG y guardado 30 días como
+  artefacto de Actions. Neon Free solo guarda 6 h de historial.
+  - Secrets necesarios: `NEON_DATABASE_URL` (URL **directa**, sin `-pooler`) y
+    `BACKUP_PASSPHRASE` (guardarla también en un gestor de contraseñas).
+  - Restaurar: bajar el artefacto, `gpg -o ot.dump -d ot-AAAA-MM-DD.dump.gpg`,
+    y `pg_restore --no-owner --no-acl --clean --if-exists -d "<URL destino>" ot.dump`.
+    **Probar la restauración contra una base vacía (una rama de Neon) antes de
+    necesitarla.**

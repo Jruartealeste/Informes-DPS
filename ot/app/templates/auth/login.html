@@ -96,5 +96,10 @@
     {% endif %}
     <a class="login-btn" href="/auth/login/google">Iniciar sesión con Google</a>
   </div>
+  <script>
+    // Despierta la base (Neon la suspende tras 5 min sin uso) mientras la
+    // persona hace el login; ver app/routers/auth_routes.py::despertar.
+    fetch("/auth/despertar", { cache: "no-store", keepalive: true }).catch(function () {});
+  </script>
 </body>
 </html>

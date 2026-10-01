@@ -341,7 +341,11 @@ def leer_texto_cabecera(page) -> str:
     2026-10-01). Es un <span id=...dviTextoCabecera_View> de solo lectura;
     las lineas se unen con " | ". Vacio si la pestana no existe o no tiene
     texto."""
-    if not click_boton_visible(page, "Texto cabecera"):
+    # La pestana se llama "Texto cabecera" en Produccion y "Texto Cabecera"
+    # (C mayuscula) en Medios -- click_boton_visible matchea exacto, asi que
+    # se prueban las dos (detectado 2026-10-01: 0 de 22 facturas FM traian
+    # texto con la grafia de Produccion).
+    if not any(click_boton_visible(page, nombre) for nombre in ("Texto cabecera", "Texto Cabecera")):
         return ""
     esperar_postback(page)
     page.wait_for_timeout(500)
