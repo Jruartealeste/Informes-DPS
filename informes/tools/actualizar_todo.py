@@ -19,11 +19,11 @@ este script a proposito -- su export es mucho mas pesado (~22.700 filas
 vs. cientos en el resto) y no hace falta refrescarlo con la misma
 frecuencia que el resto.
 
-Cobranza x Proveedores (agregado 2026-09-30): "recibos" esta en MODULOS y
-CRAWLS_COBRANZA corre los 3 crawls de la cadena (referencias canceladas ->
-OC/OP por factura -> facturas de compra por OC/OP) antes de regenerar el
-informe. Suma bastante al tiempo total (ver docstring de
-modules/cobranza_proveedores/generate_html_report.py).
+Cobranza x Proveedores: su cadena de exports/crawls (recibos, referencias
+canceladas, OC/OP por factura, facturas de compra por OC/OP) NO corre aca --
+tarda ~70 min (el crawl de referencias es un recibo a la vez). Se dispara
+aparte con `python -m tools.actualizar_cobranza`. Este script solo
+regenera su informe con lo que ya haya en advertys.db.
 
 Notas de Credito de Ventas (Produccion/Medios/Representante, agregado
 2026-09-21): NO son un modulo mas de la lista MODULOS -- son 3 vistas
@@ -49,13 +49,6 @@ MODULOS = [
     "oc_pendientes_generar",
     "estimados_pendientes_facturar",
     "ordenes_trabajo",
-    "recibos",
-]
-
-CRAWLS_COBRANZA = [
-    ("modules.recibos.crawl_referencias_canceladas", "facturas que cancela cada recibo"),
-    ("modules.cobranza_proveedores.crawl_oc_por_factura", "OC/OP de cada factura cobrada"),
-    ("modules.cobranza_proveedores.crawl_facturas_compra_por_oc", "facturas de compra de cada OC/OP"),
 ]
 
 NC_VENTAS_SEGMENTOS = ["produccion", "medios", "representante"]
@@ -139,21 +132,6 @@ def main():
         else:
             errores[clave] = detalle
 
-    # Cadena de Cobranza x Proveedores (crawls de solo lectura, en este
-    # orden: cada uno lee lo que dejo el anterior). El crawl de referencias
-    # canceladas es el mas pesado (un recibo a la vez). Si un paso falla se
-    # saltean los siguientes -- dependen de su salida -- pero el resto del
-    # refresh sigue.
-    for modulo, descripcion in CRAWLS_COBRANZA:
-        print(f"--- cobranza_proveedores: {descripcion} (Playwright, tarda varios minutos)...")
-        resultado = _correr([modulo])
-        clave = f"cobranza ({modulo.rsplit('.', 1)[-1]})"
-        if resultado.returncode != 0:
-            detalle = (resultado.stderr or resultado.stdout).strip().splitlines()
-            errores[clave] = detalle[-1] if detalle else "sin detalle"
-            break
-        ok[clave] = resultado.stdout.strip().splitlines()[-1]
-
     regenerar_reportes()
 
     print("\n=== Resumen ===")
@@ -161,7 +139,7 @@ def main():
         print(f"OK  {modulo}: {detalle}")
     for modulo, detalle in errores.items():
         print(f"ERROR {modulo}: {detalle}")
-    print("IIBB no fue tocado por este script -- correr 'python -m tools.actualizar_iibb' aparte.")
+    print("IIBB y la cadena de Cobranza no fueron tocados por este script -- correr 'python -m tools.actualizar_iibb' / 'python -m tools.actualizar_cobranza' aparte.")
 
     sys.exit(1 if errores else 0)
 
