@@ -8,6 +8,21 @@
         "ot/tools/qa_server.py"
       ],
       "port": 8123
+    },
+    {
+      "name": "ot-dev",
+      "runtimeExecutable": "ot/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--reload",
+        "--reload-dir",
+        "ot/app",
+        "--app-dir",
+        "ot"
+      ],
+      "port": 8000
     }
   ]
 }

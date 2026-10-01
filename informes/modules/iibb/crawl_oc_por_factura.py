@@ -33,6 +33,24 @@ suma de "Neto Sin Iva" de los items con OC/OP cargada (este crawl) contra
 el monto_deducible que sale de Imputaciones, y avisa si no coinciden --
 ver _reportar_discrepancias().
 
+Ademas (desde 2026-09-28), en la MISMA visita a cada factura se lee la
+pestana "Importes" (seccion "Detalle impositivo": No Gravado/Gravado
+1/Gravado 2/Gravado 3 (o "Gravado Otros") + sus Iva) y se guarda en
+`detalle_impositivo_factura`. Motivo (caso real, factura 000500000567,
+ALUAR, 2026-09-07, confirmado con Javier): el export masivo de Facturas
+vuelca en "Subtotal ML"/"Impuestos ML" SOLO el concepto "Gravado 2" (la
+alicuota 21%) -- si una factura mezcla alicuotas (ahi: Servicio de Agencia
+$874.950 al 21% + recupero de terceros $9.210.000 gravado al 5%, en el
+campo que Produccion llama "Gravado 3" y Medios llama "Gravado Otros"),
+"Subtotal ML" queda ~10x mas chico que el verdadero subtotal de la
+factura, y la Base Imponible IIBB del informe (subtotal - deducible -
+servicio agencia) da negativa en vez de la base real. El "Subtotal ML"
+del export SI alcanza cuando la factura factura todo a una sola alicuota
+(caso normal, verificado contra facturas 000500000568 y 000500000569) --
+por eso generate_html_report.py solo pisa subtotal_ml con la suma de
+Gravados de esta tabla cuando existe esa fila (facturas sin deducible no
+se crawlean, siguen usando el Subtotal ML del export tal cual).
+
 Igual que modules/ordenes_trabajo/crawl_items_pendientes.py, la tabla
 resultante (items_factura_oc) se REEMPLAZA entera en cada corrida: es un
 snapshot de la ventana de 6 meses actual, no un historico acumulado.
@@ -94,10 +112,39 @@ COLUMNAS_TABLA = [
     "estimado_costos_raw", "orden_compra_raw", "numero_oc", "fecha_crawl",
 ]
 
+# Detalle impositivo (pestana "Importes" de cada factura) -- ver docstring
+# del modulo para el porque. "gravado_3" cubre tanto "Gravado 3" (label en
+# facturas de Produccion) como "Gravado Otros" (label en Medios) -- mismo
+# concepto, tercera alicuota, nombre distinto segun el tipo de factura.
+SCHEMA_IMPOSITIVO = """
+CREATE TABLE IF NOT EXISTS detalle_impositivo_factura (
+    numero_referencia TEXT,
+    no_gravado REAL,
+    gravado_1 REAL,
+    gravado_2 REAL,
+    gravado_3 REAL,
+    iva_1 REAL,
+    iva_2 REAL,
+    iva_3 REAL,
+    percepcion_iva REAL,
+    percepcion_iibb1 REAL,
+    percepcion_iibb2 REAL,
+    total REAL,
+    fecha_crawl TEXT
+);
+"""
+
+COLUMNAS_IMPOSITIVO = [
+    "numero_referencia", "no_gravado", "gravado_1", "gravado_2", "gravado_3",
+    "iva_1", "iva_2", "iva_3", "percepcion_iva", "percepcion_iibb1",
+    "percepcion_iibb2", "total", "fecha_crawl",
+]
+
 
 def init_db():
     with db.get_connection() as conn:
         conn.execute(SCHEMA)
+        conn.execute(SCHEMA_IMPOSITIVO)
         conn.commit()
 
 
@@ -108,6 +155,17 @@ def reemplazar_todo(records: list[dict]) -> int:
             placeholders = ", ".join("?" for _ in COLUMNAS_TABLA)
             sql = f"INSERT INTO items_factura_oc ({', '.join(COLUMNAS_TABLA)}) VALUES ({placeholders})"
             conn.executemany(sql, [tuple(r.get(c) for c in COLUMNAS_TABLA) for r in records])
+        conn.commit()
+    return len(records)
+
+
+def reemplazar_todo_impositivo(records: list[dict]) -> int:
+    with db.get_connection() as conn:
+        conn.execute("DELETE FROM detalle_impositivo_factura")
+        if records:
+            placeholders = ", ".join("?" for _ in COLUMNAS_IMPOSITIVO)
+            sql = f"INSERT INTO detalle_impositivo_factura ({', '.join(COLUMNAS_IMPOSITIVO)}) VALUES ({placeholders})"
+            conn.executemany(sql, [tuple(r.get(c) for c in COLUMNAS_IMPOSITIVO) for r in records])
         conn.commit()
     return len(records)
 
@@ -343,6 +401,57 @@ def ir_a_factura(page, numero_referencia: str) -> bool:
     return True
 
 
+# Etiqueta(s) de la 2da columna de "Detalle impositivo" -> nombre interno.
+# "gravado_3"/"iva_3" aceptan las dos variantes de label segun el tipo de
+# factura (ver docstring del modulo): Produccion dice "Gravado 3"/"Iva 3",
+# Medios dice "Gravado Otros"/"Iva Otros" -- mismo concepto.
+_CAMPOS_IMPOSITIVOS = [
+    ("no_gravado", ("No Gravado",)),
+    ("gravado_1", ("Gravado 1",)),
+    ("gravado_2", ("Gravado 2",)),
+    ("gravado_3", ("Gravado 3", "Gravado Otros")),
+    ("iva_1", ("Iva 1",)),
+    ("iva_2", ("Iva 2",)),
+    ("iva_3", ("Iva 3", "Iva Otros")),
+    ("percepcion_iva", ("Percepcion Iva",)),
+    ("percepcion_iibb1", ("Percepcion IIBB1",)),
+    ("percepcion_iibb2", ("Percepcion IIBB2",)),
+    ("total", ("Total",)),
+]
+
+
+def leer_detalle_impositivo(page, numero_referencia: str) -> dict | None:
+    """Lee la seccion "Detalle impositivo" de la pestana "Importes" -- ver
+    docstring del modulo. Devuelve None si no se encontro la pestana (en
+    vez de levantar, para no tirar abajo el crawl de items por esto)."""
+    if not click_boton_visible(page, "Importes"):
+        return None
+    esperar_postback(page)
+    page.wait_for_timeout(500)
+
+    texto = page.inner_text("body")
+    inicio = texto.find("Detalle impositivo")
+    if inicio == -1:
+        return None
+    # Cortar antes de la proxima seccion/grilla para no levantar un "Total"
+    # de otra parte de la pagina por error.
+    fin_candidatos = [texto.find(m, inicio) for m in ("Items Facturas", "Pautas", "Ordenes")]
+    fin_candidatos = [f for f in fin_candidatos if f != -1]
+    fin = min(fin_candidatos) if fin_candidatos else len(texto)
+    bloque = texto[inicio:fin]
+
+    def _buscar(etiquetas):
+        for etiqueta in etiquetas:
+            m = re.search(re.escape(etiqueta) + r":\s*\$?\s*([\-\d\.,]+)", bloque)
+            if m:
+                return normalizar_numero(m.group(1)) or 0.0
+        return 0.0
+
+    resultado = {nombre: _buscar(etiquetas) for nombre, etiquetas in _CAMPOS_IMPOSITIVOS}
+    resultado["numero_referencia"] = numero_referencia
+    return resultado
+
+
 # Facturas "Producción" (TA=FP) y "Medios" (TA=FM) son objetos DISTINTOS en
 # Advertys (DPS_Factura vs FacturasMedios -- confirmado en vivo 2026-07-23,
 # ver docstring del modulo): cada uno tiene su propia pestana de items con
@@ -378,19 +487,24 @@ def leer_items_factura(page, numero_referencia: str) -> list[dict]:
     return items
 
 
-def _revisar_una(page, numero_referencia: str, ahora: str) -> tuple[list[dict] | None, str | None]:
-    """Devuelve (items, None) si pudo leer la factura (aunque sea 0 items
-    validos), o (None, motivo) si fallo -- separado de main() para poder
-    reintentar con la misma firma en la segunda pasada."""
+def _revisar_una(page, numero_referencia: str, ahora: str) -> tuple[list[dict] | None, dict | None, str | None]:
+    """Devuelve (items, detalle_impositivo, None) si pudo leer la factura
+    (aunque sea 0 items validos, o detalle_impositivo=None si no se
+    encontro la pestana "Importes"), o (None, None, motivo) si fallo --
+    separado de main() para poder reintentar con la misma firma en la
+    segunda pasada."""
     try:
         if not ir_a_factura(page, numero_referencia):
-            return None, "no se encontro la factura en la grilla"
+            return None, None, "no se encontro la factura en la grilla"
+        detalle_impositivo = leer_detalle_impositivo(page, numero_referencia)
         items = leer_items_factura(page, numero_referencia)
         for it in items:
             it["fecha_crawl"] = ahora
-        return items, None
+        if detalle_impositivo is not None:
+            detalle_impositivo["fecha_crawl"] = ahora
+        return items, detalle_impositivo, None
     except Exception as e:
-        return None, str(e)
+        return None, None, str(e)
 
 
 def main():
@@ -407,6 +521,7 @@ def main():
     print(f"Se van a revisar {len(facturas)} facturas (esto tarda varios minutos, una factura a la vez)...")
 
     resultados = []
+    resultados_impositivo = []
     pendientes = []
     ahora = datetime.now(timezone.utc).isoformat()
 
@@ -417,12 +532,14 @@ def main():
 
         for i, numero_referencia in enumerate(facturas, 1):
             print(f"  [{i}/{len(facturas)}] Factura {numero_referencia}...")
-            items, motivo = _revisar_una(page, numero_referencia, ahora)
+            items, detalle_impositivo, motivo = _revisar_una(page, numero_referencia, ahora)
             if motivo is not None:
                 print(f"    AVISO: {motivo} -- se reintenta al final")
                 pendientes.append(numero_referencia)
                 continue
             resultados.extend(items)
+            if detalle_impositivo is not None:
+                resultados_impositivo.append(detalle_impositivo)
             con_oc = sum(1 for it in items if it["numero_oc"])
             print(f"    -> {len(items)} item(s), {con_oc} con N° de OC/OP")
 
@@ -437,19 +554,23 @@ def main():
             print(f"Reintentando {len(pendientes)} factura(s) que fallaron en la primera pasada...")
             for numero_referencia in pendientes:
                 print(f"  [reintento] Factura {numero_referencia}...")
-                items, motivo = _revisar_una(page, numero_referencia, ahora)
+                items, detalle_impositivo, motivo = _revisar_una(page, numero_referencia, ahora)
                 if motivo is not None:
                     print(f"    ERROR definitivo: {motivo}")
                     siguen_fallando.append(numero_referencia)
                     continue
                 resultados.extend(items)
+                if detalle_impositivo is not None:
+                    resultados_impositivo.append(detalle_impositivo)
                 con_oc = sum(1 for it in items if it["numero_oc"])
                 print(f"    -> {len(items)} item(s), {con_oc} con N° de OC/OP")
 
         browser.close()
 
     cantidad = reemplazar_todo(resultados)
+    cantidad_impositivo = reemplazar_todo_impositivo(resultados_impositivo)
     print(f"OK: {cantidad} items de factura guardados en items_factura_oc ({len(facturas)} facturas revisadas).")
+    print(f"OK: {cantidad_impositivo} detalle(s) impositivo guardados en detalle_impositivo_factura.")
     if pendientes:
         print(f"  Reintento: {len(pendientes) - len(siguen_fallando)}/{len(pendientes)} recuperadas.")
     if siguen_fallando:

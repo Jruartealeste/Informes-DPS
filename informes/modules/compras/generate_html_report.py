@@ -69,22 +69,39 @@ def main():
                     {"key": "importe_sin_iva", "op": "sum", "field": "importe_sin_iva_signado"},
                     {"key": "total_impositivo", "op": "sum", "field": "total_impositivo"},
                 ],
-                "columns": [["proveedor", "Proveedor"], ["compras", "Compras"], ["importe_sin_iva", "Importe s/IVA"], ["total_impositivo", "Total impositivo"]],
+                # Total impositivo (la columna por la que se ordena) va segunda para
+                # que en mobile se vea sin scrollear; las demás quedan a continuación.
+                "columns": [["proveedor", "Proveedor"], ["total_impositivo", "Total impositivo"], ["compras", "Compras"], ["importe_sin_iva", "Importe s/IVA"]],
                 "numericCols": ["importe_sin_iva", "total_impositivo"],
                 "sort": {"key": "total_impositivo", "dir": "desc"},
             },
         ],
     }
 
-    secciones = "".join([
-        hr.filter_bar_html(),
+    # Dos pestañas con filtro de período independiente (ver "scopes" en
+    # DASHBOARD_JS): cambiar el período en Gráficos no toca la Tabla y al revés.
+    spec["scopes"] = [
+        {"id": "graficos", "prefix": "fg-", "statTiles": True,
+         "charts": [c["mount"] for c in spec["charts"]]},
+        {"id": "tabla", "prefix": "ft-", "tables": [t["mount"] for t in spec["tables"]]},
+    ]
+
+    pestana_graficos = "".join([
+        hr.filter_bar_html("fg-"),
         hr.stat_tiles_mount(),
         hr.section("Total impositivo por mes", hr.mount("chart-mes"), wide=True),
         hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion"), wide=True),
         hr.section("Compras por estado", hr.mount("chart-estado")),
         hr.section("Compras por tipo (Gastos / Medios / Produccion)", hr.mount("chart-tipo")),
         hr.section("Top 10 proveedores por total impositivo", hr.mount("chart-proveedores"), wide=True),
+    ])
+    pestana_tabla = "".join([
+        hr.filter_bar_html("ft-"),
         hr.section("Compras por proveedor (todos)", hr.mount("tabla-proveedores"), wide=True),
+    ])
+
+    secciones = "".join([
+        hr.tabs_html([("graficos", "Gráficos", pestana_graficos), ("tabla", "Tabla", pestana_tabla)]),
         hr.dashboard_bundle(records, spec),
     ])
 

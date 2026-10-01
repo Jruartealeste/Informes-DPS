@@ -324,10 +324,48 @@ def main():
     spec = {
         "dateField": "_periodo",
         "categoryFilters": CATEGORY_FILTERS,
+        # Filtros detras de un boton "Filtros" junto al buscador de la tabla
+        # (pedido de Javier, 2026-10-01: sacar tanta info de la pagina
+        # principal) + orden por titulo de columna.
+        "filtersInToolbar": True,
         "tables": [
             {
                 "mount": "tabla-detalle",
                 "mode": "grouped",
+                "sortableHeaders": True,
+                # Exportar CSV (pedido de Javier, 2026-10-01): una fila por
+                # linea de detalle, con el recibo repetido. "Monto Cobrado
+                # (sin repetir)" lleva el monto solo en la primera fila de
+                # cada (recibo, factura) para que sumar la columna en Excel
+                # de el total real (ver monto_cobrado_unico en main()).
+                "csvExport": {
+                    "filename": "cobranza_proveedores",
+                    # Titulos del CSV: el recibo se repite en cada linea, asi
+                    # que se aclara que columnas son del recibo, de la factura
+                    # o de la OC/OP, y cual se puede sumar sin duplicar.
+                    "labels": {
+                        "fecha_recibo": "Fecha Recibo",
+                        "numero_recibo": "N° Recibo",
+                        "cliente_recibo": "Cliente",
+                        "_cant_facturas": "Facturas del recibo (cant.)",
+                        "_total_cobrado": "Total Cobrado del recibo",
+                        "_cant_proveedores": "Proveedores del recibo (cant.)",
+                        "_saldo_oc": "Saldo a Pagar del recibo",
+                        "numero_referencia": "N° Factura de Venta",
+                        "monto_aplicado": "Monto Cobrado de la factura",
+                        "numero_oc": "N° OC/OP",
+                        "proveedor": "Proveedor",
+                        "oc_saldo": "Saldo a Pagar de la OC/OP",
+                        "factura_compra": "N° Factura de Compra",
+                        "leyenda_compra": "Leyenda Factura de Compra",
+                        "oc_estado": "Estado OC/OP",
+                        "oc_origen": "Origen OC/OP",
+                        "ambiguo_txt": "Aviso",
+                        "monto_cobrado_unico": "Monto Cobrado SUMABLE (sin repetir)",
+                    },
+                    "extraDetail": [["monto_cobrado_unico", "Monto Cobrado SUMABLE (sin repetir)"]],
+                    "extraNumeric": ["monto_cobrado_unico"],
+                },
                 "groupField": "numero_recibo",
                 "groupNoun": {"one": "recibo", "many": "recibos"},
                 # Fila resumen: una por recibo. "sum_unique" en Saldo a Pagar
@@ -370,8 +408,7 @@ def main():
     }
 
     secciones = "".join([
-        hr.filter_bar_html(),
-        hr.category_filters_html(CATEGORY_FILTERS),
+        hr.filters_panel_html(CATEGORY_FILTERS),
         hr.section("Detalle: Recibo → Factura → OC/Proveedor", hr.mount("tabla-detalle"), wide=True),
         hr.dashboard_bundle(records, spec),
     ])

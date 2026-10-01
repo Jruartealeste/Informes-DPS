@@ -126,10 +126,13 @@ body {
    prolijos en vez de dejar un hueco vacio en la fila. */
 .section-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(480px, 100%), 1fr));
   gap: 20px;
   align-items: start;
 }
+/* Tablas anchas: scroll horizontal dentro de la seccion en vez de desbordar
+   la pagina entera. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .section-grid > .stat-grid,
 .section-grid > .filter-bar,
 .section-grid > .report-section--full {
@@ -271,6 +274,9 @@ section.report-section h2 {
 }
 
 svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+/* Tope de escala: sin esto un grafico angosto (ej. hbar de 760) se estira a 1,5x
+   en pantalla ancha y su texto queda desproporcionado frente a los demas. */
+svg.chart { max-width: calc(var(--w, 100000) * 1.25px); margin-left: auto; margin-right: auto; }
 svg.chart text { fill: var(--text-muted); font-size: 11px; }
 svg.chart .gridline { stroke: var(--gridline); stroke-width: 1; }
 svg.chart .baseline { stroke: var(--baseline); stroke-width: 1; }
@@ -295,6 +301,7 @@ table.report-table th {
   border-bottom: 1px solid var(--baseline);
 }
 table.report-table td.num, table.report-table th.num {
+  white-space: nowrap;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -307,6 +314,15 @@ table.report-table tr.row-hidden { display: none; }
 /* Tabla agrupada con detalle desplegable (ver hr.dashboard_bundle /
    DASHBOARD_JS renderGroupedTable) -- fila resumen (una por grupo,
    clickeable) + fila de detalle (tabla anidada, oculta hasta expandir). */
+.estado-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.estado-note { font-size: 12px; margin-top: 2px; color: var(--text-secondary); text-decoration: none; }
+.estado-badge--critical { background: rgba(208,59,59,0.14); color: #d03b3b; }
+.estado-badge--serious { background: rgba(236,131,90,0.18); color: #c4552b; }
+:root[data-theme="dark"] .estado-badge--serious { color: #ec835a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .estado-badge--serious { color: #ec835a; } }
+tr.group-row--anulada td:not(.group-toggle) { text-decoration: line-through; text-decoration-color: var(--text-muted); color: var(--text-muted); }
+tr.group-row--anulada td:has(.estado-badge) { text-decoration: none; }
+tr.group-row--anulada td:has(.estado-badge) .estado-note { color: var(--text-secondary); }
 tr.group-row { cursor: pointer; }
 tr.group-row:hover { background: var(--page-plane); }
 tr.group-row td.group-toggle { width: 20px; text-align: center; color: var(--text-muted); }
@@ -339,6 +355,29 @@ footer.report-footer {
   color: var(--text-muted);
   font-size: 12px;
   margin-top: 24px;
+}
+
+/* Responsive: va al final de PAGE_CSS para ganar sobre las reglas base. */
+@media (max-width: 720px) {
+  /* Graficos SVG: el viewBox tiene ancho fijo (--w) y en pantalla angosta se
+     achicaba hasta dejar el texto en 2-5px. Ahora conservan un minimo de
+     75% de su tamano y scrollean dentro de su tarjeta. */
+  div:has(> svg.chart), div:has(> table.report-table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.report-table th, table.report-table td { padding: 8px 10px; }
+  svg.chart { min-width: calc(var(--w, 0) * 0.75px); }
+  .page { padding: 20px 16px 48px; }
+  header.report-header { flex-wrap: wrap; align-items: flex-start; margin-bottom: 24px; padding-bottom: 18px; }
+  header.report-header h1 { font-size: 22px; }
+  header.report-header .brand-logo { width: 38px; }
+  section.report-section { padding: 14px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-tile { padding: 12px 14px; }
+  .stat-tile .value { font-size: 18px; }
+}
+@media (max-width: 520px) {
+  table.report-table { font-size: 12px; }
+  table.report-table th, table.report-table td { padding: 8px 6px; }
+  table.report-table th { font-size: 10px; letter-spacing: 0.02em; }
 }
 
 @media print {
@@ -411,7 +450,75 @@ DASHBOARD_CSS = """
 }
 .filter-bar button:hover { background: var(--surface-1); border-color: var(--brand); }
 .filter-coverage { color: var(--text-muted); }
+
+/* Tarjetas de resumen densas (5+): tamano de fuente segun ancho de pantalla en vez
+   de partir el importe en dos lineas. En mobile (2 columnas) el texto puede envolver. */
+@media (min-width: 721px) {
+  .stat-grid--dense .stat-tile .value { font-size: clamp(15px, 1.3vw, 22px); white-space: nowrap; }
+}
+.nowrap { white-space: nowrap; }
+.group-facts { display: none; }
+/* Tabla agrupada en mobile: las columnas secundarias (.col-sec) pasan a una ficha
+   dentro del detalle. Layout fijo: el detalle abierto no puede ensanchar la tabla. */
+@media (max-width: 720px) {
+  table.report-table--grouped { table-layout: fixed; }
+  table.report-table--grouped .col-sec { display: none; }
+  table.report-table--grouped th.group-toggle-col { width: 28px; }
+  .group-facts {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px;
+    margin: 0; padding: 12px 14px 4px;
+  }
+  .group-facts dt { font-size: 11px; color: var(--text-muted); margin: 0 0 2px; }
+  .group-facts dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+  tr.group-detail-row > td { padding-left: 0; }
+}
+
+/* Paginador de las tablas del motor (mismo look que el de Pendientes). */
+.table-pager {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px 16px; margin-top: 14px; font-size: 13px;
+}
+.table-pager[hidden] { display: none; }
+.table-pager .pager-info { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.table-pager .pager-buttons { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.table-pager .pager-buttons button {
+  min-width: 34px; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--page-plane); color: var(--text-primary);
+  font: inherit; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.table-pager .pager-buttons button:hover:not(:disabled):not(.active) { background: var(--surface-1); border-color: var(--brand); }
+.table-pager .pager-buttons button.active { background: var(--brand); border-color: var(--brand); color: #fff; cursor: default; }
+.table-pager .pager-buttons button:disabled { opacity: 0.4; cursor: not-allowed; }
+.table-pager .pager-buttons button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.table-pager .pager-gap { color: var(--text-muted); padding: 0 2px; }
+@media (max-width: 520px) { .table-pager { justify-content: center; } }
+
+/* Pestanas (tabs_html): cada panel tiene su propio filtro de periodo. */
+.section-grid > .tabbar, .section-grid > .tab-panel { grid-column: 1 / -1; }
+.tabbar { display: flex; gap: 4px; border-bottom: 1px solid var(--gridline); margin-bottom: -4px; }
+.tab-btn {
+  border: 0; background: none; color: var(--text-secondary);
+  padding: 10px 16px; margin-bottom: -1px; font: inherit; font-size: 14px;
+  border-bottom: 2px solid transparent; cursor: pointer;
+}
+.tab-btn:hover { color: var(--text-primary); }
+.tab-btn.active { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--brand); }
+.tab-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 4px; }
+.tab-panel { gap: 20px; }
+.tab-panel[hidden] { display: none !important; }
+@media print { .tab-panel[hidden] { display: block !important; } .tab-panel { margin-bottom: 20px; } }
 .filter-coverage strong { color: var(--text-primary); font-weight: 600; }
+@media (max-width: 520px) {
+  .filter-bar { padding: 10px 12px; gap: 8px; }
+  .filter-bar .filter-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+  .filter-bar .filter-controls label { min-width: 0; }
+  .filter-bar .filter-controls label { flex-wrap: wrap; gap: 4px; }
+  .filter-bar .filter-controls label > span { flex-basis: 100%; font-size: 12px; }
+  .filter-bar .filter-controls .period-select { flex: 1; min-width: 0; padding: 6px 4px; }
+  .filter-bar .filter-controls > button { grid-column: 1 / -1; }
+  .filter-coverage { font-size: 12px; }
+}
 
 .chart-toolbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .segmented {
@@ -453,6 +560,38 @@ DASHBOARD_CSS = """
 }
 .table-search:focus { outline: none; border-color: var(--brand); }
 .table-count { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+.table-toolbar--filters { position: relative; }
+.table-toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.table-toolbar-right { display: flex; align-items: center; gap: 12px; }
+.csv-btn {
+  border: 1px solid var(--border); background: var(--page-plane); color: var(--text-primary);
+  border-radius: 6px; padding: 5px 12px; font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.csv-btn:hover { border-color: var(--brand); }
+.filters-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--border); background: var(--page-plane); color: var(--text-primary);
+  border-radius: 6px; padding: 5px 12px; font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.filters-btn:hover, .filters-btn[aria-expanded="true"] { border-color: var(--brand); }
+.filters-badge {
+  background: var(--brand); color: #fff; border-radius: 10px; font-size: 11px;
+  min-width: 16px; line-height: 16px; padding: 0 5px; text-align: center;
+}
+.filters-panel {
+  position: absolute; top: 100%; left: 0; z-index: 20; margin-top: 6px;
+  width: min(780px, 100%); background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+.filters-panel .filter-bar { border: 0; padding: 0; margin: 0 0 12px; background: transparent; }
+.filters-panel .filters-actions { display: flex; justify-content: flex-end; }
+.filters-panel .filters-actions button {
+  border: 1px solid var(--border); background: var(--page-plane); color: var(--text-primary);
+  border-radius: 6px; padding: 5px 12px; font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.filters-panel .filters-actions button:hover { border-color: var(--brand); }
+.table-coverage { margin: -2px 0 10px; }
+.table-coverage .filter-coverage { font-size: 12px; color: var(--text-muted); }
 .table-more { margin-top: 10px; }
 .table-more-btn {
   display: block;
@@ -573,6 +712,7 @@ def page_shell(titulo: str, subtitulo: str, secciones_html: str) -> str:
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(titulo)}</title>
 <style>{PAGE_CSS}{DASHBOARD_CSS}</style>
 <script>{THEME_INIT_JS}</script>
@@ -597,7 +737,7 @@ def page_shell(titulo: str, subtitulo: str, secciones_html: str) -> str:
   <footer class="report-footer">Informe generado automaticamente desde advertys.db. Volve a correr el script para reflejar el ultimo export.</footer>
 </div>
 <div id="viz-tooltip"></div>
-<script>{TOOLTIP_JS}{THEME_JS}</script>
+<script>{TOOLTIP_JS}{THEME_JS}{TABS_JS}</script>
 </body>
 </html>"""
 
@@ -647,7 +787,7 @@ def bar_chart_svg(categorias, valores, *, colors=None, value_fmt=None, height=26
     if n == 0:
         return "<p>Sin datos.</p>"
 
-    width = max(560, n * 70)
+    width = max(560, n * 54)
     max_val = max(valores) or 1
     steps = 4
     grid_values = [value_fmt(max_val * (i / steps)) for i in range(steps + 1)]
@@ -702,7 +842,7 @@ def bar_chart_svg(categorias, valores, *, colors=None, value_fmt=None, height=26
     </g>""")
 
     baseline_y = pad_top + plot_h
-    return f"""<svg class="chart" viewBox="0 0 {width} {chart_h}" preserveAspectRatio="xMinYMin meet">
+    return f"""<svg class="chart" style="--w:{width}" viewBox="0 0 {width} {chart_h}" preserveAspectRatio="xMinYMin meet">
     <defs>{''.join(defs)}</defs>
     {''.join(gridlines)}
     {''.join(grid_labels)}
@@ -747,7 +887,7 @@ def hbar_chart_svg(categorias, valores, *, value_fmt=None, row_h=28, height=None
       <text x="{label_w + bar_w + 8:.1f}" y="{y + row_h / 2 + 4:.1f}" text-anchor="start">{value_fmt(val)}</text>
     </g>""")
 
-    return f"""<svg class="chart" viewBox="0 0 {width} {height}" preserveAspectRatio="xMinYMin meet">
+    return f"""<svg class="chart" style="--w:{width}" viewBox="0 0 {width} {height}" preserveAspectRatio="xMinYMin meet">
     <defs>
       <linearGradient id="{grad_id}" x1="0" y1="0" x2="1" y2="0">
         <stop offset="0%" style="stop-color:var(--series-1);stop-opacity:0.95" />
@@ -775,10 +915,10 @@ def data_table(columnas, filas, *, numeric_cols=()) -> str:
             else:
                 cells.append(f"<td>{escape('' if valor is None else str(valor))}</td>")
         body_rows.append(f"<tr>{''.join(cells)}</tr>")
-    return f"""<table class="report-table">
+    return f"""<div class="table-scroll"><table class="report-table">
     <thead><tr>{head}</tr></thead>
     <tbody>{''.join(body_rows)}</tbody>
-  </table>"""
+  </table></div>"""
 
 
 # --- Tablero dinamico: filtro de periodo editable por el usuario ---
@@ -842,7 +982,7 @@ _MESES = [
 ]
 
 
-def filter_bar_html() -> str:
+def filter_bar_html(prefix: str = "f-") -> str:
     """Barra de filtro de periodo (Desde/Hasta editable + texto de cobertura).
     Cada limite es un par de <select> Mes/Anio en vez de <input type="month">
     nativo: el spinner de anio del input nativo obliga a clickear de a un
@@ -855,18 +995,83 @@ def filter_bar_html() -> str:
     meses = "".join(f'<option value="{v}">{l}</option>' for v, l in _MESES)
     return f"""<div class="filter-bar">
     <div class="filter-controls no-print">
-      <label>Desde
-        <select class="period-select" id="f-desde-mes">{meses}</select>
-        <select class="period-select" id="f-desde-anio"></select>
+      <label><span>Desde</span>
+        <select class="period-select" id="{prefix}desde-mes">{meses}</select>
+        <select class="period-select" id="{prefix}desde-anio"></select>
       </label>
-      <label>Hasta
-        <select class="period-select" id="f-hasta-mes">{meses}</select>
-        <select class="period-select" id="f-hasta-anio"></select>
+      <label><span>Hasta</span>
+        <select class="period-select" id="{prefix}hasta-mes">{meses}</select>
+        <select class="period-select" id="{prefix}hasta-anio"></select>
       </label>
-      <button type="button" id="f-reset">Ver todo el periodo</button>
+      <button type="button" id="{prefix}reset">Ver todo el periodo</button>
     </div>
-    <div class="filter-coverage" id="f-coverage">Calculando periodos disponibles...</div>
+    <div class="filter-coverage" id="{prefix}coverage">Calculando periodos disponibles...</div>
   </div>"""
+
+
+def filters_panel_html(category_filters: list[dict], prefix: str = "f-") -> str:
+    """Filtros (periodo + categoricos) para mostrar detras de un boton
+    "Filtros" junto al buscador de la tabla, en vez de ocupar la parte
+    superior de la pagina. Requiere spec["filtersInToolbar"] = True: el motor
+    JS (renderGroupedTable) mueve estos controles al popover del boton al
+    armar la tabla. Mismos ids que filter_bar_html/category_filters_html,
+    asi el resto del motor no cambia."""
+    inner = filter_bar_html(prefix) + category_filters_html(category_filters)
+    return f'<div id="filters-panel-source" hidden>{inner}</div>'
+
+
+def tabs_html(tabs) -> str:
+    """Pestanas: tabs = lista de (id, etiqueta, contenido_html). Cada panel es
+    un .section-grid propio (los charts "half" siguen quedando de a pares).
+    Para que cada pestana tenga su filtro de periodo independiente, armar el
+    contenido con filter_bar_html("<prefijo>-") distinto por pestana y declarar
+    spec["scopes"] (ver DASHBOARD_JS). Al imprimir salen todos los paneles."""
+    botones = "".join(
+        f'<button type="button" class="tab-btn{" active" if i == 0 else ""}" role="tab" '
+        f'data-tab="{escape(tid)}" id="tabbtn-{escape(tid)}" aria-controls="tab-{escape(tid)}" '
+        f'aria-selected="{"true" if i == 0 else "false"}">{escape(label)}</button>'
+        for i, (tid, label, _c) in enumerate(tabs)
+    )
+    paneles = "".join(
+        f'<div class="tab-panel section-grid" role="tabpanel" id="tab-{escape(tid)}" '
+        f'aria-labelledby="tabbtn-{escape(tid)}"{"" if i == 0 else " hidden"}>{contenido}</div>'
+        for i, (tid, _l, contenido) in enumerate(tabs)
+    )
+    return f'<div class="tabbar no-print" role="tablist">{botones}</div>{paneles}'
+
+
+TABS_JS = """
+(function () {
+  var bar = document.querySelector('.tabbar');
+  if (!bar) return;
+  var btns = Array.prototype.slice.call(bar.querySelectorAll('.tab-btn'));
+  var KEY = 'aleste-tab:' + location.pathname;
+  function show(id, focus) {
+    btns.forEach(function (b) {
+      var on = b.dataset.tab === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      var panel = document.getElementById('tab-' + b.dataset.tab);
+      if (panel) panel.hidden = !on;
+      if (on && focus) b.focus();
+    });
+    try { localStorage.setItem(KEY, id); } catch (e) {}
+  }
+  btns.forEach(function (b, i) {
+    b.addEventListener('click', function () { show(b.dataset.tab); });
+    b.addEventListener('keydown', function (ev) {
+      var d = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0;
+      if (!d) return;
+      ev.preventDefault();
+      show(btns[(i + d + btns.length) % btns.length].dataset.tab, true);
+    });
+  });
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  show(btns.some(function (b) { return b.dataset.tab === saved; }) ? saved : btns[0].dataset.tab);
+})();
+"""
 
 
 def category_filters_html(filters: list[dict]) -> str:
@@ -884,7 +1089,7 @@ def category_filters_html(filters: list[dict]) -> str:
     if not filters:
         return ""
     campos = "".join(
-        f'<label>{escape(f["label"])}'
+        f'<label><span>{escape(f["label"])}</span>'
         f'<select class="period-select cat-filter-select" id="f-cat-{f["field"]}" data-field="{f["field"]}">'
         f'<option value="">Todos</option></select></label>'
         for f in filters
@@ -906,9 +1111,7 @@ DASHBOARD_JS = """
   var dateField = spec.dateField;
   var tableState = {};
   var groupedTableState = {};
-  var TABLE_LIMIT = 50;
-  var lastFilteredRows = [];
-  var lastFilterRange = { from: null, to: null };
+  var TABLE_PAGE_SIZE = 20;
   var prefersDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   // El filtro de periodo se persiste por archivo (location.pathname) para
   // sobrevivir a un reload del iframe -- el shell del dashboard (SHELL_JS)
@@ -946,12 +1149,30 @@ DASHBOARD_JS = """
   var minPeriod = periods.length ? periods[0] : null;
   var maxPeriod = periods.length ? periods[periods.length - 1] : null;
 
-  var elDesdeMes = document.getElementById('f-desde-mes');
-  var elDesdeAnio = document.getElementById('f-desde-anio');
-  var elHastaMes = document.getElementById('f-hasta-mes');
-  var elHastaAnio = document.getElementById('f-hasta-anio');
-  var elReset = document.getElementById('f-reset');
-  var elCoverage = document.getElementById('f-coverage');
+  // Ambitos (scopes): cada uno tiene su propia barra de periodo (ids con
+  // prefijo, ver filter_bar_html(prefix)) y renderiza solo lo suyo -- asi un
+  // informe con pestanas (ej. Graficos / Tabla) filtra cada una por separado.
+  // Sin spec.scopes hay un unico ambito con prefijo 'f-' que renderiza todo,
+  // igual que antes.
+  function byId(id) { return document.getElementById(id); }
+  var scopes = (spec.scopes && spec.scopes.length ? spec.scopes : [{ id: '', prefix: 'f-' }]).map(function (sd) {
+    var pf = sd.prefix || 'f-';
+    return {
+      def: sd,
+      key: sd.id ? FILTER_KEY + ':' + sd.id : FILTER_KEY,
+      elDesdeMes: byId(pf + 'desde-mes'), elDesdeAnio: byId(pf + 'desde-anio'),
+      elHastaMes: byId(pf + 'hasta-mes'), elHastaAnio: byId(pf + 'hasta-anio'),
+      elReset: byId(pf + 'reset'), elCoverage: byId(pf + 'coverage')
+    };
+  });
+  // Un item (tiles/chart/tabla) pertenece a un ambito si no hay scopes
+  // definidos, o si el ambito lo lista.
+  function owns(sc, kind, mount) {
+    if (!spec.scopes || !spec.scopes.length) return true;
+    if (kind === 'statTiles') return sc.def.statTiles === true;
+    return (sc.def[kind] || []).indexOf(mount) !== -1;
+  }
+  var rangeByMount = {};
 
   // Filtros categoricos (Cliente/Proveedor/N° Recibo/etc, ver
   // hr.category_filters_html): un <select> "Todos" + valores unicos del
@@ -1004,21 +1225,23 @@ DASHBOARD_JS = """
   if (minPeriod) {
     var years = [];
     for (var y = parseInt(minPeriod.slice(0, 4), 10); y <= parseInt(maxPeriod.slice(0, 4), 10); y++) years.push(String(y));
-    populateYearSelect(elDesdeAnio, years, minPeriod.slice(0, 4));
-    populateYearSelect(elHastaAnio, years, maxPeriod.slice(0, 4));
+    scopes.forEach(function (sc) {
+      populateYearSelect(sc.elDesdeAnio, years, minPeriod.slice(0, 4));
+      populateYearSelect(sc.elHastaAnio, years, maxPeriod.slice(0, 4));
 
-    var initialFrom = minPeriod, initialTo = maxPeriod;
-    var storedFilter = null;
-    try { storedFilter = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null'); } catch (e) {}
-    if (storedFilter && storedFilter.from && storedFilter.to &&
-        storedFilter.from >= minPeriod && storedFilter.from <= maxPeriod &&
-        storedFilter.to >= minPeriod && storedFilter.to <= maxPeriod &&
-        storedFilter.from <= storedFilter.to) {
-      initialFrom = storedFilter.from;
-      initialTo = storedFilter.to;
-    }
-    setPeriod(elDesdeMes, elDesdeAnio, initialFrom);
-    setPeriod(elHastaMes, elHastaAnio, initialTo);
+      var initialFrom = minPeriod, initialTo = maxPeriod;
+      var storedFilter = null;
+      try { storedFilter = JSON.parse(localStorage.getItem(sc.key) || 'null'); } catch (e) {}
+      if (storedFilter && storedFilter.from && storedFilter.to &&
+          storedFilter.from >= minPeriod && storedFilter.from <= maxPeriod &&
+          storedFilter.to >= minPeriod && storedFilter.to <= maxPeriod &&
+          storedFilter.from <= storedFilter.to) {
+        initialFrom = storedFilter.from;
+        initialTo = storedFilter.to;
+      }
+      setPeriod(sc.elDesdeMes, sc.elDesdeAnio, initialFrom);
+      setPeriod(sc.elHastaMes, sc.elHastaAnio, initialTo);
+    });
   }
 
   // Filas sin fecha (dato faltante en el origen) solo se muestran cuando el
@@ -1066,6 +1289,136 @@ DASHBOARD_JS = """
     });
   }
 
+  // Orden por titulo de columna (tablas agrupadas con t.sortableHeaders):
+  // numeros y fechas arrancan de mayor a menor; texto, alfabetico A-Z. Un
+  // segundo click invierte. Vacios siempre al final.
+  function cmpVals(a, b, dir) {
+    var an = (a == null || a === ''), bn = (b == null || b === '');
+    if (an && bn) return 0;
+    if (an) return 1;
+    if (bn) return -1;
+    var r;
+    if (typeof a === 'number' && typeof b === 'number') r = a - b;
+    else r = String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+    return r * dir;
+  }
+  function sortByKey(rows, st) {
+    if (!st) return rows;
+    var dir = st.dir === 'asc' ? 1 : -1;
+    return rows.slice().sort(function (x, y) { return cmpVals(x[st.key], y[st.key], dir); });
+  }
+  function firstDir(key, rows, numericCols) {
+    if (numericCols && numericCols.indexOf(key) >= 0) return 'desc';
+    for (var i = 0; i < rows.length; i++) {
+      var v = rows[i][key];
+      if (v != null && v !== '') return /^\\d{4}-\\d{2}-\\d{2}/.test(String(v)) ? 'desc' : 'asc';
+    }
+    return 'asc';
+  }
+  function nextSort(cur, key, rows, numericCols) {
+    if (cur && cur.key === key) return { key: key, dir: cur.dir === 'asc' ? 'desc' : 'asc' };
+    return { key: key, dir: firstDir(key, rows, numericCols) };
+  }
+  function arrowFor(st, key) {
+    return (st && st.key === key) ? (st.dir === 'asc' ? ' \u2191' : ' \u2193') : '';
+  }
+
+  // Boton "Filtros" junto al buscador (spec.filtersInToolbar): mueve los
+  // controles de periodo/categoricos a un popover para sacarlos de la parte
+  // superior de la pagina. Los elementos conservan sus ids y listeners.
+  function updateFilterBadge() {
+    var badge = document.querySelector('.filters-badge');
+    if (!badge) return;
+    var n = categoryFilterEls.filter(function (cf) { return cf.el.value; }).length;
+    var periodChanged = scopes.some(function (sc) {
+      var f = getPeriod(sc.elDesdeMes, sc.elDesdeAnio), t = getPeriod(sc.elHastaMes, sc.elHastaAnio);
+      return (f && minPeriod && f !== minPeriod) || (t && maxPeriod && t !== maxPeriod);
+    });
+    if (periodChanged) n += 1;
+    badge.textContent = n;
+    badge.hidden = n === 0;
+  }
+  function setupFiltersPopover(toolbar) {
+    var source = document.getElementById('filters-panel-source');
+    if (!source) return;
+    var btn = toolbar.querySelector('.filters-btn');
+    var panel = document.createElement('div');
+    panel.className = 'filters-panel no-print';
+    panel.hidden = true;
+    var coverage = source.querySelector('.filter-coverage');
+    while (source.firstChild) panel.appendChild(source.firstChild);
+    source.remove();
+    if (coverage) {
+      var covBox = document.createElement('div');
+      covBox.className = 'table-coverage';
+      covBox.appendChild(coverage);
+      toolbar.parentNode.insertBefore(covBox, toolbar.nextSibling);
+    }
+    var actions = document.createElement('div');
+    actions.className = 'filters-actions';
+    var clear = document.createElement('button');
+    clear.type = 'button';
+    clear.textContent = 'Limpiar filtros';
+    clear.addEventListener('click', function () {
+      categoryFilterEls.forEach(function (cf) { cf.el.value = ''; });
+      var reset = scopes[0] && scopes[0].elReset;
+      if (reset) reset.click();
+      renderAll();
+    });
+    actions.appendChild(clear);
+    panel.appendChild(actions);
+    toolbar.appendChild(panel);
+    function setOpen(open) { panel.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+    btn.addEventListener('click', function (ev) { ev.stopPropagation(); setOpen(panel.hidden); });
+    document.addEventListener('click', function (ev) {
+      if (!panel.hidden && !panel.contains(ev.target) && ev.target !== btn) setOpen(false);
+    });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') setOpen(false); });
+  }
+
+  // Exportar CSV (tablas agrupadas con t.csvExport): una fila por linea de
+  // detalle, con los datos del grupo (ej. recibo) repetidos en cada una --
+  // incluye lo que esta dentro del desplegable. Respeta periodo, filtros y
+  // buscador vigentes (exporta lo que se esta viendo, todas las paginas).
+  // ';' como separador y coma decimal: es lo que abre bien Excel en es-AR;
+  // el BOM UTF-8 evita que rompa tildes y la enie.
+  function csvCell(v, isNum) {
+    if (v == null || v === '') return '';
+    var t = isNum && typeof v === 'number' ? String(Math.round(v * 100) / 100).replace('.', ',') : String(v);
+    var m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(t);
+    if (m) t = m[3] + '/' + m[2] + '/' + m[1];
+    return /[;"\\n\\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function exportGroupedCsv(mountId, t) {
+    var el = document.getElementById(mountId);
+    var st = groupedTableState[mountId];
+    var groups = (el && el._filteredGroups) || [];
+    var cfg = t.csvExport || {};
+    var gCols = t.groupColumns.map(function (c) { return { key: c[0], label: c[1], num: !!(t.groupNumericCols && t.groupNumericCols.indexOf(c[0]) >= 0), from: 'g' }; });
+    var dCols = t.detailColumns.concat(cfg.extraDetail || []).map(function (c) { return { key: c[0], label: c[1], num: !!(((t.detailNumericCols || []).concat(cfg.extraNumeric || [])).indexOf(c[0]) >= 0), from: 'd' }; });
+    var gLabels = gCols.map(function (c) { return c.label; });
+    var dLabels = dCols.map(function (c) { return c.label; });
+    gCols.forEach(function (c) { if (dLabels.indexOf(c.label) >= 0) c.label += (cfg.groupSuffix || ' (grupo)'); });
+    dCols.forEach(function (c) { if (gLabels.indexOf(c.label) >= 0) c.label += (cfg.detailSuffix || ' (detalle)'); });
+    var labels = cfg.labels || {};
+    gCols.concat(dCols).forEach(function (c) { if (labels[c.key]) c.label = labels[c.key]; });
+    var cols = gCols.concat(dCols);
+    var lines = [cols.map(function (c) { return csvCell(c.label); }).join(';')];
+    groups.forEach(function (g) {
+      var rows = (st && st.detailSort) ? sortByKey(g._rows, st.detailSort) : g._rows;
+      rows.forEach(function (r) {
+        lines.push(cols.map(function (c) { return csvCell(c.from === 'g' ? g[c.key] : r[c.key], c.num); }).join(';'));
+      });
+    });
+    var blob = new Blob(['\\uFEFF' + lines.join('\\r\\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (cfg.filename || 'export') + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
   var gradSeq = 0;
 
   // Puerto 1:1 de bar_chart_svg() (html_report.py) para que el grafico
@@ -1076,7 +1429,7 @@ DASHBOARD_JS = """
     var colors = opts.colors;
     var n = categorias.length;
     if (!n) return '<p>Sin datos.</p>';
-    var width = Math.max(560, n * 70);
+    var width = Math.max(560, n * 54);
     var maxVal = Math.max.apply(null, valores) || 1;
     var steps = 4;
     var gridValues = [];
@@ -1119,16 +1472,47 @@ DASHBOARD_JS = """
       );
     }
     var baselineY2 = padTop + plotH;
-    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
+    return '<svg class="chart" style="--w:' + width + '" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
       '<defs>' + defs.join('') + '</defs>' +
       gridlines.join('') + gridLabels.join('') +
       '<line class="baseline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + baselineY2.toFixed(1) + '" y2="' + baselineY2.toFixed(1) + '" />' +
       bars.join('') + '</svg>';
   }
 
+  // Version angosta (pantalla <= 720px) de hbarChartSvg: el nombre va arriba de
+  // cada barra en vez de a la izquierda, asi la barra usa todo el ancho y no
+  // hace falta scrollear para ver el valor mas grande.
+  function hbarChartSvgNarrow(categorias, valores, opts) {
+    var valueFmt = opts.fmt || 'int';
+    var n = categorias.length;
+    var width = 420, rowH = 46, padRight = 110, barX = 0;
+    var plotW = width - barX - padRight;
+    var maxVal = Math.max.apply(null, valores) || 1;
+    var maxChars = 58;
+    var gradId = 'hbg-' + (gradSeq++);
+    var rows = [];
+    for (var i = 0; i < n; i++) {
+      var cat = categorias[i], val = valores[i];
+      var y = 6 + i * rowH;
+      var barW = maxVal ? (val / maxVal) * plotW : 0;
+      rows.push(
+        '<g>' +
+        '<text x="0" y="' + (y + 11).toFixed(1) + '" text-anchor="start">' + esc(truncar(cat, maxChars)) + '</text>' +
+        '<rect class="hit" x="0" y="' + y.toFixed(1) + '" width="' + width + '" height="' + (rowH - 8) + '" data-label="' + esc(cat) + '" data-value="' + esc(fmt(valueFmt, val)) + '" />' +
+        '<rect x="' + barX + '" y="' + (y + 17).toFixed(1) + '" width="' + Math.max(barW, 2).toFixed(1) + '" height="16" rx="4" ry="4" fill="url(#' + gradId + ')" pointer-events="none" />' +
+        '<text x="' + (barX + barW + 8).toFixed(1) + '" y="' + (y + 30).toFixed(1) + '" text-anchor="start">' + esc(fmt(valueFmt, val)) + '</text>' +
+        '</g>'
+      );
+    }
+    var defsHtml = '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" style="stop-color:var(--series-1);stop-opacity:0.95" /><stop offset="100%" style="stop-color:var(--series-1);stop-opacity:0.6" /></linearGradient></defs>';
+    var height = n * rowH + 12;
+    return '<svg class="chart" style="--w:' + width + '" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMinYMin meet">' + defsHtml + rows.join('') + '</svg>';
+  }
+
   // Puerto 1:1 de hbar_chart_svg() (html_report.py).
   function hbarChartSvg(categorias, valores, opts) {
     opts = opts || {};
+    if (categorias.length && window.innerWidth <= 720) return hbarChartSvgNarrow(categorias, valores, opts);
     var valueFmt = opts.fmt || 'int';
     var rowH = opts.rowH || 28;
     var n = categorias.length;
@@ -1159,7 +1543,7 @@ DASHBOARD_JS = """
       );
     }
     var defsHtml = '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" style="stop-color:var(--series-1);stop-opacity:0.95" /><stop offset="100%" style="stop-color:var(--series-1);stop-opacity:0.6" /></linearGradient></defs>';
-    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMinYMin meet">' + defsHtml + rows.join('') + '</svg>';
+    return '<svg class="chart" style="--w:' + width + '" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMinYMin meet">' + defsHtml + rows.join('') + '</svg>';
   }
 
   // Linea/area para tendencia en el tiempo (una sola serie). Rotula todos los
@@ -1219,7 +1603,7 @@ DASHBOARD_JS = """
     var endDot = '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="5" fill="var(--series-1)" stroke="var(--surface-1)" stroke-width="2" pointer-events="none" />';
     var endLabel = '<text x="' + (last[0] + 10).toFixed(1) + '" y="' + (last[1] - 8).toFixed(1) + '" text-anchor="start" font-weight="600" fill="var(--text-primary)">' + esc(fmt(valueFmt, valores[n - 1])) + '</text>';
 
-    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
+    return '<svg class="chart" style="--w:' + width + '" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
       gridlines.join('') + gridLabels.join('') +
       '<line class="baseline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + baselineY.toFixed(1) + '" y2="' + baselineY.toFixed(1) + '" />' +
       '<path d="' + areaPath + '" fill="var(--series-1)" fill-opacity="0.12" stroke="none" />' +
@@ -1265,7 +1649,7 @@ DASHBOARD_JS = """
         '</g>';
     }).join('');
 
-    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMinYMin meet">' +
+    return '<svg class="chart" style="--w:' + width + '" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMinYMin meet">' +
       '<defs><clipPath id="' + clipId + '"><rect x="0" y="0" width="' + width + '" height="' + barH + '" rx="6" ry="6" /></clipPath></defs>' +
       '<g clip-path="url(#' + clipId + ')">' + segs.join('') + '</g>' +
       hits.join('') + legend +
@@ -1326,14 +1710,19 @@ DASHBOARD_JS = """
       catLabels.push('<text x="' + (groupX + (groupW - groupGap) / 2).toFixed(1) + '" y="' + (baselineY + 18).toFixed(1) + '" text-anchor="middle">' + esc(categorias[j]) + '</text>');
     }
 
+    // Cada entrada mide 16 (swatch) + texto + 18 de separacion: con un paso
+    // fijo, etiquetas largas (ej. "2023-2025") pisaban a la siguiente.
+    var legendX = padLeft;
     var legend = years.map(function (y, s) {
-      return '<g transform="translate(' + (padLeft + s * 64) + ',' + (chartH - legendH + 8) + ')">' +
+      var x0 = legendX;
+      legendX += 16 + String(y).length * 6.8 + 18;
+      return '<g transform="translate(' + x0.toFixed(1) + ',' + (chartH - legendH + 8) + ')">' +
         '<rect width="10" height="10" rx="2" fill="var(--series-1)" fill-opacity="' + opacityFor(s).toFixed(2) + '" />' +
         '<text x="16" y="9" font-size="12" fill="var(--text-secondary)">' + esc(y) + '</text>' +
         '</g>';
     }).join('');
 
-    return '<svg class="chart" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
+    return '<svg class="chart" style="--w:' + width + '" viewBox="0 0 ' + width + ' ' + chartH + '" preserveAspectRatio="xMinYMin meet">' +
       gridlines.join('') + gridLabels.join('') +
       '<line class="baseline" x1="' + padLeft + '" x2="' + (width - padRight) + '" y1="' + baselineY.toFixed(1) + '" y2="' + baselineY.toFixed(1) + '" />' +
       bars.join('') + catLabels.join('') + legend +
@@ -1416,6 +1805,8 @@ DASHBOARD_JS = """
   function renderStatTiles(mountId, items) {
     var el = document.getElementById(mountId);
     if (!el) return;
+    // 5+ tarjetas: importes grandes no entran en 22px sin partirse (ver .stat-grid--dense).
+    el.classList.toggle('stat-grid--dense', items.length >= 5);
     el.innerHTML = items.map(function (it) {
       var sub = it.sublabel ? '<div class="sublabel">' + esc(it.sublabel) + '</div>' : '';
       return '<div class="stat-tile"><div class="label">' + esc(it.label) + '</div><div class="value">' + esc(it.value) + '</div>' + sub + '</div>';
@@ -1481,36 +1872,66 @@ DASHBOARD_JS = """
   function renderGroupedTable(mountId, t, rows) {
     var el = document.getElementById(mountId);
     if (!el) return;
-    if (!groupedTableState[mountId]) groupedTableState[mountId] = { search: '', open: {} };
+    if (!groupedTableState[mountId]) groupedTableState[mountId] = { search: '', open: {}, page: 1, sort: null, detailSort: null };
     if (!el.dataset.built) {
+      var inToolbar = !!spec.filtersInToolbar && !!document.getElementById('filters-panel-source');
       el.innerHTML =
-        '<div class="table-toolbar no-print">' +
-          '<input type="search" class="table-search" placeholder="Buscar en la tabla...">' +
-          '<span class="table-count"></span>' +
+        '<div class="table-toolbar no-print' + (inToolbar ? ' table-toolbar--filters' : '') + '">' +
+          (inToolbar
+            ? '<div class="table-toolbar-left">' +
+                '<input type="search" class="table-search" placeholder="Buscar en la tabla...">' +
+                '<button type="button" class="filters-btn" aria-expanded="false">Filtros <span class="filters-badge" hidden>0</span></button>' +
+              '</div>'
+            : '<input type="search" class="table-search" placeholder="Buscar en la tabla...">') +
+          '<div class="table-toolbar-right">' +
+            (t.csvExport ? '<button type="button" class="csv-btn" title="Descarga lo que ves en pantalla, con el detalle de cada fila desplegable">Exportar CSV</button>' : '') +
+            '<span class="table-count"></span>' +
+          '</div>' +
         '</div>' +
-        '<div class="table-inner"></div>';
+        '<div class="table-inner"></div>' +
+        '<nav class="table-pager no-print" aria-label="Paginacion de la tabla" hidden></nav>';
       el.dataset.built = '1';
+      if (inToolbar) setupFiltersPopover(el.querySelector('.table-toolbar'));
+      var csvBtn = el.querySelector('.csv-btn');
+      if (csvBtn) csvBtn.addEventListener('click', function () { exportGroupedCsv(mountId, t); });
       var searchInput = el.querySelector('.table-search');
       searchInput.addEventListener('input', function () {
         groupedTableState[mountId].search = searchInput.value;
+        groupedTableState[mountId].page = 1;
         paintGroupedTable(mountId, t, el._groups || []);
+      });
+      el.querySelector('.table-pager').addEventListener('click', function (ev) {
+        var b = ev.target.closest('button[data-page]');
+        if (!b || b.disabled) return;
+        groupedTableState[mountId].page = parseInt(b.dataset.page, 10);
+        paintGroupedTable(mountId, t, el._groups || []);
+        var top = el.querySelector('.table-toolbar');
+        if (top) top.scrollIntoView({ block: 'start' });
       });
     }
     var groups = groupRows(rows, t.groupField, t.groupAggs);
     if (t.sort) groups = sortRows(groups, t.sort);
     el._groups = groups;
+    groupedTableState[mountId].page = 1;
     paintGroupedTable(mountId, t, groups);
   }
 
-  function _celdaHtml(v, isNum) {
-    if (v == null) return '<td' + (isNum ? ' class="num"' : '') + '></td>';
-    return '<td' + (isNum ? ' class="num"' : '') + '>' + esc(isNum ? fmtMoney(v) : v) + '</td>';
+  // cls: clases extra (ej. 'col-sec' = columna que se oculta en mobile). Las
+  // fechas YYYY-MM-DD llevan 'nowrap' para que no se partan en el guion.
+  function _celdaHtml(v, isNum, cls) {
+    var c = (isNum ? 'num' : '') + (cls ? ' ' + cls : '');
+    if (!isNum && typeof v === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(v)) c += ' nowrap';
+    c = c.trim();
+    var attr = c ? ' class="' + c + '"' : '';
+    if (v == null) return '<td' + attr + '></td>';
+    return '<td' + attr + '>' + esc(isNum ? fmtMoney(v) : v) + '</td>';
   }
 
   function paintGroupedTable(mountId, t, groups) {
     var el = document.getElementById(mountId);
     if (!el) return;
     var st = groupedTableState[mountId];
+    if (t.sortableHeaders && st.sort) groups = sortByKey(groups, st.sort);
     var q = (st.search || '').trim().toLowerCase();
     var matchCols = function (obj, cols) {
       return cols.some(function (c) {
@@ -1522,37 +1943,100 @@ DASHBOARD_JS = """
       return matchCols(g, t.groupColumns) || g._rows.some(function (r) { return matchCols(r, t.detailColumns); });
     }) : groups;
 
+    el._filteredGroups = filtered;
+    var hideMobile = t.groupMobileHide || [];
+    var minW = t.groupMinWidths || {};
+    var mobW = window.innerWidth <= 720 ? (t.groupMobileWidths || {}) : {};
     var headHtml = '<tr>' + t.groupColumns.map(function (c) {
       var isNum = t.groupNumericCols && t.groupNumericCols.indexOf(c[0]) >= 0;
-      return '<th' + (isNum ? ' class="num"' : '') + '>' + esc(c[1]) + '</th>';
+      var cls = (isNum ? 'num' : '') + (hideMobile.indexOf(c[0]) >= 0 ? ' col-sec' : '');
+      var st2 = minW[c[0]] ? ' style="min-width:' + minW[c[0]] + 'px"' : '';
+      if (mobW[c[0]]) st2 = ' style="width:' + mobW[c[0]] + 'px"';
+      if (t.sortableHeaders) {
+        cls += ' sortable';
+        return '<th class="' + cls.trim() + '" data-skey="' + esc(c[0]) + '"' + st2 + '>' + esc(c[1]) + arrowFor(st.sort, c[0]) + '</th>';
+      }
+      return '<th' + (cls.trim() ? ' class="' + cls.trim() + '"' : '') + st2 + '>' + esc(c[1]) + '</th>';
     }).join('') + '<th class="group-toggle-col"></th></tr>';
 
     var detailHead = '<tr>' + t.detailColumns.map(function (c) {
       var isNum = t.detailNumericCols && t.detailNumericCols.indexOf(c[0]) >= 0;
+      if (t.sortableHeaders) {
+        return '<th class="' + (isNum ? 'num ' : '') + 'sortable" data-dkey="' + esc(c[0]) + '">' + esc(c[1]) + arrowFor(st.detailSort, c[0]) + '</th>';
+      }
       return '<th' + (isNum ? ' class="num"' : '') + '>' + esc(c[1]) + '</th>';
     }).join('') + '</tr>';
 
-    var bodyHtml = filtered.map(function (g) {
+    var pages = Math.max(1, Math.ceil(filtered.length / TABLE_PAGE_SIZE));
+    if (!st.page || st.page > pages) st.page = pages;
+    var pageStart = (st.page - 1) * TABLE_PAGE_SIZE, pageEnd = pageStart + TABLE_PAGE_SIZE;
+
+    var bodyHtml = filtered.map(function (g, gi) {
+      // Fuera de la pagina: fila oculta en pantalla, pero en el DOM para que
+      // @media print (.row-hidden) la vuelva a mostrar (igual que renderTable).
+      var off = (gi < pageStart || gi >= pageEnd) ? ' row-hidden' : '';
       var key = String(g[t.groupField]);
       var isOpen = !!st.open[key];
       var cells = t.groupColumns.map(function (c) {
-        return _celdaHtml(g[c[0]], t.groupNumericCols && t.groupNumericCols.indexOf(c[0]) >= 0);
+        var badges = t.groupBadges && t.groupBadges[c[0]];
+        var bv = g[c[0]];
+        var sec = hideMobile.indexOf(c[0]) >= 0 ? 'col-sec' : '';
+        if (badges && bv != null && bv !== '' && badges[bv]) {
+          var note = t.groupBadgeNotes && t.groupBadgeNotes[c[0]];
+          var noteV = note ? g[note.field] : null;
+          return '<td' + (sec ? ' class="' + sec + '"' : '') + '><span class="estado-badge estado-badge--' + badges[bv] + '">' + esc(bv) + '</span>' +
+            (noteV ? '<div class="estado-note">' + esc((note.prefix || '') + noteV) + '</div>' : '') + '</td>';
+        }
+        if (badges) return '<td' + (sec ? ' class="' + sec + '"' : '') + '></td>';
+        return _celdaHtml(bv, t.groupNumericCols && t.groupNumericCols.indexOf(c[0]) >= 0, sec);
       }).join('');
-      var summaryRow = '<tr class="group-row' + (isOpen ? ' open' : '') + '" data-gkey="' + esc(key) + '">' +
+      // Ficha mobile: los datos de las columnas ocultas (solo se ve en <=720px).
+      var facts = hideMobile.map(function (k) {
+        var col = t.groupColumns.filter(function (c) { return c[0] === k; })[0];
+        if (!col) return '';
+        var v = g[k];
+        if (v == null || v === '') return '';
+        var isNum = t.groupNumericCols && t.groupNumericCols.indexOf(k) >= 0;
+        var txt = isNum ? fmtMoney(v) : String(v);
+        var nt = t.groupBadgeNotes && t.groupBadgeNotes[k];
+        if (nt && g[nt.field]) txt += ' (' + (nt.prefix || '') + g[nt.field] + ')';
+        return '<div><dt>' + esc(col[1]) + '</dt><dd>' + esc(txt) + '</dd></div>';
+      }).join('');
+      var rowCls = (t.groupStrikeField && g[t.groupStrikeField]) ? ' group-row--anulada' : '';
+      var summaryRow = '<tr class="group-row' + rowCls + off + (isOpen ? ' open' : '') + '" data-gkey="' + esc(key) + '">' +
         cells + '<td class="group-toggle">' + (isOpen ? '▾' : '▸') + '</td></tr>';
-      var detailBody = g._rows.map(function (r) {
+      var detailRows = (t.sortableHeaders && st.detailSort) ? sortByKey(g._rows, st.detailSort) : g._rows;
+      var detailBody = detailRows.map(function (r) {
         return '<tr>' + t.detailColumns.map(function (c) {
           return _celdaHtml(r[c[0]], t.detailNumericCols && t.detailNumericCols.indexOf(c[0]) >= 0);
         }).join('') + '</tr>';
       }).join('');
-      var detailRow = '<tr class="group-detail-row' + (isOpen ? ' open' : '') + '"><td colspan="' + (t.groupColumns.length + 1) + '">' +
-        '<table class="report-table report-table--nested"><thead>' + detailHead + '</thead><tbody>' + detailBody + '</tbody></table>' +
+      var detailRow = '<tr class="group-detail-row' + off + (isOpen ? ' open' : '') + '"><td colspan="' + ((window.innerWidth <= 720 ? t.groupColumns.length - hideMobile.length : t.groupColumns.length) + 1) + '">' +
+        (facts ? '<dl class="group-facts">' + facts + '</dl>' : '') +
+        '<div class="table-scroll"><table class="report-table report-table--nested"><thead>' + detailHead + '</thead><tbody>' + detailBody + '</tbody></table></div>' +
         '</td></tr>';
       return summaryRow + detailRow;
     }).join('');
 
     var inner = el.querySelector('.table-inner');
     inner.innerHTML = '<table class="report-table report-table--grouped"><thead>' + headHtml + '</thead><tbody>' + bodyHtml + '</tbody></table>';
+    if (t.sortableHeaders) {
+      inner.querySelectorAll('th[data-skey]').forEach(function (th) {
+        th.addEventListener('click', function () {
+          st.sort = nextSort(st.sort, th.dataset.skey, groups, t.groupNumericCols);
+          st.page = 1;
+          paintGroupedTable(mountId, t, groups);
+        });
+      });
+      inner.querySelectorAll('th[data-dkey]').forEach(function (th) {
+        th.addEventListener('click', function () {
+          var all = [];
+          groups.forEach(function (g) { all = all.concat(g._rows); });
+          st.detailSort = nextSort(st.detailSort, th.dataset.dkey, all, t.detailNumericCols);
+          paintGroupedTable(mountId, t, groups);
+        });
+      });
+    }
     inner.querySelectorAll('tr.group-row').forEach(function (tr) {
       tr.addEventListener('click', function () {
         var key = tr.dataset.gkey;
@@ -1566,6 +2050,16 @@ DASHBOARD_JS = """
       var noun = t.groupNoun || { one: 'fila', many: 'filas' };
       countEl.textContent = filtered.length + ' ' + (filtered.length === 1 ? noun.one : noun.many);
     }
+
+    var pager = el.querySelector('.table-pager');
+    if (filtered.length <= TABLE_PAGE_SIZE) {
+      pager.innerHTML = '';
+      pager.hidden = true;
+    } else {
+      var nn = t.groupNoun || { one: 'fila', many: 'filas' };
+      pager.hidden = false;
+      pager.innerHTML = pagerHtml(filtered.length, st.page, pages, pageStart, Math.min(pageEnd, filtered.length), nn.many);
+    }
   }
 
   // Tabla con buscador en vivo + orden por columna + tope de TABLE_LIMIT filas
@@ -1576,7 +2070,7 @@ DASHBOARD_JS = """
     var el = document.getElementById(mountId);
     if (!el) return;
     if (!tableState[mountId]) {
-      tableState[mountId] = { search: '', expanded: false, sort: (tableSpec && tableSpec.sort) || null };
+      tableState[mountId] = { search: '', page: 1, sort: (tableSpec && tableSpec.sort) || null };
     }
     if (!el.dataset.built) {
       el.innerHTML =
@@ -1585,22 +2079,27 @@ DASHBOARD_JS = """
           '<span class="table-count"></span>' +
         '</div>' +
         '<div class="table-inner"></div>' +
-        '<div class="table-more no-print" style="display:none"><button type="button" class="table-more-btn"></button></div>';
+        '<nav class="table-pager no-print" aria-label="Paginacion de la tabla" hidden></nav>';
       el.dataset.built = '1';
       var searchInput = el.querySelector('.table-search');
       searchInput.addEventListener('input', function () {
         tableState[mountId].search = searchInput.value;
-        tableState[mountId].expanded = false;
+        tableState[mountId].page = 1;
         paintTable(mountId);
       });
-      el.querySelector('.table-more-btn').addEventListener('click', function () {
-        tableState[mountId].expanded = !tableState[mountId].expanded;
+      el.querySelector('.table-pager').addEventListener('click', function (ev) {
+        var b = ev.target.closest('button[data-page]');
+        if (!b || b.disabled) return;
+        tableState[mountId].page = parseInt(b.dataset.page, 10);
         paintTable(mountId);
+        var top = el.querySelector('.table-toolbar');
+        if (top) top.scrollIntoView({ block: 'start' });
       });
     }
     el._allColumns = columns;
     el._allRows = rows;
     el._numericCols = numericCols;
+    tableState[mountId].page = 1;
     paintTable(mountId);
   }
 
@@ -1620,7 +2119,9 @@ DASHBOARD_JS = """
       });
     }) : sorted;
 
-    var showAll = st.expanded || filtered.length <= TABLE_LIMIT;
+    var pages = Math.max(1, Math.ceil(filtered.length / TABLE_PAGE_SIZE));
+    if (!st.page || st.page > pages) st.page = pages;
+    var pageStart = (st.page - 1) * TABLE_PAGE_SIZE, pageEnd = pageStart + TABLE_PAGE_SIZE;
 
     var head = columns.map(function (c) {
       var key = c[0], label = c[1];
@@ -1628,7 +2129,7 @@ DASHBOARD_JS = """
       var arrow = (st.sort && st.sort.key === key) ? (st.sort.dir === 'asc' ? ' ↑' : ' ↓') : '';
       return '<th class="' + cls + '" data-key="' + esc(key) + '">' + esc(label) + arrow + '</th>';
     }).join('');
-    // Las filas mas alla de TABLE_LIMIT se quedan en el DOM (no se cortan del
+    // Las filas fuera de la pagina actual se quedan en el DOM (no se cortan del
     // array) y solo se ocultan con la clase row-hidden: asi @media print
     // (html_report.py) las vuelve a mostrar siempre, sin depender de que el
     // evento JS 'beforeprint' llegue a disparar (en Chromium headless no lo
@@ -1642,7 +2143,7 @@ DASHBOARD_JS = """
         }
         return '<td>' + (v == null ? '' : esc(v)) + '</td>';
       }).join('');
-      var rowCls = (!showAll && i >= TABLE_LIMIT) ? ' class="row-hidden"' : '';
+      var rowCls = (i < pageStart || i >= pageEnd) ? ' class="row-hidden"' : '';
       return '<tr' + rowCls + '>' + cells + '</tr>';
     }).join('');
 
@@ -1656,6 +2157,7 @@ DASHBOARD_JS = """
         } else {
           st.sort = { key: key, dir: 'desc' };
         }
+        st.page = 1;
         paintTable(mountId);
       });
     });
@@ -1667,24 +2169,43 @@ DASHBOARD_JS = """
         : (filtered.length + ' de ' + rows.length + ' filas');
     }
 
-    var moreWrap = el.querySelector('.table-more');
-    var moreBtn = el.querySelector('.table-more-btn');
-    if (filtered.length > TABLE_LIMIT) {
-      moreWrap.style.display = '';
-      moreBtn.textContent = showAll ? ('▴ Mostrar solo las primeras ' + TABLE_LIMIT) : ('▾ Mostrar todas (' + filtered.length + ')');
+    var pager = el.querySelector('.table-pager');
+    if (filtered.length <= TABLE_PAGE_SIZE) {
+      pager.innerHTML = '';
+      pager.hidden = true;
     } else {
-      moreWrap.style.display = 'none';
+      pager.hidden = false;
+      pager.innerHTML = pagerHtml(filtered.length, st.page, pages, pageStart, Math.min(pageEnd, filtered.length));
     }
   }
 
-  function renderAll() {
-    var from = getPeriod(elDesdeMes, elDesdeAnio) || minPeriod;
-    var to = getPeriod(elHastaMes, elHastaAnio) || maxPeriod;
-    if (from && to && from > to) { to = from; setPeriod(elHastaMes, elHastaAnio, from); }
-    var rows = applyCategoryFilters(filterRecords(from, to));
-    try { localStorage.setItem(FILTER_KEY, JSON.stringify({ from: from, to: to })); } catch (e) {}
+  // Paginador: 1 ... actual-1 actual actual+1 ... ultima (entra en una fila mobile).
+  function pagerHtml(total, page, pages, start, end, noun) {
+    var html = '<span class="pager-info">' + (start + 1) + '–' + end + ' de ' + total + ' ' + (noun || 'filas') + '</span>';
+    html += '<div class="pager-buttons">';
+    html += '<button type="button" data-page="' + (page - 1) + '"' + (page === 1 ? ' disabled' : '') + '>Anterior</button>';
+    var last = 0;
+    for (var p = 1; p <= pages; p++) {
+      if (p === 1 || p === pages || Math.abs(p - page) <= 1) {
+        if (last && p - last > 1) html += '<span class="pager-gap">…</span>';
+        html += '<button type="button" data-page="' + p + '"' + (p === page ? ' class="active" aria-current="page"' : '') + '>' + p + '</button>';
+        last = p;
+      }
+    }
+    html += '<button type="button" data-page="' + (page + 1) + '"' + (page === pages ? ' disabled' : '') + '>Siguiente</button>';
+    return html + '</div>';
+  }
 
-    if (spec.statTiles) {
+  function renderAll() { scopes.forEach(renderScope); updateFilterBadge(); }
+
+  function renderScope(sc) {
+    var from = getPeriod(sc.elDesdeMes, sc.elDesdeAnio) || minPeriod;
+    var to = getPeriod(sc.elHastaMes, sc.elHastaAnio) || maxPeriod;
+    if (from && to && from > to) { to = from; setPeriod(sc.elHastaMes, sc.elHastaAnio, from); }
+    var rows = applyCategoryFilters(filterRecords(from, to));
+    try { localStorage.setItem(sc.key, JSON.stringify({ from: from, to: to })); } catch (e) {}
+
+    if (spec.statTiles && owns(sc, 'statTiles')) {
       var items = spec.statTiles.map(function (t) {
         var subset = rows;
         if (t.filter) subset = subset.filter(function (r) { return r[t.filter.field] === t.filter.equals; });
@@ -1706,12 +2227,11 @@ DASHBOARD_JS = """
       renderStatTiles('stat-tiles', items);
     }
 
-    lastFilteredRows = rows;
-    lastFilterRange = { from: from, to: to };
-
     (spec.charts || []).forEach(function (c) {
+      if (!owns(sc, 'charts', c.mount)) return;
       if (c.type === 'period_compare') {
         periodCompareSpecs[c.mount] = c;
+        rangeByMount[c.mount] = { from: from, to: to };
         renderPeriodCompare(c, from, to);
         return;
       }
@@ -1749,6 +2269,7 @@ DASHBOARD_JS = """
     });
 
     (spec.tables || []).forEach(function (t) {
+      if (!owns(sc, 'tables', t.mount)) return;
       if (t.mode === 'grouped') {
         renderGroupedTable(t.mount, t, rows);
         return;
@@ -1760,20 +2281,22 @@ DASHBOARD_JS = """
       renderTable(t.mount, t.columns, t.topN ? tableRows.slice(0, t.topN) : tableRows, t.numericCols || [], t);
     });
 
-    if (elCoverage) {
+    if (sc.elCoverage) {
       var totalTxt = minPeriod ? (minPeriod + ' a ' + maxPeriod) : 'sin fechas';
       var showTxt = (from && to) ? (from + ' a ' + to) : 'sin fechas';
-      elCoverage.innerHTML = 'Datos disponibles: <strong>' + esc(totalTxt) + '</strong> &middot; Mostrando: <strong>' + esc(showTxt) + '</strong> (' + rows.length + ' registros)';
+      sc.elCoverage.innerHTML = 'Datos disponibles: <strong>' + esc(totalTxt) + '</strong> &middot; Mostrando: <strong>' + esc(showTxt) + '</strong> (' + rows.length + ' registros)';
     }
   }
 
-  [elDesdeMes, elDesdeAnio, elHastaMes, elHastaAnio].forEach(function (el) {
-    if (el) el.addEventListener('change', renderAll);
-  });
-  if (elReset) elReset.addEventListener('click', function () {
-    setPeriod(elDesdeMes, elDesdeAnio, minPeriod);
-    setPeriod(elHastaMes, elHastaAnio, maxPeriod);
-    renderAll();
+  scopes.forEach(function (sc) {
+    [sc.elDesdeMes, sc.elDesdeAnio, sc.elHastaMes, sc.elHastaAnio].forEach(function (el) {
+      if (el) el.addEventListener('change', function () { renderScope(sc); });
+    });
+    if (sc.elReset) sc.elReset.addEventListener('click', function () {
+      setPeriod(sc.elDesdeMes, sc.elDesdeAnio, minPeriod);
+      setPeriod(sc.elHastaMes, sc.elHastaAnio, maxPeriod);
+      renderScope(sc);
+    });
   });
 
   // Toggle Mensual/Trimestral de un chart period_compare: repinta solo ese
@@ -1785,8 +2308,8 @@ DASHBOARD_JS = """
         seg.querySelectorAll('button').forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
         periodCompareState[mountId] = btn.dataset.granularity;
-        var c = periodCompareSpecs[mountId];
-        if (c) renderPeriodCompare(c, lastFilterRange.from, lastFilterRange.to);
+        var c = periodCompareSpecs[mountId], rg = rangeByMount[mountId];
+        if (c && rg) renderPeriodCompare(c, rg.from, rg.to);
       });
     });
   });
@@ -2026,6 +2549,7 @@ def slide_shell(titulo: str, subtitulo: str, slides_html: list, records: list, s
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(titulo)}</title>
 <style>{PAGE_CSS}{DASHBOARD_CSS}{SLIDE_CSS}</style>
 <script>{THEME_INIT_JS}</script>
@@ -2273,6 +2797,7 @@ def dashboard_shell(modules: list) -> str:
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard ALESTE ADS</title>
 <style>{PAGE_CSS}{SHELL_CSS}</style>
 <script>{THEME_INIT_JS}</script>

@@ -106,6 +106,7 @@ mismos archivos (`config.py`, `ingest.py`, `generate_html_report.py`,
 | Órdenes de Publicidad (Medios > Ordenes Publicidad > Navegación) | `modules/ordenes_publicidad/` | `ordenes_publicidad` | (sin informe propio, alimenta Cobranza x Proveedores) |
 | **Cobranza x Proveedores** (cruce Recibo Cliente + Facturas + O.C. Producción/Publicidad) | `modules/cobranza_proveedores/` | `items_factura_oc_cobranza` (no ingesta, cruza `recibos`+`referencias_canceladas`+`facturas`+`items_factura_oc_cobranza`+`ordenes_compra_produccion`+`ordenes_publicidad`) | `salida/informe_cobranza_proveedores.html` |
 | **Balance Mensual** (Consultas > Contabilidad > Balance Mensual, cruzado con Imputaciones) | `modules/balance_mensual/` | *(sin tabla en `advertys.db`: lee directo los dos export crudos, sin ingest)* | `salida/balance_mensual_<desde>_<hasta>.xlsx` (deliverable Excel, no HTML) |
+| **Facturación ALUAR** (ventas a un cliente puntual por concepto contable, cruzado con Imputaciones) | `modules/facturacion_aluar/` | `facturacion_aluar` (recorte de Imputaciones + Facturas, no ingesta un export propio), `facturas_relacionadas_aluar` (crawl) | `salida/informe_facturacion_aluar.html` |
 
 Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
 
@@ -738,6 +739,97 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   recorte al rango 1/7/25-31/8/26 se hace en Python
   (`generate_excel.py`), mismo criterio que otros módulos con filtros
   rígidos de Advertys.
+
+### Notas del módulo Facturación ALUAR
+
+- **Origen (Javier, 2026-09-28):** ya existía un análisis puntual de esto
+  ("Ventas ALUAR por Concepto", un artifact HTML armado a mano en otra
+  sesión, ventana jul-2025/ago-2026 con varias correcciones curadas a
+  mano) y pidió sumarlo al dashboard como módulo vivo — que se recalcule
+  solo en cada refresh en vez de quedar congelado en esa fecha. A
+  diferencia del resto de los módulos, este **no tiene `export.py` propio**:
+  reusa `facturas` (ya cargada) y el export crudo de Imputaciones que ya
+  genera `modules/iibb/export.py` (`exploracion/iibb_export.xlsx`, TODAS
+  las cuentas sin filtrar — mismo archivo que ya reusa Balance Mensual),
+  filtrado en Python a `Cliente LIKE 'ALUAR%'` y a las cuentas de ingreso
+  411xxx relevantes. Ver el docstring largo de `modules/facturacion_aluar/config.py`
+  para el detalle completo de las decisiones de abajo.
+- **Hallazgo clave: sumar Imputaciones con signo (sin `abs()`) neta solo
+  automáticamente la mayoría de los pares factura+cancelación.** Advertys
+  registra la cancelación de una factura como un documento contable nuevo
+  (`TR='CA'` en Imputaciones, en vez de `'FA'`) que revierte línea por
+  línea a la factura original con el mismo monto y signo contrario — así
+  que sumar con signo ya los neta solos, sin necesidad de excluir nada a
+  mano. El problema real aparece solo cuando Advertys **reemplaza la
+  factura cancelada por una nueva en un mes calendario distinto** (caso
+  real confirmado: factura de jul-2026 cancelada y reemitida en ago-2026
+  por el mismo monto) — ahí sumar por mes calendario deja el monto pegado
+  al mes viejo en vez de mudarse al nuevo, y hay que excluir tanto la
+  cancelación como la factura original a mano para que el reemplazo cuente
+  una sola vez.
+- **La única forma confiable de saber qué factura original cancela cada
+  `TR='CA'` es el campo "Factura Relacionada"** del detalle de la factura
+  en Advertys — no sale de ningún export bulk. Confirmado en vivo
+  (2026-09-28) que vive en la pestaña "Datos Generales" (la que abre por
+  default, sin click extra) tanto para facturas Producción (`DPS_Factura`,
+  ej. cancelación 000500000017 → Factura Relacionada 000500000555) como
+  Medios (`FacturasMedios`, ej. cancelación 000500000015 → Factura
+  Relacionada 000500000538 — mismo caso que ya documenta la sección de
+  IIBB arriba). `modules/facturacion_aluar/crawl_facturas_relacionadas.py`
+  es un crawl de solo lectura acotado a los documentos `TR='CA'` de ALUAR
+  (15 en toda la historia relevada 2026-09-28, corre en menos de un
+  minuto) — mismo patrón que `crawl_oc_por_factura.py`/
+  `crawl_referencias_canceladas.py`.
+- **Validado fila por fila contra el análisis original:** cruzando el
+  mecanismo de arriba (suma con signo + exclusión vía crawl) contra las 81
+  filas de cuentas 411xxx del artifact original, coincide exacto al
+  centavo en el 96%+ de los casos; el resto (~0,01% del total, $514.099
+  sobre $4.050 millones) se explica por datos reales de Advertys que
+  cambiaron entre que se congeló el artifact (2026-09-16) y esta
+  implementación (2026-09-28) — confirmado un caso puntual: un ítem
+  "CORPÓREOS" de una factura reemitida cambió de $513.275 a $583.275 en
+  ese lapso. Es la señal esperada de un módulo vivo, no un bug.
+- **Reclasificación temporal de cuentas (detección dinámica, sin fecha
+  hardcodeada):** la cuenta `411038 - MARK UP PRODUCCIÓN` sólo aparece
+  cuando Advertys mezcla momentáneamente Servicios propios y Margen sobre
+  terceros en una sola línea (pasó ene-mar 2026 según el análisis
+  original). En vez de hardcodear esas fechas, `ingest.py` marca
+  `reclasificado=True` en cualquier `(mes, tipo_venta)` donde aparezca
+  algo en 411038 — si Advertys repite el patrón en el futuro, el informe
+  lo marca solo.
+- **Ajuste manual documentado (no derivable de ninguna cuenta 411xxx):**
+  la factura 000500001377 ("Hosting x 10 Meses INFA", 31/3/2026, USD 640)
+  se facturó a costo puro, sin fee ni markup — Advertys la neteó directo
+  contra la cuenta de costo 510010 en vez de una cuenta de venta. Es la
+  única factura de ALUAR con este patrón (confirmado en el análisis
+  original 2026-09-16); `config.AJUSTE_MANUAL_USD_HOSTING` la suma a mano
+  solo si esa factura sigue existiendo en `facturas` (si se anula, deja de
+  sumarse sola).
+- **No entra en `tools/actualizar_todo.py`:** depende del mismo export
+  pesado que IIBB (`iibb_export.xlsx`), así que se agregó como paso extra
+  de `tools/actualizar_iibb.py` (después del export/ingest de IIBB, que ya
+  deja ese archivo fresco) en vez de disparar un tercer camino de export
+  pesado — ver el docstring de `tools/actualizar_iibb.py`.
+- **Diseño bespoke, no `html_report.page_shell()`:** a diferencia del
+  resto de los módulos, este informe mantiene el diseño visual propio del
+  artifact original (tiles, gráfico de barras apiladas con toggle por
+  categoría, comparativo Producción/Medios, tabla ordenable/paginada,
+  timeline de "Consideraciones importantes") en vez del shell compartido
+  — así lo pidió Javier ("copies este mismo informe"). Sí reusa
+  `html_report.THEME_INIT_JS`/`THEME_JS`/`THEME_TOGGLE_BTN` para que
+  respete el tema claro/oscuro que elige el sidebar del dashboard (**ojo
+  real, ya corregido:** el ícono de luna quedó invisible la primera vez
+  por un `style="display:none"` inline en el SVG que le ganaba en
+  especificidad a la regla CSS que lo mostraba en oscuro — se resolvió
+  reusando el HTML/CSS real de `THEME_TOGGLE_BTN` en vez de un SVG a
+  mano). También hay que repetir las variables de color dentro de
+  `@media print` (no alcanza con `color-scheme:light`) para que no quede
+  el tema oscuro activo al imprimir — mismo criterio ya documentado en
+  `html_report.PAGE_CSS`. La paginación de la tabla en pantalla usa una
+  clase CSS (`row-hidden`) en vez de recortar el HTML: así `@media print`
+  puede forzar el detalle completo visible con pura CSS, sin depender de
+  que el evento JS `beforeprint` dispare (no lo hace bajo la emulación de
+  media type que usa `tools/screenshot.py`).
 
 ## 1. Instalar dependencias
 

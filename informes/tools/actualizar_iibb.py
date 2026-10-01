@@ -26,6 +26,14 @@ Pasos:
     4. iibb                (modules/iibb -- export propio + ingest)
     5. items_factura_oc    (modules/iibb/crawl_oc_por_factura.py -- con
        reintento automatico de facturas que fallen por error transitorio)
+    6. facturacion_aluar   (crawl_facturas_relacionadas.py + ingest.py +
+       generate_html_report.py -- agregado 2026-09-28. Este modulo NO
+       tiene export propio: reusa el mismo exploracion/iibb_export.xlsx
+       que ya deja fresco el paso 4, sin cuentas filtradas -- ver
+       modules/facturacion_aluar/config.py. Va aca y no en
+       tools/actualizar_todo.py por lo mismo que IIBB: depende de este
+       export pesado, no tiene sentido dispararlo a la frecuencia del
+       refresh rapido.)
 
 Uso (desde la raiz del proyecto, con -m para que 'modules'/'tools' sean
 importables):
@@ -82,6 +90,23 @@ def main():
     print(resultado.stdout)
     if resultado.returncode != 0:
         errores["generate_html_report"] = (resultado.stderr or resultado.stdout).strip()
+
+    print("--- facturacion_aluar: crawleando 'Factura Relacionada' de cancelaciones (Playwright, acotado)...")
+    resultado = _correr(["modules.facturacion_aluar.crawl_facturas_relacionadas"])
+    print(resultado.stdout)
+    if resultado.returncode != 0:
+        detalle = (resultado.stderr or resultado.stdout).strip().splitlines()
+        errores["facturacion_aluar (crawl)"] = detalle[-1] if detalle else "sin detalle"
+
+    print("--- facturacion_aluar: regenerando tabla + informe...")
+    resultado = _correr(["modules.facturacion_aluar.ingest"])
+    print(resultado.stdout)
+    if resultado.returncode != 0:
+        errores["facturacion_aluar (ingest)"] = (resultado.stderr or resultado.stdout).strip()
+    resultado = _correr(["modules.facturacion_aluar.generate_html_report"])
+    print(resultado.stdout)
+    if resultado.returncode != 0:
+        errores["facturacion_aluar (informe)"] = (resultado.stderr or resultado.stdout).strip()
 
     pendientes = _facturas_sin_detalle_oc()
 
