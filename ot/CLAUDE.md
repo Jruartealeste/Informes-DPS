@@ -1009,6 +1009,18 @@ Tablas:
 - **Neon Free se suspende a los 5 min** y el primer query tarda varios segundos.
   `GET /auth/despertar` (público, `SELECT 1`, 1 vez cada 20 s por instancia) lo
   llama la página de login para despertar la base mientras la persona se loguea.
+- **Ping en horario laboral:** `GET /auth/mantener` (público, 204) hace `SELECT 1`
+  solo de lunes a viernes de 7:30 a 19:30 (hora de Argentina, UTC-3 fijo); fuera
+  de ese horario responde 204 sin tocar la base (cabecera `X-Mantener`: `ok` o
+  `fuera-de-horario`). Lo llama un cron EXTERNO cada 4 min — no el cron de Vercel
+  (en Hobby es 1 vez por día) ni GitHub Actions (mínimo 5 min y con demoras: Neon
+  se suspende a los 5 min). Configuración en cron-job.org (gratis): URL
+  `https://ot-sand-iota.vercel.app/auth/mantener`, método GET, cada 4 minutos,
+  lunes a viernes de 08:00 a 19:00, zona horaria America/Argentina/Buenos_Aires.
+  Por qué el límite horario va en el servidor: Neon Free incluye 100 CU-horas/mes;
+  con la base despierta 24 h serían ~180 (0,25 CU x 730 h) y se agotaría el cupo.
+  En horario laboral son ~60 CU-horas/mes. Mirar el consumo en la consola de Neon
+  (Billing/Usage) tras el primer mes.
 - **Backups** (`.github/workflows/backup-neon.yml`, raíz del repo): `pg_dump`
   diario a las 03:17 (hora Argentina), cifrado con GPG y guardado 30 días como
   artefacto de Actions. Neon Free solo guarda 6 h de historial.
