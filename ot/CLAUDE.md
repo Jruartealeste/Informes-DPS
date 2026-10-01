@@ -1028,5 +1028,11 @@ Tablas:
     `BACKUP_PASSPHRASE` (guardarla también en un gestor de contraseñas).
   - Restaurar: bajar el artefacto, `gpg -o ot.dump -d ot-AAAA-MM-DD.dump.gpg`,
     y `pg_restore --no-owner --no-acl --clean --if-exists -d "<URL destino>" ot.dump`.
-    **Probar la restauración contra una base vacía (una rama de Neon) antes de
-    necesitarla.**
+    **Probar la restauración contra una base vacía antes de necesitarla.**
+  - Prueba automatizada: `.github/workflows/restaurar-prueba-neon.yml` (a mano,
+    "Run workflow"). Baja el último backup exitoso, lo descifra, lo restaura sobre
+    una base DESCARTABLE y compara tabla por tabla con producción (resumen en la
+    corrida). Necesita el secret `NEON_RESTORE_TEST_URL` = URL directa de un
+    proyecto NUEVO y vacío de Neon (no una rama de producción: una rama copia los
+    datos del padre y la prueba no probaría nada). Se niega a correr si ese host
+    coincide con el de producción porque restaura con `--clean`.

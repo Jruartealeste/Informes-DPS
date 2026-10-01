@@ -1,0 +1,144 @@
+# Prueba de restauración del backup de ot/ (Neon). Un backup que nunca se
+# restauró no está probado: este workflow baja el último backup cifrado,
+# lo restaura sobre una base DESCARTABLE y compara tabla por tabla con
+# producción. Ver "Backups" en ot/CLAUDE.md.
+#
+# Secrets requeridos (además de NEON_DATABASE_URL y BACKUP_PASSPHRASE, que ya
+# usa backup-neon.yml):
+#   NEON_RESTORE_TEST_URL  URL de una base de PRUEBA, de OTRO proyecto de Neon
+#                          (creá un proyecto nuevo y vacío, ej. "ot-restore-test";
+#                          el plan Free permite varios). Directa (sin -pooler) y
+#                          con el nombre de la base: .../neondb?sslmode=require.
+#
+# Protección: se niega a correr si el host de NEON_RESTORE_TEST_URL es el mismo
+# que el de producción, porque la restauración usa --clean (borra y recrea
+# las tablas del destino).
+name: Restaurar backup en base de prueba (ot/)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "ID de la corrida de backup a restaurar (vacío = el último backup exitoso)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  restaurar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Instalar el cliente de Postgres más nuevo
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl ca-certificates gnupg
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -sS --fail -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Bajar el backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID_ENTRADA: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          RUN_ID="$RUN_ID_ENTRADA"
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow backup-neon.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          fi
+          if ! [[ "$RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::No hay ninguna corrida exitosa de backup-neon.yml para restaurar (run_id='$RUN_ID')."
+            exit 1
+          fi
+          echo "Restaurando el backup de la corrida $RUN_ID"
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name backup-ot
+          ls -l
+
+      - name: Descifrar
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_PASSPHRASE"
+          ARCHIVO="$(ls ot-*.dump.gpg | head -n 1)"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" -o ot.dump -d "$ARCHIVO"
+          ls -l ot.dump
+
+      - name: Restaurar y comparar con producción
+        env:
+          PROD_URL_CRUDA: ${{ secrets.NEON_DATABASE_URL }}
+          TEST_URL_CRUDA: ${{ secrets.NEON_RESTORE_TEST_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$TEST_URL_CRUDA" || { echo "::error::Falta el secret NEON_RESTORE_TEST_URL (base de prueba, de otro proyecto de Neon)."; exit 1; }
+
+          # Misma normalización que el workflow de backup.
+          normalizar() {
+            local u="${1/postgresql+psycopg:/postgresql:}"
+            u="${u/-pooler./.}"
+            if ! [[ "$u" =~ ^postgres(ql)?://[^/]+/[^/?]+ ]]; then
+              echo "::error::Una de las URLs no incluye el nombre de la base (debe terminar en .../neondb?sslmode=require)" >&2
+              return 1
+            fi
+            case "$u" in
+              *sslmode=*) ;;
+              *\?*) u="$u&sslmode=require" ;;
+              *) u="$u?sslmode=require" ;;
+            esac
+            printf '%s' "$u"
+          }
+          PROD_URL="$(normalizar "$PROD_URL_CRUDA")"
+          TEST_URL="$(normalizar "$TEST_URL_CRUDA")"
+
+          # PROTECCIÓN: --clean borra y recrea tablas. Nunca contra producción.
+          host() { printf '%s' "$1" | sed -E 's#^[a-z+]+://[^@]*@([^/:?]+).*#\1#'; }
+          if [ "$(host "$PROD_URL")" = "$(host "$TEST_URL")" ]; then
+            echo "::error::NEON_RESTORE_TEST_URL apunta al MISMO host que producción. Abortado para no pisar datos. Usá una base de otro proyecto de Neon."
+            exit 1
+          fi
+
+          PGBIN="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n 1)"
+          "$PGBIN/pg_restore" --version
+
+          # Restaurar. Los avisos inofensivos (extensiones, owners) no deben cortar:
+          # lo que decide si está bien es la comparación de abajo.
+          set +e
+          "$PGBIN/pg_restore" --no-owner --no-acl --clean --if-exists --dbname="$TEST_URL" ot.dump
+          rc=$?
+          set -e
+          echo "pg_restore terminó con código $rc"
+
+          # Tablas del backup vs tablas restauradas.
+          en_backup="$("$PGBIN/pg_restore" --list ot.dump | grep -c ' TABLE public ' || true)"
+          tablas="$("$PGBIN/psql" "$TEST_URL" -Atc "select tablename from pg_tables where schemaname='public' order by 1")"
+          en_destino="$(printf '%s\n' "$tablas" | grep -c . || true)"
+          echo "Tablas en el backup: $en_backup | restauradas: $en_destino"
+          if [ "$en_destino" -eq 0 ] || [ "$en_backup" -ne "$en_destino" ]; then
+            echo "::error::La restauración no dejó las mismas tablas que el backup."
+            exit 1
+          fi
+          printf '%s\n' "$tablas" | grep -qx tareas || { echo "::error::Falta la tabla tareas en la base restaurada."; exit 1; }
+
+          # Filas por tabla: producción vs restaurada (pueden diferir si hubo
+          # cambios después del backup; es informativo, no corta).
+          {
+            echo "### Restauración de prueba"
+            echo ""
+            echo "| tabla | producción | restaurada |"
+            echo "|---|---:|---:|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf '%-34s %12s %12s\n' tabla produccion restaurada
+          for t in $tablas; do
+            r="$("$PGBIN/psql" "$TEST_URL" -Atc "select count(*) from public.\"$t\"")"
+            p="$("$PGBIN/psql" "$PROD_URL" -Atc "select count(*) from public.\"$t\"" 2>/dev/null || echo '?')"
+            printf '%-34s %12s %12s\n' "$t" "$p" "$r"
+            echo "| $t | $p | $r |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "Restauración verificada: las $en_destino tablas del backup están en la base de prueba."
