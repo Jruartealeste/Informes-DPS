@@ -106,9 +106,9 @@ SEMAFORO_COLOR = {
     "critical": hr.STATUS["critical"],
 }
 SEMAFORO_LABEL = {
-    "good": "Lista para cerrar",
+    "good": "Para cerrar",
     "warning": "En curso",
-    "critical": "Sin estimados cargados",
+    "critical": "Sin estimados",
 }
 
 DETALLE_CSS = """
@@ -203,15 +203,72 @@ table.ot-table tbody tr.ot-detail-row p.empty {
   table.ot-table tbody tr.ot-detail-row { display: table-row !important; }
   table.ot-table tbody tr.ot-row td:first-child::before { display: none; }
 }
-.semaforo-filter-bar .semaforo-filter-label { color: var(--text-secondary); margin-right: 2px; }
+/* Filtro: usa la barra estandar (.filter-bar) igual que los demas informes;
+   solo se le suma el punto de color a cada chip. */
+.semaforo-filter-bar { margin-bottom: 14px; }
+.semaforo-filter-bar .semaforo-filter-label { color: var(--text-secondary); }
 .semaforo-chip { display: inline-flex; align-items: center; gap: 6px; }
 .filter-bar button.semaforo-chip.active {
   background: var(--brand); border-color: var(--brand); color: #fff;
 }
 .semaforo-chip.active .semaforo-dot { box-shadow: 0 0 0 2px rgba(255,255,255,0.7); }
 table.ot-table tbody tr.filtered-hidden { display: none !important; }
+table.ot-table tbody tr.page-hidden { display: none !important; }
+
+/* Paginacion: 20 OT por pagina (ver OT_PAGE_SIZE en DETALLE_JS). */
+.ot-pager {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px 16px; margin-top: 14px; font-size: 13px;
+}
+.ot-pager[hidden] { display: none; }
+.pager-info { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pager-buttons { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pager-buttons button {
+  min-width: 34px; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--page-plane); color: var(--text-primary);
+  font: inherit; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.pager-buttons button:hover:not(:disabled):not(.active) { background: var(--surface-1); border-color: var(--brand); }
+.pager-buttons button.active { background: var(--brand); border-color: var(--brand); color: #fff; cursor: default; }
+.pager-buttons button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pager-buttons button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.pager-gap { color: var(--text-muted); padding: 0 2px; }
 @media print {
-  .semaforo-filter-bar { display: none !important; }
+  .semaforo-filter-bar, .ot-pager { display: none !important; }
+  /* Al imprimir va el listado completo, no solo la pagina en pantalla. */
+  table.ot-table tbody tr.page-hidden { display: table-row !important; }
+}
+@media (max-width: 520px) {
+  .ot-pager { justify-content: center; }
+  .pager-buttons button[aria-label] { padding: 0 8px; }
+}
+
+/* Ficha de datos al abrir una OT: lo que no entra en la fila. */
+.ot-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px 20px; margin: 0 0 6px;
+}
+.ot-facts dt { font-size: 11px; color: var(--text-muted); margin: 0 0 2px; }
+.ot-facts dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.ot-facts .only-narrow { display: none; }
+
+/* Mobile: misma tabla, con menos columnas. Anunciante y Total O.C. pasan a la
+   ficha del detalle. */
+@media (max-width: 720px) {
+  /* El filtro de periodo (grid de 2 columnas en mobile) no aplica a estos chips. */
+  .semaforo-filter-bar .filter-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+  .semaforo-filter-bar .filter-controls > button { grid-column: auto; }
+  /* Layout fijo: el detalle abierto no puede ensanchar la tabla mas que la pantalla. */
+  table.ot-table { table-layout: fixed; }
+  table.ot-table > thead th:nth-child(1) { width: 28px; }
+  table.ot-table > thead th:nth-child(2) { width: 64px; }
+  table.ot-table .col-sec { display: none; }
+  .badge-alerta, .badge-bloqueada { white-space: nowrap; margin: 4px 4px 0 0; }
+  .ot-facts .only-narrow { display: block; }
+  table.ot-table tbody tr.ot-detail-row .ot-detail-body { padding: 14px 12px 16px 14px; }
+  .ot-detail-body table.report-table { min-width: 560px; }
+  .bloqueo-box { padding: 2px 12px 12px; }
 }
 """
 
@@ -226,28 +283,93 @@ function otFilterClear() {
   });
   otFilterApply();
 }
-function otFilterApply() {
+var OT_PAGE_SIZE = 20;
+var otPage = 1;
+
+function otDetailOf(row) {
+  var d = row.nextElementSibling;
+  return d && d.classList.contains('ot-detail-row') ? d : null;
+}
+
+// keepPage=true (cambio de pagina) conserva la pagina actual; el filtro la
+// reinicia a la 1. Una fila visible = pasa el filtro Y esta en la pagina.
+function otFilterApply(keepPage) {
   var active = Array.prototype.map.call(document.querySelectorAll('.semaforo-chip.active'), function (b) {
     return b.dataset.value;
   });
   var rows = document.querySelectorAll('table.ot-table tbody tr.ot-row');
-  var visible = 0;
+  var matching = [];
   Array.prototype.forEach.call(rows, function (row) {
     var show = active.length === 0 || active.indexOf(row.dataset.semaforo) !== -1;
+    var detail = otDetailOf(row);
     row.classList.toggle('filtered-hidden', !show);
-    var detail = row.nextElementSibling;
-    if (detail && detail.classList.contains('ot-detail-row')) {
+    row.classList.remove('page-hidden');
+    if (detail) {
       detail.classList.toggle('filtered-hidden', !show);
-      if (!show) {
-        row.classList.remove('open');
-        detail.classList.remove('open');
-      }
+      detail.classList.remove('page-hidden');
     }
-    if (show) { visible++; }
+    if (show) {
+      matching.push(row);
+    } else {
+      row.classList.remove('open');
+      if (detail) { detail.classList.remove('open'); }
+    }
+  });
+  var pages = Math.max(1, Math.ceil(matching.length / OT_PAGE_SIZE));
+  otPage = keepPage === true ? Math.min(otPage, pages) : 1;
+  var start = (otPage - 1) * OT_PAGE_SIZE;
+  matching.forEach(function (row, i) {
+    if (i >= start && i < start + OT_PAGE_SIZE) { return; }
+    var detail = otDetailOf(row);
+    row.classList.add('page-hidden');
+    row.classList.remove('open');
+    if (detail) { detail.classList.add('page-hidden'); detail.classList.remove('open'); }
   });
   var counter = document.getElementById('semaforo-filter-count');
-  if (counter) { counter.textContent = visible + ' de ' + rows.length + ' OT'; }
+  if (counter) { counter.textContent = matching.length + ' de ' + rows.length + ' OT'; }
+  otRenderPager(matching.length, pages, start);
 }
+
+function otGoto(n) {
+  otPage = n;
+  otFilterApply(true);
+  var wrap = document.querySelector('.table-scroll');
+  if (wrap) { wrap.scrollIntoView({ block: 'start' }); }
+}
+
+function otPageList(pages) {
+  // 1 ... actual-1 actual actual+1 ... ultima (siempre entra en una fila mobile)
+  var out = [], last = 0;
+  for (var p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - otPage) <= 1) {
+      if (last && p - last > 1) { out.push(null); }
+      out.push(p);
+      last = p;
+    }
+  }
+  return out;
+}
+
+function otRenderPager(total, pages, start) {
+  var el = document.getElementById('ot-pager');
+  if (!el) { return; }
+  if (total <= OT_PAGE_SIZE) { el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  var end = Math.min(start + OT_PAGE_SIZE, total);
+  var html = '<span class="pager-info">' + (start + 1) + '\\u2013' + end + ' de ' + total + ' OT</span>';
+  html += '<div class="pager-buttons">';
+  html += '<button type="button" onclick="otGoto(' + (otPage - 1) + ')"' + (otPage === 1 ? ' disabled' : '') + ' aria-label="Página anterior">Anterior</button>';
+  otPageList(pages).forEach(function (p) {
+    if (p === null) { html += '<span class="pager-gap">\\u2026</span>'; return; }
+    html += '<button type="button" onclick="otGoto(' + p + ')"' +
+      (p === otPage ? ' class="active" aria-current="page"' : '') + '>' + p + '</button>';
+  });
+  html += '<button type="button" onclick="otGoto(' + (otPage + 1) + ')"' + (otPage === pages ? ' disabled' : '') + ' aria-label="Página siguiente">Siguiente</button>';
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+otFilterApply();
 """
 
 
@@ -678,15 +800,11 @@ OT_TABLE_COLUMNAS = [
     ("numero_ot", "N° OT"),
     ("resumen", "Resumen"),
     ("anunciante", "Anunciante"),
-    ("responsable", "Responsable"),
-    ("fecha_abierta", "Fecha apertura"),
-    ("cant_estimados", "Estimados"),
-    ("estados_estimados", "Estado(s) estimado"),
-    ("cant_oc", "OC"),
-    ("total_oc", "Total OC"),
-    ("renta_teorica", "Renta teórica"),
+    ("total_oc", "Total O.C."),
 ]
-OT_TABLE_NUM_COLS = ("total_oc", "renta_teorica")
+OT_TABLE_NUM_COLS = ("total_oc",)
+# Columnas que se ocultan en mobile (su dato va en la ficha del detalle).
+OT_TABLE_COL_SEC = ("anunciante", "total_oc")
 
 # Toggle sin JS externo: la fila resumen y su fila de detalle son hermanas
 # directas en el tbody, asi que alcanza con alternar 'open' en ambas.
@@ -732,18 +850,22 @@ def _fila_tabla_ot(
       <td>{semaforo_dot}</td>
       <td>{escape(str(numero_ot))}</td>
       <td>{escape(str(resumen_txt))}{alerta}{badge_muchos}{badge_bloqueo}</td>
-      <td>{escape(str(fila.get("anunciante") or ""))}</td>
-      <td>{escape(str(fila.get("responsable") or ""))}</td>
-      <td>{fecha_str}</td>
-      <td>{fila["cant_estimados"]}</td>
-      <td>{escape(str(fila.get("estados_estimados") or ""))}</td>
-      <td>{fila["cant_oc"]}</td>
-      <td class="num">{escape(_fmt_money(fila["total_oc"]))}</td>
-      <td class="num">{escape(renta_str)}</td>
+      <td class="col-sec">{escape(str(fila.get("anunciante") or ""))}</td>
+      <td class="num col-sec">{escape(_fmt_money(fila["total_oc"]))}</td>
     </tr>"""
     fila_detalle = f"""<tr class="ot-detail-row">
       <td colspan="{len(OT_TABLE_COLUMNAS)}">
         <div class="ot-detail-body">
+          <dl class="ot-facts">
+            <div class="only-narrow"><dt>Anunciante</dt><dd>{escape(str(fila.get("anunciante") or "-"))}</dd></div>
+            <div class="only-narrow"><dt>Total O.C.</dt><dd>{escape(_fmt_money(fila["total_oc"]))}</dd></div>
+            <div><dt>Responsable</dt><dd>{escape(str(fila.get("responsable") or "-"))}</dd></div>
+            <div><dt>Apertura</dt><dd>{fecha_str}</dd></div>
+            <div><dt>Estimados</dt><dd>{fila["cant_estimados"]}</dd></div>
+            <div><dt>O.C.</dt><dd>{fila["cant_oc"]}</dd></div>
+            <div><dt>Renta teórica</dt><dd>{escape(renta_str)}</dd></div>
+            <div><dt>Estado del estimado</dt><dd>{escape(str(fila.get("estados_estimados") or "-"))}</dd></div>
+          </dl>
           <h3>Estimados de costo</h3>
           {_tabla_estimados(numero_ot, estimados)}
           <h3>Ordenes de compra</h3>
@@ -764,7 +886,7 @@ def _semaforo_filter_bar_html(counts: dict, total: int) -> str:
     )
     return f"""<div class="filter-bar semaforo-filter-bar">
     <div class="filter-controls no-print">
-      <span class="semaforo-filter-label">Filtrar por semáforo:</span>
+      <span class="semaforo-filter-label">Filtro</span>
       {chips}
       <button type="button" onclick="otFilterClear()">Ver todas</button>
     </div>
@@ -780,17 +902,18 @@ def _tabla_ot_html(
     estimados_pend_facturar: pd.DataFrame,
 ) -> str:
     thead = "".join(
-        f'<th class="{"num" if clave in OT_TABLE_NUM_COLS else ""}">{escape(titulo)}</th>'
+        f'<th class="{" ".join(c for c in ("num" if clave in OT_TABLE_NUM_COLS else "", "col-sec" if clave in OT_TABLE_COL_SEC else "") if c)}">{escape(titulo)}</th>'
         for clave, titulo in OT_TABLE_COLUMNAS
     )
     filas_html = "".join(
         _fila_tabla_ot(fila, estimados, oc, items_pendientes, estimados_pend_facturar)
         for fila in resumen_ordenado.to_dict(orient="records")
     )
-    return f"""<table class="report-table ot-table">
+    return f"""<div class="table-scroll"><table class="report-table ot-table">
     <thead><tr>{thead}</tr></thead>
     <tbody>{filas_html}</tbody>
-  </table>"""
+  </table></div>
+  <nav class="ot-pager no-print" id="ot-pager" aria-label="Paginación de OT" hidden></nav>"""
 
 
 def main():
@@ -820,10 +943,6 @@ def main():
         ("OT abiertas", str(cant_ot)),
         ("Listas para cerrar", str(cant_listas), "estimados y OC ya resueltos"),
         ("Bloqueadas para cierre", str(cant_bloqueadas), "item sin O.C. y/o saldo pendiente de facturar"),
-        ("Sin estimados cargados", str(cant_sin_estimados), "revisar por que siguen abiertas"),
-        ("Muchos estimados acumulados", str(cant_muchos_estimados), f"más de {UMBRAL_MUCHOS_ESTIMADOS} estimados: revisar si debería estar cerrada"),
-        ("Renta teórica promedio", f"{renta_teorica_promedio:.1f}%"),
-        ("Comprometido en órdenes de compra", _fmt_money(total_comprometido_oc)),
     ])
 
     semaforo_counts = resumen["semaforo"].value_counts().to_dict()

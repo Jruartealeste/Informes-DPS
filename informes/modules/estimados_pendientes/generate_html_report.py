@@ -71,7 +71,7 @@ SEMAFORO_COLOR = {
     "bloqueado": hr.STATUS["warning"],
 }
 SEMAFORO_LABEL = {
-    "listo": "Listo para Finalizado",
+    "listo": "Para finalizar",
     "bloqueado": "Bloqueado",
 }
 
@@ -179,15 +179,72 @@ table.est-table tbody tr.est-detail-row p.empty {
   table.est-table tbody tr.est-detail-row { display: table-row !important; }
   table.est-table tbody tr.est-row td:first-child::before { display: none; }
 }
-.semaforo-filter-bar .semaforo-filter-label { color: var(--text-secondary); margin-right: 2px; }
+/* Filtro: usa la barra estandar (.filter-bar) igual que los demas informes;
+   solo se le suma el punto de color a cada chip. */
+.semaforo-filter-bar { margin-bottom: 14px; }
+.semaforo-filter-bar .semaforo-filter-label { color: var(--text-secondary); }
 .semaforo-chip { display: inline-flex; align-items: center; gap: 6px; }
 .filter-bar button.semaforo-chip.active {
   background: var(--brand); border-color: var(--brand); color: #fff;
 }
 .semaforo-chip.active .semaforo-dot { box-shadow: 0 0 0 2px rgba(255,255,255,0.7); }
 table.est-table tbody tr.filtered-hidden { display: none !important; }
+table.est-table tbody tr.page-hidden { display: none !important; }
+
+/* Paginacion: 20 estimados por pagina (ver EST_PAGE_SIZE en DETALLE_JS). */
+.est-pager {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px 16px; margin-top: 14px; font-size: 13px;
+}
+.est-pager[hidden] { display: none; }
+.pager-info { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pager-buttons { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pager-buttons button {
+  min-width: 34px; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--page-plane); color: var(--text-primary);
+  font: inherit; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.pager-buttons button:hover:not(:disabled):not(.active) { background: var(--surface-1); border-color: var(--brand); }
+.pager-buttons button.active { background: var(--brand); border-color: var(--brand); color: #fff; cursor: default; }
+.pager-buttons button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pager-buttons button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.pager-gap { color: var(--text-muted); padding: 0 2px; }
 @media print {
-  .semaforo-filter-bar { display: none !important; }
+  .semaforo-filter-bar, .est-pager { display: none !important; }
+  /* Al imprimir va el listado completo, no solo la pagina en pantalla. */
+  table.est-table tbody tr.page-hidden { display: table-row !important; }
+}
+@media (max-width: 520px) {
+  .est-pager { justify-content: center; }
+  .pager-buttons button[aria-label] { padding: 0 8px; }
+}
+
+/* Ficha de datos al abrir una OT: lo que no entra en la fila. */
+.est-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px 20px; margin: 0 0 6px;
+}
+.est-facts dt { font-size: 11px; color: var(--text-muted); margin: 0 0 2px; }
+.est-facts dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.est-facts .only-narrow { display: none; }
+
+/* Mobile: misma tabla, con menos columnas. Anunciante y Total O.C. pasan a la
+   ficha del detalle. */
+@media (max-width: 720px) {
+  /* El filtro de periodo (grid de 2 columnas en mobile) no aplica a estos chips. */
+  .semaforo-filter-bar .filter-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+  .semaforo-filter-bar .filter-controls > button { grid-column: auto; }
+  /* Layout fijo: el detalle abierto no puede ensanchar la tabla mas que la pantalla. */
+  table.est-table { table-layout: fixed; }
+  table.est-table > thead th:nth-child(1) { width: 28px; }
+  table.est-table > thead th:nth-child(2) { width: 64px; }
+  table.est-table .col-sec { display: none; }
+  .badge-alerta, .badge-bloqueada { white-space: nowrap; margin: 4px 4px 0 0; }
+  .est-facts .only-narrow { display: block; }
+  table.est-table tbody tr.est-detail-row .est-detail-body { padding: 14px 12px 16px 14px; }
+  .est-detail-body table.report-table { min-width: 560px; }
+  .bloqueo-box { padding: 2px 12px 12px; }
 }
 """
 
@@ -202,28 +259,93 @@ function estFilterClear() {
   });
   estFilterApply();
 }
-function estFilterApply() {
+var EST_PAGE_SIZE = 20;
+var estPage = 1;
+
+function estDetailOf(row) {
+  var d = row.nextElementSibling;
+  return d && d.classList.contains('est-detail-row') ? d : null;
+}
+
+// keepPage=true (cambio de pagina) conserva la pagina actual; el filtro la
+// reinicia a la 1. Una fila visible = pasa el filtro Y esta en la pagina.
+function estFilterApply(keepPage) {
   var active = Array.prototype.map.call(document.querySelectorAll('.semaforo-chip.active'), function (b) {
     return b.dataset.value;
   });
   var rows = document.querySelectorAll('table.est-table tbody tr.est-row');
-  var visible = 0;
+  var matching = [];
   Array.prototype.forEach.call(rows, function (row) {
     var show = active.length === 0 || active.indexOf(row.dataset.semaforo) !== -1;
+    var detail = estDetailOf(row);
     row.classList.toggle('filtered-hidden', !show);
-    var detail = row.nextElementSibling;
-    if (detail && detail.classList.contains('est-detail-row')) {
+    row.classList.remove('page-hidden');
+    if (detail) {
       detail.classList.toggle('filtered-hidden', !show);
-      if (!show) {
-        row.classList.remove('open');
-        detail.classList.remove('open');
-      }
+      detail.classList.remove('page-hidden');
     }
-    if (show) { visible++; }
+    if (show) {
+      matching.push(row);
+    } else {
+      row.classList.remove('open');
+      if (detail) { detail.classList.remove('open'); }
+    }
+  });
+  var pages = Math.max(1, Math.ceil(matching.length / EST_PAGE_SIZE));
+  estPage = keepPage === true ? Math.min(estPage, pages) : 1;
+  var start = (estPage - 1) * EST_PAGE_SIZE;
+  matching.forEach(function (row, i) {
+    if (i >= start && i < start + EST_PAGE_SIZE) { return; }
+    var detail = estDetailOf(row);
+    row.classList.add('page-hidden');
+    row.classList.remove('open');
+    if (detail) { detail.classList.add('page-hidden'); detail.classList.remove('open'); }
   });
   var counter = document.getElementById('semaforo-filter-count');
-  if (counter) { counter.textContent = visible + ' de ' + rows.length + ' estimados'; }
+  if (counter) { counter.textContent = matching.length + ' de ' + rows.length + ' estimados'; }
+  estRenderPager(matching.length, pages, start);
 }
+
+function estGoto(n) {
+  estPage = n;
+  estFilterApply(true);
+  var wrap = document.querySelector('.table-scroll');
+  if (wrap) { wrap.scrollIntoView({ block: 'start' }); }
+}
+
+function estPageList(pages) {
+  // 1 ... actual-1 actual actual+1 ... ultima (siempre entra en una fila mobile)
+  var out = [], last = 0;
+  for (var p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - estPage) <= 1) {
+      if (last && p - last > 1) { out.push(null); }
+      out.push(p);
+      last = p;
+    }
+  }
+  return out;
+}
+
+function estRenderPager(total, pages, start) {
+  var el = document.getElementById('est-pager');
+  if (!el) { return; }
+  if (total <= EST_PAGE_SIZE) { el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  var end = Math.min(start + EST_PAGE_SIZE, total);
+  var html = '<span class="pager-info">' + (start + 1) + '\\u2013' + end + ' de ' + total + ' estimados</span>';
+  html += '<div class="pager-buttons">';
+  html += '<button type="button" onclick="estGoto(' + (estPage - 1) + ')"' + (estPage === 1 ? ' disabled' : '') + ' aria-label="Página anterior">Anterior</button>';
+  estPageList(pages).forEach(function (p) {
+    if (p === null) { html += '<span class="pager-gap">\\u2026</span>'; return; }
+    html += '<button type="button" onclick="estGoto(' + p + ')"' +
+      (p === estPage ? ' class="active" aria-current="page"' : '') + '>' + p + '</button>';
+  });
+  html += '<button type="button" onclick="estGoto(' + (estPage + 1) + ')"' + (estPage === pages ? ' disabled' : '') + ' aria-label="Página siguiente">Siguiente</button>';
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+estFilterApply();
 """
 
 
@@ -369,16 +491,14 @@ def _bloqueo_html(numero_estimado, oc, items_pendientes, estimados_pend_facturar
 ESTIMADOS_TABLE_COLUMNAS = [
     ("semaforo", ""),
     ("numero_estimado", "N° Est."),
-    ("numero_ot", "N° OT"),
     ("titulo", "Título"),
     ("anunciante", "Anunciante"),
     ("estado", "Estado"),
     ("sub_total", "Sub Total"),
-    ("total_comprado", "Comprado"),
-    ("total_facturado", "Facturado"),
-    ("antiguedad_dias", "Antigüedad (días)"),
 ]
-ESTIMADOS_TABLE_NUM_COLS = ("sub_total", "total_comprado", "total_facturado")
+ESTIMADOS_TABLE_NUM_COLS = ("sub_total",)
+# Columnas que se ocultan en mobile (su dato va en la ficha del detalle).
+ESTIMADOS_TABLE_COL_SEC = ("anunciante", "estado", "sub_total")
 
 _ROW_TOGGLE_JS = "this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open')"
 
@@ -417,18 +537,23 @@ def _fila_tabla_estimado(fila: dict, oc, items_pendientes, estimados_pend_factur
     fila_resumen = f"""<tr class="est-row" data-semaforo="{semaforo}" onclick="{_ROW_TOGGLE_JS}">
       <td>{semaforo_dot}</td>
       <td>{escape(str(numero_estimado))}</td>
-      <td>{escape(str(fila.get("numero_ot") or ""))} <span class="badge-info" style="margin-left:4px">{escape(str(fila.get("ot_estado") or ""))}</span></td>
       <td>{escape(str(titulo_txt))}{''.join(badges)}</td>
-      <td>{escape(str(fila.get("anunciante") or ""))}</td>
-      <td>{escape(str(fila.get("estado") or ""))}</td>
-      <td class="num">{escape(_fmt_money(fila.get("sub_total") or 0))}</td>
-      <td class="num">{escape(_fmt_money(fila.get("total_comprado") or 0))}</td>
-      <td class="num">{escape(_fmt_money(fila.get("total_facturado") or 0))}</td>
-      <td class="num">{antiguedad_str}</td>
+      <td class="col-sec">{escape(str(fila.get("anunciante") or ""))}</td>
+      <td class="col-sec">{escape(str(fila.get("estado") or ""))}</td>
+      <td class="num col-sec">{escape(_fmt_money(fila.get("sub_total") or 0))}</td>
     </tr>"""
     fila_detalle = f"""<tr class="est-detail-row">
       <td colspan="{len(ESTIMADOS_TABLE_COLUMNAS)}">
         <div class="est-detail-body">
+          <dl class="est-facts">
+            <div class="only-narrow"><dt>Anunciante</dt><dd>{escape(str(fila.get("anunciante") or "-"))}</dd></div>
+            <div class="only-narrow"><dt>Estado</dt><dd>{escape(str(fila.get("estado") or "-"))}</dd></div>
+            <div class="only-narrow"><dt>Sub total</dt><dd>{escape(_fmt_money(fila.get("sub_total") or 0))}</dd></div>
+            <div><dt>OT</dt><dd>{escape(str(fila.get("numero_ot") or "-"))} <span class="badge-info" style="margin-left:4px">{escape(str(fila.get("ot_estado") or ""))}</span></dd></div>
+            <div><dt>Comprado</dt><dd>{escape(_fmt_money(fila.get("total_comprado") or 0))}</dd></div>
+            <div><dt>Facturado</dt><dd>{escape(_fmt_money(fila.get("total_facturado") or 0))}</dd></div>
+            <div><dt>Antigüedad</dt><dd>{antiguedad_str}{" días" if antiguedad_str != "-" else ""}</dd></div>
+          </dl>
           <h3>Ordenes de compra</h3>
           {_tabla_oc_estimado(numero_estimado, oc)}
           {_bloqueo_html(numero_estimado, oc, items_pendientes, estimados_pend_facturar)}
@@ -447,7 +572,7 @@ def _semaforo_filter_bar_html(counts: dict, total: int) -> str:
     )
     return f"""<div class="filter-bar semaforo-filter-bar">
     <div class="filter-controls no-print">
-      <span class="semaforo-filter-label">Filtrar por semáforo:</span>
+      <span class="semaforo-filter-label">Filtro</span>
       {chips}
       <button type="button" onclick="estFilterClear()">Ver todos</button>
     </div>
@@ -457,17 +582,18 @@ def _semaforo_filter_bar_html(counts: dict, total: int) -> str:
 
 def _tabla_estimados_html(activos_ordenados: pd.DataFrame, oc, items_pendientes, estimados_pend_facturar) -> str:
     thead = "".join(
-        f'<th class="{"num" if clave in ESTIMADOS_TABLE_NUM_COLS else ""}">{escape(titulo)}</th>'
+        f'<th class="{" ".join(c for c in ("num" if clave in ESTIMADOS_TABLE_NUM_COLS else "", "col-sec" if clave in ESTIMADOS_TABLE_COL_SEC else "") if c)}">{escape(titulo)}</th>'
         for clave, titulo in ESTIMADOS_TABLE_COLUMNAS
     )
     filas_html = "".join(
         _fila_tabla_estimado(fila, oc, items_pendientes, estimados_pend_facturar)
         for fila in activos_ordenados.to_dict(orient="records")
     )
-    return f"""<table class="report-table est-table">
+    return f"""<div class="table-scroll"><table class="report-table est-table">
     <thead><tr>{thead}</tr></thead>
     <tbody>{filas_html}</tbody>
-  </table>"""
+  </table></div>
+  <nav class="est-pager no-print" id="est-pager" aria-label="Paginación de estimados" hidden></nav>"""
 
 
 def main():
@@ -496,11 +622,6 @@ def main():
         ("Estimados activos", str(cant_activos), "no terminales, de cualquier OT"),
         ("Listos para Finalizado", str(cant_listos), "facturados y con O.C. cruzadas"),
         ("Bloqueados", str(cant_bloqueados), "item sin O.C. y/o saldo pendiente"),
-        ("OT ya cerrada", str(cant_ot_cerrada), "estimado sin finalizar en una OT Cerrada"),
-        ("Desvío de costo", str(cant_desvio), "comprado > presupuestado"),
-        (f"Antiguos (> {UMBRAL_DIAS_ANTIGUO} días)", str(cant_antiguos)),
-        ("Comprometido en órdenes de compra", _fmt_money(total_comprometido_oc)),
-        ("Ya resueltos (histórico)", str(cant_resueltos), "Finalizado / Anulado / Rechazado"),
     ])
 
     semaforo_counts = activos["semaforo"].value_counts().to_dict()

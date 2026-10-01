@@ -60,21 +60,37 @@ def main():
                     {"key": "subtotal_ml", "op": "sum", "field": "subtotal_ml"},
                     {"key": "total_ml", "op": "sum", "field": "total_ml"},
                 ],
-                "columns": [["cliente", "Cliente"], ["facturas", "Facturas"], ["subtotal_ml", "Subtotal ML"], ["total_ml", "Total ML"]],
+                # Total ML (columna de orden) segunda: en mobile se ve sin scrollear.
+                "columns": [["cliente", "Cliente"], ["total_ml", "Total ML"], ["facturas", "Facturas"], ["subtotal_ml", "Subtotal ML"]],
                 "numericCols": ["subtotal_ml", "total_ml"],
                 "sort": {"key": "total_ml", "dir": "desc"},
             },
         ],
     }
 
-    secciones = "".join([
-        hr.filter_bar_html(),
+    # Dos pestañas con filtro de período independiente (ver "scopes" en
+    # DASHBOARD_JS): el período de Gráficos no toca el de Tabla y al revés.
+    spec["scopes"] = [
+        {"id": "graficos", "prefix": "fg-", "statTiles": True,
+         "charts": [c["mount"] for c in spec["charts"]]},
+        {"id": "tabla", "prefix": "ft-", "tables": [t["mount"] for t in spec["tables"]]},
+    ]
+
+    pestana_graficos = "".join([
+        hr.filter_bar_html("fg-"),
         hr.stat_tiles_mount(),
         hr.section("Total ML facturado por mes", hr.mount("chart-mes"), wide=True),
         hr.section("Comparación mes a mes / trimestre a trimestre", hr.period_compare_mount("chart-comparacion"), wide=True),
         hr.section("Top 10 clientes por total ML", hr.mount("chart-clientes")),
         hr.section("Top 10 anunciantes por total ML", hr.mount("chart-anunciantes")),
+    ])
+    pestana_tabla = "".join([
+        hr.filter_bar_html("ft-"),
         hr.section("Facturacion por cliente (todos)", hr.mount("tabla-clientes"), wide=True),
+    ])
+
+    secciones = "".join([
+        hr.tabs_html([("graficos", "Gráficos", pestana_graficos), ("tabla", "Tabla", pestana_tabla)]),
         hr.dashboard_bundle(records, spec),
     ])
 

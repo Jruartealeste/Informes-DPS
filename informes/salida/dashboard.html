@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard ALESTE ADS</title>
 <style>
 :root {
@@ -73,10 +74,13 @@ body {
    prolijos en vez de dejar un hueco vacio en la fila. */
 .section-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(480px, 100%), 1fr));
   gap: 20px;
   align-items: start;
 }
+/* Tablas anchas: scroll horizontal dentro de la seccion en vez de desbordar
+   la pagina entera. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .section-grid > .stat-grid,
 .section-grid > .filter-bar,
 .section-grid > .report-section--full {
@@ -218,6 +222,9 @@ section.report-section h2 {
 }
 
 svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+/* Tope de escala: sin esto un grafico angosto (ej. hbar de 760) se estira a 1,5x
+   en pantalla ancha y su texto queda desproporcionado frente a los demas. */
+svg.chart { max-width: calc(var(--w, 100000) * 1.25px); margin-left: auto; margin-right: auto; }
 svg.chart text { fill: var(--text-muted); font-size: 11px; }
 svg.chart .gridline { stroke: var(--gridline); stroke-width: 1; }
 svg.chart .baseline { stroke: var(--baseline); stroke-width: 1; }
@@ -242,6 +249,7 @@ table.report-table th {
   border-bottom: 1px solid var(--baseline);
 }
 table.report-table td.num, table.report-table th.num {
+  white-space: nowrap;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -254,6 +262,15 @@ table.report-table tr.row-hidden { display: none; }
 /* Tabla agrupada con detalle desplegable (ver hr.dashboard_bundle /
    DASHBOARD_JS renderGroupedTable) -- fila resumen (una por grupo,
    clickeable) + fila de detalle (tabla anidada, oculta hasta expandir). */
+.estado-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.estado-note { font-size: 12px; margin-top: 2px; color: var(--text-secondary); text-decoration: none; }
+.estado-badge--critical { background: rgba(208,59,59,0.14); color: #d03b3b; }
+.estado-badge--serious { background: rgba(236,131,90,0.18); color: #c4552b; }
+:root[data-theme="dark"] .estado-badge--serious { color: #ec835a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .estado-badge--serious { color: #ec835a; } }
+tr.group-row--anulada td:not(.group-toggle) { text-decoration: line-through; text-decoration-color: var(--text-muted); color: var(--text-muted); }
+tr.group-row--anulada td:has(.estado-badge) { text-decoration: none; }
+tr.group-row--anulada td:has(.estado-badge) .estado-note { color: var(--text-secondary); }
 tr.group-row { cursor: pointer; }
 tr.group-row:hover { background: var(--page-plane); }
 tr.group-row td.group-toggle { width: 20px; text-align: center; color: var(--text-muted); }
@@ -286,6 +303,29 @@ footer.report-footer {
   color: var(--text-muted);
   font-size: 12px;
   margin-top: 24px;
+}
+
+/* Responsive: va al final de PAGE_CSS para ganar sobre las reglas base. */
+@media (max-width: 720px) {
+  /* Graficos SVG: el viewBox tiene ancho fijo (--w) y en pantalla angosta se
+     achicaba hasta dejar el texto en 2-5px. Ahora conservan un minimo de
+     75% de su tamano y scrollean dentro de su tarjeta. */
+  div:has(> svg.chart), div:has(> table.report-table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.report-table th, table.report-table td { padding: 8px 10px; }
+  svg.chart { min-width: calc(var(--w, 0) * 0.75px); }
+  .page { padding: 20px 16px 48px; }
+  header.report-header { flex-wrap: wrap; align-items: flex-start; margin-bottom: 24px; padding-bottom: 18px; }
+  header.report-header h1 { font-size: 22px; }
+  header.report-header .brand-logo { width: 38px; }
+  section.report-section { padding: 14px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-tile { padding: 12px 14px; }
+  .stat-tile .value { font-size: 18px; }
+}
+@media (max-width: 520px) {
+  table.report-table { font-size: 12px; }
+  table.report-table th, table.report-table td { padding: 8px 6px; }
+  table.report-table th { font-size: 10px; letter-spacing: 0.02em; }
 }
 
 @media print {
@@ -444,7 +484,7 @@ footer.report-footer {
       <span class="icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span class="sidebar-toggle-label">Contraer</span>
     </button>
-    <div class="shell-nav"><button type="button" class="shell-nav-item" data-id="pendientes" data-src="informe_pendientes.html" data-label="Pendientes" title="Pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Pendientes</span></button><button type="button" class="shell-nav-item" data-id="estimados_pendientes" data-src="informe_estimados_pendientes.html" data-label="Estimados Pendientes" title="Estimados Pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Estimados Pendientes</span></button><button type="button" class="shell-nav-item" data-id="ordenes_trabajo" data-src="informe_dinamico.html" data-label="Ordenes de Trabajo" title="Ordenes de Trabajo"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="4" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 11.5h7M8.5 15h7M8.5 18.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Ordenes de Trabajo</span></button><button type="button" class="shell-nav-item" data-id="compras" data-src="informe_compras.html" data-label="Compras" title="Compras"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 8h10l-1 12a2 2 0 01-2 2H10a2 2 0 01-2-2L7 8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 8V6a3 3 0 016 0v2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Compras</span></button><button type="button" class="shell-nav-item" data-id="facturas" data-src="informe_facturas.html" data-label="Facturas" title="Facturas"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3v4a1 1 0 001 1h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12.5h6M9 15.5h6M9 18.5h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Facturas</span></button><button type="button" class="shell-nav-item" data-id="iibb" data-src="informe_iibb.html" data-label="IIBB (recupero OC/OP)" title="IIBB (recupero OC/OP)"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">IIBB (recupero OC/OP)</span></button><button type="button" class="shell-nav-item" data-id="cobranza_proveedores" data-src="informe_cobranza_proveedores.html" data-label="Cobranza x Proveedores" title="Cobranza x Proveedores"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Cobranza x Proveedores</span></button></div>
+    <div class="shell-nav"><button type="button" class="shell-nav-item" data-id="pendientes" data-src="informe_pendientes.html" data-label="Pendientes" title="Pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Pendientes</span></button><button type="button" class="shell-nav-item" data-id="estimados_pendientes" data-src="informe_estimados_pendientes.html" data-label="Estimados Pendientes" title="Estimados Pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Estimados Pendientes</span></button><button type="button" class="shell-nav-item" data-id="ordenes_trabajo" data-src="informe_dinamico.html" data-label="Ordenes de Trabajo" title="Ordenes de Trabajo"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="4" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 11.5h7M8.5 15h7M8.5 18.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Ordenes de Trabajo</span></button><button type="button" class="shell-nav-item" data-id="compras" data-src="informe_compras.html" data-label="Compras" title="Compras"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 8h10l-1 12a2 2 0 01-2 2H10a2 2 0 01-2-2L7 8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 8V6a3 3 0 016 0v2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Compras</span></button><button type="button" class="shell-nav-item" data-id="facturas" data-src="informe_facturas.html" data-label="Facturas" title="Facturas"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3v4a1 1 0 001 1h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12.5h6M9 15.5h6M9 18.5h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Facturas</span></button><button type="button" class="shell-nav-item" data-id="iibb" data-src="informe_iibb.html" data-label="IIBB (recupero OC/OP)" title="IIBB (recupero OC/OP)"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">IIBB (recupero OC/OP)</span></button><button type="button" class="shell-nav-item" data-id="cobranza_proveedores" data-src="informe_cobranza_proveedores.html" data-label="Cobranza x Proveedores" title="Cobranza x Proveedores"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Cobranza x Proveedores</span></button><button type="button" class="shell-nav-item" data-id="facturacion_aluar" data-src="informe_facturacion_aluar.html" data-label="Facturación ALUAR" title="Facturación ALUAR"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Facturación ALUAR</span></button></div>
   </nav>
   <div class="shell-main">
     <div class="shell-topbar no-print">
