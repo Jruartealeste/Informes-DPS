@@ -566,7 +566,18 @@ button {
 }
 
 .filters__search {
-  width: 266px;
+  position: relative;
+  width: 300px;
+}
+.filters__search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  color: var(--faint);
+  pointer-events: none;
 }
 
 .filters input[type="text"],
@@ -579,6 +590,9 @@ button {
   width: 100%;
   transition: border-color 0.15s ease;
 }
+.filters__search input[type="text"] {
+  padding-left: 32px;
+}
 .filters select {
   width: auto;
   padding: 7px 11px;
@@ -588,26 +602,122 @@ button {
   border-color: var(--accent);
 }
 
+.filters__icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* Botón "Filtros" + panel con los selects. */
+.filtros {
+  position: relative;
+}
+.filters__btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  border-radius: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  white-space: nowrap;
+}
+.filters__btn:hover,
+.filters__btn[aria-expanded="true"] {
+  background: var(--hover);
+}
+.filters__btn.is-active {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.filters__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.filters__count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+.filtros__panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(290px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+}
+.filtros__panel[hidden] {
+  display: none;
+}
+.filtros__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.filtros__label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.filters .filtros__panel select {
+  width: 100%;
+}
+.filtros__foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Alerta "Necesitan revisión": fuera del panel y siempre a la vista. Con
+   tareas pendientes es ámbar permanente (alerta); activa pasa a sólido
+   (estás filtrando por ella). Con 0 queda neutra. */
 .filters__revision {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 13px;
   border-radius: 7px;
   padding: 7px 12px;
   border: 1px solid var(--line-strong);
   background: transparent;
-  color: var(--text);
+  color: var(--muted);
   white-space: nowrap;
 }
-.filters__revision.is-active {
+.filters__revision.has-items {
   border-color: var(--warn-line);
   background: var(--warn-soft);
   color: var(--warn-text);
 }
+.filters__revision.is-active {
+  border-color: var(--warn);
+  background: var(--warn);
+  color: #fff;
+}
+.filters__revision:focus-visible {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+}
 .filters__revision strong {
   font-weight: 600;
+  font-family: var(--mono);
 }
 
 .filters__spacer {
@@ -1075,6 +1185,14 @@ select.chip-fac {
 .field-row > .field--fixed {
   flex: none;
   width: 112px;
+  display: flex;
+  flex-direction: column;
+}
+/* El toggle ocupa el alto que sobra bajo la etiqueta (no 100% de la columna,
+   que lo hacía ~23px más alto que el input vecino). */
+.field-row > .field--fixed > .check-toggle {
+  height: auto;
+  flex: 1;
 }
 
 .field-ot {
