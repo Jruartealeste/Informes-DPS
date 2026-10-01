@@ -2,7 +2,7 @@
    cual y _controles.html la incluye con oob=true para re-renderizarla tras
    cada swap de tabla (hx-swap-oob no se procesa en un document load). #}
 <button type="button" id="btn-revision"
-  class="filters__revision{{ ' has-items' if n_revision }}{{ ' is-active' if revision }}"
+  class="filters__revision{{ ' has-items' if n_revision else ' is-empty' }}{{ ' is-active' if revision }}"
   {% if oob %}hx-swap-oob="true"{% endif %}
   aria-pressed="{{ 'true' if revision else 'false' }}"
   hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
