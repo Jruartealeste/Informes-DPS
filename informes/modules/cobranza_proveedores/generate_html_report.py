@@ -324,10 +324,15 @@ def main():
     spec = {
         "dateField": "_periodo",
         "categoryFilters": CATEGORY_FILTERS,
+        # Filtros detras de un boton "Filtros" junto al buscador de la tabla
+        # (pedido de Javier, 2026-10-01: sacar tanta info de la pagina
+        # principal) + orden por titulo de columna.
+        "filtersInToolbar": True,
         "tables": [
             {
                 "mount": "tabla-detalle",
                 "mode": "grouped",
+                "sortableHeaders": True,
                 "groupField": "numero_recibo",
                 "groupNoun": {"one": "recibo", "many": "recibos"},
                 # Fila resumen: una por recibo. "sum_unique" en Saldo a Pagar
@@ -370,8 +375,7 @@ def main():
     }
 
     secciones = "".join([
-        hr.filter_bar_html(),
-        hr.category_filters_html(CATEGORY_FILTERS),
+        hr.filters_panel_html(CATEGORY_FILTERS),
         hr.section("Detalle: Recibo → Factura → OC/Proveedor", hr.mount("tabla-detalle"), wide=True),
         hr.dashboard_bundle(records, spec),
     ])
