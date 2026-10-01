@@ -34,7 +34,11 @@ class _StaticInmutable(StaticFiles):
 # acá. Queda para dev local, Docker/Cloud Run y los tests.
 app.mount(
     "/static",
-    _StaticInmutable(directory=Path(__file__).parent.parent / "public" / "static"),
+    # check_dir=False: si public/ no viajara dentro de la función, que
+    # no se caiga la app entera al importar (el CDN igual sirve los estáticos).
+    _StaticInmutable(
+        directory=Path(__file__).parent.parent / "public" / "static", check_dir=False
+    ),
     name="static",
 )
 
