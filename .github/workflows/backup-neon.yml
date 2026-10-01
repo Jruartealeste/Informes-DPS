@@ -1,0 +1,68 @@
+# Backup diario de la base de producción de ot/ (Neon). Neon Free solo guarda
+# 6 horas de historial, así que esto es la única red de seguridad real ante un
+# borrado accidental. Ver "Backups" en ot/CLAUDE.md (incluye cómo restaurar).
+#
+# Secrets requeridos (Settings > Secrets and variables > Actions):
+#   NEON_DATABASE_URL  URL DIRECTA de producción (la del .env.prod, SIN "-pooler":
+#                      pg_dump no anda bien a través de PgBouncer).
+#   BACKUP_PASSPHRASE  frase para cifrar el dump. Guardala también en un gestor
+#                      de contraseñas: sin ella los backups no se pueden abrir.
+name: Backup Neon (ot/)
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # 06:17 UTC = 03:17 en Argentina
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Instalar cliente de Postgres 17
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl ca-certificates gnupg
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -sS --fail -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump + verificación
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          # El .env usa el esquema de SQLAlchemy; pg_dump quiere el de libpq.
+          URL="${DATABASE_URL/postgresql+psycopg:/postgresql:}"
+          PGBIN=/usr/lib/postgresql/17/bin
+          "$PGBIN/pg_dump" "$URL" --format=custom --no-owner --no-acl --file=ot.dump
+          # No dar por bueno un dump vacío o truncado: tiene que listar la tabla
+          # principal con sus datos.
+          "$PGBIN/pg_restore" --list ot.dump | grep -q "TABLE DATA public tareas"
+          ls -l ot.dump
+
+      - name: Cifrar
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_PASSPHRASE"
+          NOMBRE="ot-$(date -u +%Y-%m-%d).dump.gpg"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 -o "$NOMBRE" ot.dump
+          rm -f ot.dump
+          echo "ARCHIVO=$NOMBRE" >> "$GITHUB_ENV"
+
+      - name: Guardar (30 días)
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-ot
+          path: ${{ env.ARCHIVO }}
+          retention-days: 30
+          if-no-files-found: error
