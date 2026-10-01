@@ -19,10 +19,10 @@ permissions:
 
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Instalar cliente de Postgres 17
+      - name: Instalar el cliente de Postgres más nuevo
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq curl ca-certificates gnupg
@@ -31,7 +31,7 @@ jobs:
           . /etc/os-release
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
+          sudo apt-get install -y -qq postgresql-client
 
       - name: Dump + verificación
         env:
@@ -40,7 +40,23 @@ jobs:
           set -euo pipefail
           # El .env usa el esquema de SQLAlchemy; pg_dump quiere el de libpq.
           URL="${DATABASE_URL/postgresql+psycopg:/postgresql:}"
-          PGBIN=/usr/lib/postgresql/17/bin
+          # pg_dump no anda bien a través del pooler (PgBouncer): usar el host directo.
+          URL="${URL/-pooler./.}"
+          # Tiene que incluir el nombre de la base; si falta, libpq usa el del usuario
+          # y falla con un error confuso ('database "neondb_owner" does not exist').
+          if ! [[ "$URL" =~ ^postgres(ql)?://[^/]+/[^/?]+ ]]; then
+            echo "::error::NEON_DATABASE_URL no incluye el nombre de la base (debe terminar en .../neondb?sslmode=require)"
+            exit 1
+          fi
+          # Neon exige SSL.
+          case "$URL" in
+            *sslmode=*) ;;
+            *\?*) URL="$URL&sslmode=require" ;;
+            *) URL="$URL?sslmode=require" ;;
+          esac
+          # La versión más nueva instalada: el cliente tiene que ser >= al servidor.
+          PGBIN="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n 1)"
+          "$PGBIN/pg_dump" --version
           "$PGBIN/pg_dump" "$URL" --format=custom --no-owner --no-acl --file=ot.dump
           # No dar por bueno un dump vacío o truncado: tiene que listar la tabla
           # principal con sus datos.
