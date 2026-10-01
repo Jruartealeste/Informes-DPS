@@ -698,8 +698,12 @@ button {
   padding: 7px 12px;
   border: 1px solid var(--line-strong);
   background: transparent;
-  color: var(--muted);
+  color: var(--text);
   white-space: nowrap;
+  text-decoration: none;
+}
+.filters__revision.is-empty {
+  color: var(--muted);
 }
 .filters__revision.has-items {
   border-color: var(--warn-line);
@@ -717,6 +721,8 @@ button {
 }
 .filters__revision strong {
   font-weight: 600;
+}
+.filters .filters__revision strong {
   font-family: var(--mono);
 }
 
@@ -1765,9 +1771,23 @@ select.chip-fac {
   color: var(--accent-text);
 }
 
+/* Barra de asignación en lote: aparece solo con filas tildadas y queda pegada
+   al borde inferior del scroll, así tildar una fila no empuja la tabla. */
 .card--asignar-lote {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
   max-width: 760px;
-  margin: 0 20px 14px;
+  margin: 14px 0 0;
+  box-shadow: var(--shadow);
+}
+.card--asignar-lote[hidden] {
+  display: none;
+}
+.form-nota--lista {
+  margin: 0 20px 10px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .segmented {
@@ -2318,9 +2338,11 @@ select.chip-fac {
 }
 
 .card--facturacion-grupo {
-  flex: 1 1 480px;
-  min-width: 420px;
-  max-width: 640px;
+  flex: 1 1 580px;
+  /* mínimo = lo que necesita la grilla de la tabla (ver abajo) + padding de la
+     tarjeta; antes 420px y la tabla se desbordaba ~50px, con scroll horizontal */
+  min-width: min(580px, 100%);
+  max-width: 720px;
 }
 .fact-grupo__head {
   display: flex;
@@ -2348,7 +2370,7 @@ select.chip-fac {
 }
 .table-head--facturacion-grupo,
 .row-tarea--facturacion-grupo {
-  grid-template-columns: 90px minmax(180px, 1fr) 130px 150px;
+  grid-template-columns: 80px minmax(140px, 1fr) 110px 140px;
 }
 .row-tarea--facturacion-grupo {
   display: grid;
