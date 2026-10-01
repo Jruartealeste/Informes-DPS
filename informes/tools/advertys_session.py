@@ -62,6 +62,12 @@ def login(page) -> None:
     pass_input.fill(ADVERTYS_PASSWORD)
     pass_input.press("Enter")
     esperar_postback(page)
+    # Advertys a veces tarda ~10-15 s en responder al login (visto 2026-10-01):
+    # esperar a que salga de Login.aspx antes de dar el login por fallido.
+    for _ in range(15):
+        if "Login.aspx" not in page.url:
+            break
+        page.wait_for_timeout(2000)
 
     if "Login.aspx" in page.url:
         login_link = page.locator('a[title="Iniciar sesión"], a[title="Iniciar sesion"]')
