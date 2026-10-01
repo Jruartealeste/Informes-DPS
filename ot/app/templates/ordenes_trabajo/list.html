@@ -22,32 +22,54 @@
   </div>
 </div>
 
-<p class="form-nota form-nota--lista">Tildá una o más OT internas para asignarles una OT de sistema.</p>
 
-<div class="table-scroll">
-  <div class="table-card table-card--ot-list">
-    <div class="table-head table-head--ot-list">
-      <div class="row-ot__select"><input type="checkbox" id="chk-todas" aria-label="Tildar todas las OT internas"></div><div>OT interna</div><div>Estado</div><div>OT de sistema</div><div>Tareas</div><div>Facturación</div>
-    </div>
-    {% for ot in ots %}
-    <div class="row-ot">
-      <label class="row-ot__select">
-        <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}">
-      </label>
-      <a href="/ordenes-trabajo/{{ ot.n }}" class="row-ot__link">
-        <div class="row-ot__n">OT {{ ot.n }}</div>
-        <div><span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span></div>
-        <div><span class="badge badge--dps {{ 'has-dps' if ot.dps else 'no-dps' }}">{{ ot.dps_label }}</span></div>
-        <div class="cell-mono">{{ ot.total }}</div>
-        <div class="cell-mono">{{ ot.progreso }}</div>
-      </a>
-    </div>
-    {% endfor %}
+<div class="filters" id="filtros-ot">
+  <div class="filters__search">
+    <svg class="filters__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="text" id="filtro-q" placeholder="Buscar por número de OT interna o de sistema…" aria-label="Buscar OT internas" autocomplete="off">
   </div>
-  {% if not ots %}
-  <p class="empty-state">Todavía no hay ninguna OT interna.</p>
-  {% endif %}
-  <form method="post" id="form-asignar-lote" class="card card--asignar-lote" hidden>
+  <div class="filtros">
+    <button type="button" id="btn-filtros" class="filters__btn" aria-expanded="false" aria-controls="filtros-panel">
+      <svg class="filters__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h12"/><path d="M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>
+      Filtros
+      <span class="filters__count" id="filtros-count" hidden></span>
+    </button>
+    <div class="filtros__panel" id="filtros-panel" role="group" aria-label="Filtros de OT internas" hidden>
+      <label class="filtros__campo">
+        <span class="filtros__label">Estado</span>
+        <select id="filtro-estado">
+          <option value="">Todos los estados</option>
+          <option value="ABIERTA">Abierta</option>
+          <option value="CERRADA">Cerrada</option>
+        </select>
+      </label>
+      <label class="filtros__campo">
+        <span class="filtros__label">OT de sistema</span>
+        <select id="filtro-dps">
+          <option value="">Todas las OT de sistema</option>
+          <option value="__sin">Sin OT de sistema</option>
+          {% for d in dps_existentes %}<option value="{{ d.valor }}">OT de sistema {{ d.valor }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="filtros__campo">
+        <span class="filtros__label">Facturación</span>
+        <select id="filtro-fac">
+          <option value="">Toda la facturación</option>
+          <option value="pendiente">Con tareas por facturar</option>
+          <option value="completa">Todo facturado</option>
+        </select>
+      </label>
+      <div class="filtros__foot">
+        <button type="button" class="filters__clear" id="filtros-reset">Limpiar filtros</button>
+      </div>
+    </div>
+  </div>
+  <div class="filters__spacer"></div>
+  <div class="filters__summary" id="filtros-resumen"></div>
+  <button type="button" class="filters__clear" id="filtros-clear" hidden>Limpiar</button>
+</div>
+
+<form method="post" id="form-asignar-lote" class="card card--asignar-lote">
     <input type="hidden" name="ot_ids" id="ot_ids_input">
     <input type="hidden" name="numero_ot_advertys" id="numero_ot_advertys_input">
     <input type="hidden" name="anunciante" id="anunciante_input">
@@ -56,7 +78,7 @@
     <input type="hidden" name="centro_costo" id="centro_costo_input">
     <input type="hidden" name="equipo" id="equipo_input">
     <div class="card__field-label">
-      <span id="seleccion-titulo">OT de sistema para las OT internas tildadas</span>
+      OT de sistema para las OT internas tildadas
       <span class="info-tip">
         <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
         <div class="info-tip__panel" role="note">
@@ -120,6 +142,32 @@
       <span id="seleccion-count" class="form-nota" style="display:inline;margin:0 0 0 8px"></span>
     </div>
   </form>
+
+<div class="table-scroll">
+  <div class="table-card table-card--ot-list">
+    <div class="table-head table-head--ot-list">
+      <div class="row-ot__select"><input type="checkbox" id="chk-todas" aria-label="Tildar todas las OT internas"></div><div>OT interna</div><div>Estado</div><div>OT de sistema</div><div>Tareas</div><div>Facturación</div>
+    </div>
+    {% for ot in ots %}
+    <div class="row-ot" data-estado="{{ ot.ot_estado }}" data-dps="{{ ot.dps or '' }}" data-total="{{ ot.total }}" data-fact="{{ ot.facturadas }}">
+      <label class="row-ot__select">
+        <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}">
+      </label>
+      <a href="/ordenes-trabajo/{{ ot.n }}" class="row-ot__link">
+        <div class="row-ot__n">OT {{ ot.n }}</div>
+        <div><span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span></div>
+        <div><span class="badge badge--dps {{ 'has-dps' if ot.dps else 'no-dps' }}">{{ ot.dps_label }}</span></div>
+        <div class="cell-mono">{{ ot.total }}</div>
+        <div class="cell-mono">{{ ot.progreso }}</div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% if not ots %}
+  <p class="empty-state">Todavía no hay ninguna OT interna.</p>
+  {% endif %}
+  <p class="empty-state" id="sin-resultados" hidden>Ninguna OT interna coincide con los filtros.</p>
+
 </div>
 
 <script id="clientes-anunciantes-data" type="application/json">{{ clientes_anunciantes | tojson }}</script>
@@ -149,6 +197,10 @@
   var ETIQUETAS_BOTON = { nuevo: 'Asignar OT de sistema', existente: 'Asignar OT de sistema', generar: 'Generar OT en Advertys' };
   var ACTIONS = { nuevo: '/ordenes-trabajo/asignar-lote', existente: '/ordenes-trabajo/asignar-lote', generar: '/ordenes-trabajo/generar-ot' };
 
+  function filasVisibles() {
+    return Array.prototype.filter.call(document.querySelectorAll('.row-ot'), function (r) { return !r.hidden; });
+  }
+
   function marcadas() {
     return Array.prototype.filter.call(document.querySelectorAll('.chk-ot'), function (c) { return c.checked; });
   }
@@ -165,9 +217,8 @@
   function actualizarContador() {
     var n = marcadas().length;
     contador.textContent = n ? n + ' seleccionada' + (n !== 1 ? 's' : '') : '';
-    form.hidden = n === 0;
     var todas = document.getElementById('chk-todas');
-    var total = document.querySelectorAll('.chk-ot').length;
+    var total = filasVisibles().length;
     todas.checked = n > 0 && n === total;
     todas.indeterminate = n > 0 && n < total;
     actualizarCatalogoAnunciante();
@@ -197,11 +248,11 @@
     c.addEventListener('change', actualizarContador);
   });
   document.getElementById('chk-todas').addEventListener('change', function (ev) {
-    Array.prototype.forEach.call(document.querySelectorAll('.chk-ot'), function (c) { c.checked = ev.target.checked; });
+    filasVisibles().forEach(function (r) { r.querySelector('.chk-ot').checked = ev.target.checked; });
     actualizarContador();
   });
   document.getElementById('btn-tildar-todas').addEventListener('click', function () {
-    Array.prototype.forEach.call(document.querySelectorAll('.chk-ot'), function (c) { c.checked = true; });
+    filasVisibles().forEach(function (r) { r.querySelector('.chk-ot').checked = true; });
     actualizarContador();
   });
   document.getElementById('btn-limpiar-seleccion').addEventListener('click', function () {
@@ -209,8 +260,66 @@
     actualizarContador();
   });
 
+  // ---- Buscador y filtros (en el cliente: la lista ya viene completa) ----
+  var btnFiltros = document.getElementById('btn-filtros');
+  var panelFiltros = document.getElementById('filtros-panel');
+  var fq = document.getElementById('filtro-q');
+  var fEstado = document.getElementById('filtro-estado');
+  var fDps = document.getElementById('filtro-dps');
+  var fFac = document.getElementById('filtro-fac');
+
+  function abrirPanel(v) {
+    panelFiltros.hidden = !v;
+    btnFiltros.setAttribute('aria-expanded', v ? 'true' : 'false');
+  }
+
+  function aplicarFiltros() {
+    var q = fq.value.trim().toLowerCase();
+    var filas = document.querySelectorAll('.row-ot');
+    var visibles = 0;
+    Array.prototype.forEach.call(filas, function (r) {
+      var d = r.dataset, total = +d.total, fact = +d.fact, ok = true;
+      if (q && r.textContent.toLowerCase().indexOf(q) === -1) ok = false;
+      if (fEstado.value && d.estado !== fEstado.value) ok = false;
+      if (fDps.value === '__sin' ? d.dps !== '' : (fDps.value && d.dps !== fDps.value)) ok = false;
+      if (fFac.value === 'pendiente' && !(total > fact)) ok = false;
+      if (fFac.value === 'completa' && !(total > 0 && fact === total)) ok = false;
+      r.hidden = !ok;
+      // una fila oculta no puede quedar tildada: iría igual en el envío
+      if (!ok) r.querySelector('.chk-ot').checked = false;
+      if (ok) visibles++;
+    });
+    var activos = [fEstado, fDps, fFac].filter(function (sel) { return sel.value; }).length;
+    var cuenta = document.getElementById('filtros-count');
+    cuenta.textContent = activos;
+    cuenta.hidden = activos === 0;
+    btnFiltros.classList.toggle('is-active', activos > 0);
+    document.getElementById('filtros-resumen').textContent = visibles + ' de ' + filas.length + ' OT internas';
+    document.getElementById('filtros-clear').hidden = !(activos > 0 || q);
+    var vacio = document.getElementById('sin-resultados');
+    if (vacio) vacio.hidden = visibles > 0 || filas.length === 0;
+    actualizarContador();
+  }
+
+  function limpiarFiltros() {
+    fq.value = ''; fEstado.value = ''; fDps.value = ''; fFac.value = '';
+    aplicarFiltros();
+  }
+
+  btnFiltros.addEventListener('click', function () { abrirPanel(panelFiltros.hidden); });
+  document.addEventListener('click', function (e) {
+    if (!panelFiltros.hidden && !panelFiltros.contains(e.target) && !btnFiltros.contains(e.target)) abrirPanel(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !panelFiltros.hidden) { abrirPanel(false); btnFiltros.focus(); }
+  });
+  fq.addEventListener('input', aplicarFiltros);
+  [fEstado, fDps, fFac].forEach(function (c) { c.addEventListener('change', aplicarFiltros); });
+  document.getElementById('filtros-clear').addEventListener('click', limpiarFiltros);
+  document.getElementById('filtros-reset').addEventListener('click', limpiarFiltros);
+
   actualizarModo();
-  actualizarContador();
+  aplicarFiltros();
 
   form.addEventListener('submit', function (ev) {
     ocultarError();
