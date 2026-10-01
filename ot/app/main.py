@@ -6,6 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import AuthMiddleware
 from app.config import settings
+from app.timing import ServerTimingMiddleware
 from app.routers import (
     auth_routes,
     clientes,
@@ -47,6 +48,8 @@ app.mount(
 # agregado último primero, "más afuera").
 app.add_middleware(AuthMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret, same_site="lax")
+# Al final = la más externa: mide también el tiempo de las otras dos.
+app.add_middleware(ServerTimingMiddleware)
 
 app.include_router(auth_routes.router)
 app.include_router(clientes.router)
