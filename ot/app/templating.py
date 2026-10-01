@@ -5,7 +5,7 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
-from app.cliente_ctx import cliente_activo
+from app.cliente_ctx import CLIENTE_DEFAULT, COOKIE_CLIENTE
 from app.db import get_db
 from app.models import Cliente, OtInterna, Tarea
 
@@ -27,22 +27,25 @@ def _contexto_clientes(request: Request) -> dict:
     gen = dep()
     db = next(gen)
     try:
-        activo = cliente_activo(request, db)
-        conteos = dict(
-            db.execute(
-                select(OtInterna.cliente_id, func.count(Tarea.id))
-                .join(Tarea, Tarea.ot_interna_id == OtInterna.id)
-                .group_by(OtInterna.cliente_id)
-            ).all()
-        )
-        clientes = list(db.scalars(select(Cliente).order_by(Cliente.id)))
-        return {
-            "clientes_sidebar": [
-                {"id": c.id, "nombre": c.nombre, "total_tareas": conteos.get(c.id, 0)}
-                for c in clientes
-            ],
-            "cliente_activo_id": activo.id if activo else None,
-        }
+        # Una sola query (clientes LEFT JOIN conteo) en vez de tres seriales:
+        # cada una es una ida y vuelta a Neon por request. El cliente activo
+        # se resuelve en Python sobre esa misma lista (cookie, o ALUAR por
+        # default — misma regla que cliente_ctx.cliente_activo).
+        filas = db.execute(
+            select(Cliente.id, Cliente.nombre, func.count(Tarea.id))
+            .outerjoin(OtInterna, OtInterna.cliente_id == Cliente.id)
+            .outerjoin(Tarea, Tarea.ot_interna_id == OtInterna.id)
+            .group_by(Cliente.id, Cliente.nombre)
+            .order_by(Cliente.id)
+        ).all()
+        clientes_sidebar = [{"id": i, "nombre": n, "total_tareas": t} for i, n, t in filas]
+        crudo = request.cookies.get(COOKIE_CLIENTE)
+        activo_id = None
+        if crudo and crudo.isdigit():
+            activo_id = next((c["id"] for c in clientes_sidebar if c["id"] == int(crudo)), None)
+        if activo_id is None:
+            activo_id = next((c["id"] for c in clientes_sidebar if c["nombre"] == CLIENTE_DEFAULT), None)
+        return {"clientes_sidebar": clientes_sidebar, "cliente_activo_id": activo_id}
     finally:
         next(gen, None)
 
