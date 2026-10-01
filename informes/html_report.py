@@ -562,6 +562,12 @@ DASHBOARD_CSS = """
 .table-count { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
 .table-toolbar--filters { position: relative; }
 .table-toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.table-toolbar-right { display: flex; align-items: center; gap: 12px; }
+.csv-btn {
+  border: 1px solid var(--border); background: var(--page-plane); color: var(--text-primary);
+  border-radius: 6px; padding: 5px 12px; font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.csv-btn:hover { border-color: var(--brand); }
 .filters-btn {
   display: inline-flex; align-items: center; gap: 6px;
   border: 1px solid var(--border); background: var(--page-plane); color: var(--text-primary);
@@ -1370,6 +1376,49 @@ DASHBOARD_JS = """
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') setOpen(false); });
   }
 
+  // Exportar CSV (tablas agrupadas con t.csvExport): una fila por linea de
+  // detalle, con los datos del grupo (ej. recibo) repetidos en cada una --
+  // incluye lo que esta dentro del desplegable. Respeta periodo, filtros y
+  // buscador vigentes (exporta lo que se esta viendo, todas las paginas).
+  // ';' como separador y coma decimal: es lo que abre bien Excel en es-AR;
+  // el BOM UTF-8 evita que rompa tildes y la enie.
+  function csvCell(v, isNum) {
+    if (v == null || v === '') return '';
+    var t = isNum && typeof v === 'number' ? String(Math.round(v * 100) / 100).replace('.', ',') : String(v);
+    var m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(t);
+    if (m) t = m[3] + '/' + m[2] + '/' + m[1];
+    return /[;"\\n\\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function exportGroupedCsv(mountId, t) {
+    var el = document.getElementById(mountId);
+    var st = groupedTableState[mountId];
+    var groups = (el && el._filteredGroups) || [];
+    var cfg = t.csvExport || {};
+    var gCols = t.groupColumns.map(function (c) { return { key: c[0], label: c[1], num: !!(t.groupNumericCols && t.groupNumericCols.indexOf(c[0]) >= 0), from: 'g' }; });
+    var dCols = t.detailColumns.concat(cfg.extraDetail || []).map(function (c) { return { key: c[0], label: c[1], num: !!(((t.detailNumericCols || []).concat(cfg.extraNumeric || [])).indexOf(c[0]) >= 0), from: 'd' }; });
+    var gLabels = gCols.map(function (c) { return c.label; });
+    var dLabels = dCols.map(function (c) { return c.label; });
+    gCols.forEach(function (c) { if (dLabels.indexOf(c.label) >= 0) c.label += (cfg.groupSuffix || ' (grupo)'); });
+    dCols.forEach(function (c) { if (gLabels.indexOf(c.label) >= 0) c.label += (cfg.detailSuffix || ' (detalle)'); });
+    var labels = cfg.labels || {};
+    gCols.concat(dCols).forEach(function (c) { if (labels[c.key]) c.label = labels[c.key]; });
+    var cols = gCols.concat(dCols);
+    var lines = [cols.map(function (c) { return csvCell(c.label); }).join(';')];
+    groups.forEach(function (g) {
+      var rows = (st && st.detailSort) ? sortByKey(g._rows, st.detailSort) : g._rows;
+      rows.forEach(function (r) {
+        lines.push(cols.map(function (c) { return csvCell(c.from === 'g' ? g[c.key] : r[c.key], c.num); }).join(';'));
+      });
+    });
+    var blob = new Blob(['\\uFEFF' + lines.join('\\r\\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (cfg.filename || 'export') + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
   var gradSeq = 0;
 
   // Puerto 1:1 de bar_chart_svg() (html_report.py) para que el grafico
@@ -1834,12 +1883,17 @@ DASHBOARD_JS = """
                 '<button type="button" class="filters-btn" aria-expanded="false">Filtros <span class="filters-badge" hidden>0</span></button>' +
               '</div>'
             : '<input type="search" class="table-search" placeholder="Buscar en la tabla...">') +
-          '<span class="table-count"></span>' +
+          '<div class="table-toolbar-right">' +
+            (t.csvExport ? '<button type="button" class="csv-btn" title="Descarga lo que ves en pantalla, con el detalle de cada fila desplegable">Exportar CSV</button>' : '') +
+            '<span class="table-count"></span>' +
+          '</div>' +
         '</div>' +
         '<div class="table-inner"></div>' +
         '<nav class="table-pager no-print" aria-label="Paginacion de la tabla" hidden></nav>';
       el.dataset.built = '1';
       if (inToolbar) setupFiltersPopover(el.querySelector('.table-toolbar'));
+      var csvBtn = el.querySelector('.csv-btn');
+      if (csvBtn) csvBtn.addEventListener('click', function () { exportGroupedCsv(mountId, t); });
       var searchInput = el.querySelector('.table-search');
       searchInput.addEventListener('input', function () {
         groupedTableState[mountId].search = searchInput.value;
@@ -1889,6 +1943,7 @@ DASHBOARD_JS = """
       return matchCols(g, t.groupColumns) || g._rows.some(function (r) { return matchCols(r, t.detailColumns); });
     }) : groups;
 
+    el._filteredGroups = filtered;
     var hideMobile = t.groupMobileHide || [];
     var minW = t.groupMinWidths || {};
     var mobW = window.innerWidth <= 720 ? (t.groupMobileWidths || {}) : {};
