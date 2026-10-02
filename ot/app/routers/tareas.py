@@ -276,8 +276,15 @@ def _guardar_tipos_responsables(db: Session, tarea: Tarea, tipos: list[str], res
         if not nombre:
             continue
         tipo = db.scalar(select(TipoTarea).where(TipoTarea.nombre == nombre))
-        if tipo:
-            tipo_ids.add(tipo.id)
+        if not tipo:
+            # El catálogo no lo carga ninguna migración (solo seed/tests): si
+            # falta un tipo válido se crea acá en vez de descartarlo en silencio.
+            if nombre not in TIPO_TAREA_LABELS:
+                raise HTTPException(422, f"Tipo de tarea desconocido: {nombre}.")
+            tipo = TipoTarea(nombre=nombre)
+            db.add(tipo)
+            db.flush()
+        tipo_ids.add(tipo.id)
 
     for tt in list(tarea.tipos):
         if tt.tipo_tarea_id not in tipo_ids:
