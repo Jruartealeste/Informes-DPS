@@ -135,10 +135,12 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
     }
 
 
-def _tabla_y_cerrar_drawer(db: Session, request: Request) -> HTMLResponse:
+def _tabla_y_cerrar_drawer(db: Session, request: Request, drawer_html: str = "") -> HTMLResponse:
+    """Re-renderiza la tabla y reemplaza el drawer: vacío lo cierra; con
+    `drawer_html` lo deja abierto mostrando ese contenido."""
     ctx = _contexto_tabla(db, request)
     tabla_html = templates.env.get_template("tareas/_tabla_swap.html").render(ctx)
-    return HTMLResponse(tabla_html + '<div id="drawer-root" hx-swap-oob="true"></div>')
+    return HTMLResponse(tabla_html + f'<div id="drawer-root" hx-swap-oob="true">{drawer_html}</div>')
 
 
 @router.get("/")
@@ -338,7 +340,10 @@ def crear_tarea(
     _guardar_tipos_responsables(db, tarea, tipos_lista, responsables)
     db.commit()
 
-    return _tabla_y_cerrar_drawer(db, request)
+    # Al crear, el drawer queda abierto en modo edición de la tarea nueva (con
+    # Enviar mail / Anular habilitados) en vez de cerrarse.
+    drawer_html = templates.env.get_template("tareas/_detalle.html").render(contexto_detalle(db, tarea.id))
+    return _tabla_y_cerrar_drawer(db, request, drawer_html)
 
 
 @router.patch("/tareas/{tarea_id}")

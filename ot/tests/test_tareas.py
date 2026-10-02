@@ -233,3 +233,24 @@ def test_guardar_tipos_crea_tipo_faltante_del_catalogo(db_session):
 
     with pytest.raises(HTTPException):
         _guardar_tipos_responsables(db_session, tarea, ["inventado"], {resp_id})
+
+
+def test_crear_tarea_deja_drawer_abierto_en_modo_edicion(client, db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+    r = client.post(
+        "/tareas",
+        data={
+            "ot_numero": "4300",
+            "detalle": "Tarea que queda abierta",
+            "fecha_pedido": "2026-08-01",
+            "tipos": "diseño",
+            "responsable_ids": str(fer.id),
+        },
+    )
+    assert r.status_code == 200
+    tarea = db_session.query(Tarea).filter_by(detalle="Tarea que queda abierta").one()
+    # drawer OOB con el form en modo edición (PATCH) y los botones habilitados
+    assert 'id="drawer-root" hx-swap-oob="true"' in r.text
+    assert f'hx-patch="/tareas/{tarea.id}"' in r.text
+    assert f'hx-get="/tareas/{tarea.id}/mail"' in r.text
+    assert "Asigná un responsable primero" not in r.text
