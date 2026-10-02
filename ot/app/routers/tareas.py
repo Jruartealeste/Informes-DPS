@@ -200,6 +200,45 @@ def contexto_detalle(db: Session, tarea_id: int) -> dict:
     }
 
 
+@router.get("/tareas/{tarea_id}/duplicar")
+def duplicar_sheet(tarea_id: int, request: Request, db: Session = Depends(get_db)):
+    """Sheet apilada que pregunta si la tarea duplicada usa la misma OT interna
+    o una nueva."""
+    t = cargar_tarea_con_relaciones(db, tarea_id)
+    return templates.TemplateResponse(request, "tareas/_duplicar_sheet.html", {"det": tarea_vm(t)})
+
+
+@router.get("/tareas/{tarea_id}/duplicar/form")
+def duplicar_form(tarea_id: int, request: Request, ot: str = "misma", db: Session = Depends(get_db)):
+    """Form de tarea nueva con los datos de la original precargados. No guarda
+    nada: la fecha de pedido, el estado y la facturación arrancan de cero."""
+    from app.routers.ordenes_trabajo import siguiente_numero_interno
+
+    t = cargar_tarea_con_relaciones(db, tarea_id)
+    det = tarea_vm(t)
+    ot_numero = siguiente_numero_interno(db) if ot == "nueva" else det["ot_numero_form"]
+    html = templates.env.get_template("tareas/_detalle.html").render(
+        {
+            "det": None,
+            "pre": {
+                "origen": det["detalle"],
+                "ot_numero": ot_numero,
+                "detalle": t.detalle,
+                "pedido_por": t.pedido_por or "",
+                "link_drive": t.link_drive or "",
+                "presupuestado": bool(t.presupuestado),
+            },
+            "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
+            "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
+            "todos_ot_numeros": cache.ot_numeros(db),
+            **combo_ctx(db, set(det["responsable_ids"])),
+            **tipos_combo_ctx(set(det["tipos"])),
+        }
+    )
+    # La sheet de elección se cierra junto con el reemplazo del drawer.
+    return HTMLResponse(html + '<div id="sheet-2-root" hx-swap-oob="true"></div>')
+
+
 @router.get("/tareas/{tarea_id}")
 def tarea_detalle(tarea_id: int, request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "tareas/_detalle.html", contexto_detalle(db, tarea_id))

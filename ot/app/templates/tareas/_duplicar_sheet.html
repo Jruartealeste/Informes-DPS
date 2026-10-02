@@ -1,0 +1,31 @@
+<div class="drawer-overlay" onclick="cerrarSheet2(event)">
+  <div class="drawer" onclick="event.stopPropagation()">
+    <div class="drawer__header">
+      <div style="min-width:0">
+        <div class="drawer__kicker">Duplicar tarea</div>
+        <div class="drawer__title">{{ det.detalle }}</div>
+      </div>
+      <div class="page-header__spacer"></div>
+      <button type="button" class="drawer__close" onclick="cerrarSheet2(event)">✕</button>
+    </div>
+
+    <div class="drawer__body">
+      <div class="field">
+        <div class="field__label">¿Qué OT interna usa la tarea nueva?</div>
+        <div class="field-hint">Se abre el formulario con los datos copiados; no se guarda nada hasta que apretes Guardar.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        {% if det.ot_numero_form %}
+        <button type="button" class="btn btn--primary"
+                hx-get="/tareas/{{ det.id }}/duplicar/form?ot=misma" hx-target="#drawer-root" hx-swap="innerHTML">
+          Misma OT interna ({{ det.ot_numero_form }})
+        </button>
+        {% endif %}
+        <button type="button" class="btn"
+                hx-get="/tareas/{{ det.id }}/duplicar/form?ot=nueva" hx-target="#drawer-root" hx-swap="innerHTML">
+          OT interna nueva (próximo número)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

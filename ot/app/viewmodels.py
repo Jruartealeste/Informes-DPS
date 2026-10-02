@@ -19,9 +19,21 @@ def grupo_key(t: Tarea) -> str:
 
 
 def puede_anular(t: Tarea) -> bool:
-    if t.estado_tarea in (EstadoTarea.FINALIZADO, EstadoTarea.ANULADA):
-        return False
-    return t.estado_facturacion not in (EstadoFacturacion.FACTURADO, EstadoFacturacion.PARA_FACTURAR)
+    # Solo una tarea ya anulada no se puede anular de nuevo. Las finalizadas o
+    # en facturación sí, pero con una advertencia más fuerte (ver
+    # advertencia_anular) — pedido de Javier.
+    return t.estado_tarea != EstadoTarea.ANULADA
+
+
+def advertencia_anular(t: Tarea) -> str:
+    texto = "¿Anular esta tarea? No se puede deshacer."
+    if t.estado_facturacion == EstadoFacturacion.FACTURADO:
+        return "⚠ Esta tarea ya está FACTURADA. Anularla no anula la factura. " + texto
+    if t.estado_facturacion == EstadoFacturacion.PARA_FACTURAR:
+        return "⚠ Esta tarea está marcada PARA FACTURAR y puede estar en la cola de facturación. " + texto
+    if t.estado_tarea == EstadoTarea.FINALIZADO:
+        return "⚠ Esta tarea ya está FINALIZADA. " + texto
+    return texto
 
 
 def mail_vm(m) -> dict:
@@ -83,6 +95,7 @@ def tarea_vm(t: Tarea) -> dict:
         "ot_bloqueada": bool(t.ot_interna_id),
         "ot_asignada": bool(t.ot_interna_id or t.ot_ambigua),
         "puede_anular": puede_anular(t),
+        "advertencia_anular": advertencia_anular(t),
         "presupuestado": t.presupuestado,
         "fila_sheet_original": t.fila_sheet_original,
         "mails": [mail_vm(m) for m in t.mails],

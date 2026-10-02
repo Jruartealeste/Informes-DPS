@@ -156,7 +156,7 @@ def test_anular_tarea(client, db_session):
     assert actualizada.estado_tarea == EstadoTarea.ANULADA
 
 
-def test_no_se_puede_anular_tarea_facturada(client, db_session):
+def test_se_puede_anular_tarea_facturada_con_advertencia(client, db_session):
     cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
     ot = OtInterna(numero_interno="4260", cliente_id=cliente.id)
     db_session.add(ot)
@@ -176,7 +176,10 @@ def test_no_se_puede_anular_tarea_facturada(client, db_session):
 
     db_session.expire_all()
     actualizada = db_session.get(Tarea, tarea_id)
-    assert actualizada.estado_tarea == EstadoTarea.APROBADO
+    assert actualizada.estado_tarea == EstadoTarea.ANULADA
+
+    r = client.get(f"/tareas/{tarea_id}")
+    assert "FACTURADA" in r.text
 
 
 def test_necesitan_revision(client, db_session):
@@ -254,3 +257,43 @@ def test_crear_tarea_deja_drawer_abierto_en_modo_edicion(client, db_session):
     assert f'hx-patch="/tareas/{tarea.id}"' in r.text
     assert f'hx-get="/tareas/{tarea.id}/mail"' in r.text
     assert "Asigná un responsable primero" not in r.text
+
+
+def _tarea_para_duplicar(db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+    cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
+    ot = OtInterna(numero_interno="4400", cliente_id=cliente.id)
+    db_session.add(ot)
+    db_session.flush()
+    tarea = Tarea(
+        ot_interna_id=ot.id, detalle="Original a duplicar", pedido_por="marina",
+        fecha_pedido=__import__("datetime").date(2026, 8, 1), estado_tarea=EstadoTarea.EN_PROCESO,
+        estado_facturacion=EstadoFacturacion.PARA_FACTURAR,
+    )
+    db_session.add(tarea)
+    db_session.commit()
+    return tarea.id
+
+
+def test_duplicar_pregunta_ot_y_no_guarda_nada(client, db_session):
+    tid = _tarea_para_duplicar(db_session)
+    r = client.get(f"/tareas/{tid}/duplicar")
+    assert r.status_code == 200
+    assert "Misma OT interna (4400)" in r.text and "OT interna nueva" in r.text
+    assert db_session.query(Tarea).count() == 1
+
+
+def test_duplicar_form_misma_ot_precarga_sin_fecha(client, db_session):
+    tid = _tarea_para_duplicar(db_session)
+    r = client.get(f"/tareas/{tid}/duplicar/form?ot=misma")
+    assert r.status_code == 200
+    assert 'hx-post="/tareas"' in r.text
+    assert 'value="4400"' in r.text and "Original a duplicar" in r.text and 'value="marina"' in r.text
+    assert 'name="fecha_pedido" required value=""' in r.text
+    assert db_session.query(Tarea).count() == 1
+
+
+def test_duplicar_form_ot_nueva_usa_proximo_numero(client, db_session):
+    tid = _tarea_para_duplicar(db_session)
+    r = client.get(f"/tareas/{tid}/duplicar/form?ot=nueva")
+    assert 'value="4401"' in r.text
