@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -37,6 +39,22 @@ def _ultimo_borrador(tarea: Tarea) -> TareaMail | None:
     return next((m for m in tarea.mails if m.estado == EstadoMail.BORRADOR), None)
 
 
+def _mail_de_cadena(tarea: Tarea) -> TareaMail | None:
+    """El último mail ENVIADO de la tarea que guardó threadId y Message-ID
+    (tarea.mails viene ordenada por enviado_en desc). Los enviados antes de
+    existir el encadenado no los tienen y no sirven para colgar un mail."""
+    return next(
+        (m for m in tarea.mails
+         if m.estado == EstadoMail.ENVIADO and m.gmail_thread_id and m.rfc_message_id),
+        None,
+    )
+
+
+def _asunto_en_cadena(anterior: TareaMail) -> str:
+    base = re.sub(r"^(re:\s*)+", "", anterior.asunto, flags=re.IGNORECASE).strip()
+    return f"Re: {base}"
+
+
 def _destinatarios(tarea: Tarea, ids_sel: set[int]) -> tuple[list[str], str]:
     """(mails, etiqueta) de los responsables tildados. La etiqueta incluye
     también a los que todavía no tienen mail cargado — sirve para dejar
@@ -65,6 +83,7 @@ def _sheet_ctx(
     cuerpo: str | None = None,
     seleccionados: set[int] | None = None,
     error: str | None = None,
+    misma_cadena: bool | None = None,
 ) -> dict:
     tarea = cargar_tarea_con_relaciones(db, tarea_id)
     det = tarea_vm(tarea)
@@ -76,14 +95,25 @@ def _sheet_ctx(
     # template — así no se pierde lo redactado a mano.
     borrador = _ultimo_borrador(tarea) if asunto is None and cuerpo is None else None
 
+    anterior = _mail_de_cadena(tarea)
+    asunto_libre = asunto if asunto is not None else (borrador.asunto if borrador else _asunto_sugerido(det))
+    # tildado por defecto al abrir; al re-renderizar por error se respeta lo que había elegido
+    en_cadena = anterior is not None and (misma_cadena is None or misma_cadena)
+
     return {
         "det": det,
+        "cadena": (
+            {"asunto": _asunto_en_cadena(anterior)}
+            if anterior else None
+        ),
+        "misma_cadena": en_cadena,
+        "asunto_libre": asunto_libre,
         "con_mail": con_mail,
         "sin_mail": sin_mail,
         "seleccionados": (
             seleccionados if seleccionados is not None else {r["id"] for r in con_mail + sin_mail}
         ),
-        "asunto": asunto if asunto is not None else (borrador.asunto if borrador else _asunto_sugerido(det)),
+        "asunto": _asunto_en_cadena(anterior) if en_cadena else asunto_libre,
         "cuerpo": cuerpo if cuerpo is not None else (borrador.cuerpo if borrador else _cuerpo_sugerido(det)),
         "error": error,
     }
@@ -103,10 +133,15 @@ def enviar_mail_tarea(
     cuerpo: str = Form(...),
     destinatario_ids: list[str] = Form([]),
     accion: str = Form("enviar"),
+    misma_cadena: str = Form(""),
 ):
     tarea = cargar_tarea_con_relaciones(db, tarea_id)
     ids_sel = {int(x) for x in destinatario_ids if x.isdigit()}
     mails, etiqueta = _destinatarios(tarea, ids_sel)
+    anterior = _mail_de_cadena(tarea)
+    en_cadena = bool(misma_cadena) and anterior is not None
+    if en_cadena:
+        asunto = _asunto_en_cadena(anterior)
 
     if accion == "borrador":
         registro = TareaMail(
@@ -120,20 +155,27 @@ def enviar_mail_tarea(
     if not mails:
         ctx = _sheet_ctx(
             db, tarea_id, asunto=asunto, cuerpo=cuerpo, seleccionados=ids_sel,
+            misma_cadena=en_cadena,
             error="Elegí al menos un destinatario con mail cargado para enviar — mientras tanto podés guardar como borrador.",
         )
         return templates.TemplateResponse(request, "tareas/_mail_sheet.html", ctx)
 
     registro = TareaMail(tarea_id=tarea_id, destinatarios=", ".join(mails), asunto=asunto, cuerpo=cuerpo)
     try:
-        registro.gmail_message_id = enviar_mail(mails, asunto, cuerpo)
+        enviado = enviar_mail(
+            mails, asunto, cuerpo,
+            en_cadena=(anterior.gmail_thread_id, anterior.rfc_message_id) if en_cadena else None,
+        )
+        registro.gmail_message_id = enviado.gmail_message_id
+        registro.gmail_thread_id = enviado.gmail_thread_id
+        registro.rfc_message_id = enviado.rfc_message_id
         registro.estado = EstadoMail.ENVIADO
     except (GmailNoConfigurado, GmailError) as e:
         registro.estado = EstadoMail.ERROR
         registro.error_detalle = str(e)
         db.add(registro)
         db.commit()
-        ctx = _sheet_ctx(db, tarea_id, asunto=asunto, cuerpo=cuerpo, seleccionados=ids_sel, error=str(e))
+        ctx = _sheet_ctx(db, tarea_id, asunto=asunto, cuerpo=cuerpo, seleccionados=ids_sel, misma_cadena=en_cadena, error=str(e))
         return templates.TemplateResponse(request, "tareas/_mail_sheet.html", ctx)
 
     db.add(registro)

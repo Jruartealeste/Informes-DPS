@@ -329,6 +329,10 @@ class TareaMail(Base):
     estado: Mapped[EstadoMail] = mapped_column(default=EstadoMail.ENVIADO)
     error_detalle: Mapped[str | None] = mapped_column(Text)
     gmail_message_id: Mapped[str | None] = mapped_column(String(100))
+    # para encadenar mails siguientes de la misma tarea: threadId de Gmail y
+    # el Message-ID RFC 5322 (encabezado) que generamos nosotros al enviar.
+    gmail_thread_id: Mapped[str | None] = mapped_column(String(100))
+    rfc_message_id: Mapped[str | None] = mapped_column(String(255))
     enviado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tarea: Mapped["Tarea"] = relationship(back_populates="mails")
