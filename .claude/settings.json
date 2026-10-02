@@ -15,7 +15,8 @@
   },
   "permissions": {
     "allow": [
-      "Bash(*scripts.cargar_anunciantes_prod_20260925*)"
+      "Bash(*scripts.cargar_anunciantes_prod_20260925*)",
+      "Bash(*tools.publicar_informes --deploy*)"
     ],
     "deny": [
       "Bash(rm -rf *)",
