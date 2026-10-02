@@ -1173,6 +1173,11 @@ select.chip-fac {
   border-radius: 7px;
   padding: 8px 12px;
 }
+.field input[type="text"][readonly] {
+  background-color: var(--bg);
+  color: var(--muted);
+  cursor: default;
+}
 .field textarea {
   line-height: 1.5;
   resize: vertical;

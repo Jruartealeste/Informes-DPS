@@ -400,6 +400,16 @@
     });
   })();
 
+  // composer de mail: tildar "misma cadena" fija el asunto de la cadena
+  // (Gmail solo agrupa si coincide); destildar devuelve el asunto libre.
+  document.addEventListener('change', function (ev) {
+    if (!(ev.target.matches && ev.target.matches('#chk-misma-cadena'))) return;
+    var asunto = document.getElementById('mail-asunto');
+    if (!asunto) return;
+    asunto.value = ev.target.checked ? ev.target.dataset.asuntoCadena : ev.target.dataset.asuntoLibre;
+    asunto.readOnly = ev.target.checked;
+  });
+
   // check-toggle: checkbox visible (ej. "Presupuestado") que sincroniza un
   // hidden de al lado con "si"/"no" — mismo patrón que los combo, pero acá
   // no hace falta menú propio, un checkbox nativo alcanza.

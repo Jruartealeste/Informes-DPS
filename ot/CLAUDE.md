@@ -384,6 +384,15 @@ Tablas:
     con mensaje claro ("Falta configurar…") en vez de romper el arranque
     de la app; probado así en dev (sin credenciales todavía) y el error
     queda igual guardado en el historial.
+  - **Misma cadena (2026-10-02):** si la tarea ya tiene un mail ENVIADO con
+    hilo, el composer muestra un checkbox tildado por defecto "Enviar en la
+    misma cadena" (destildar = mail nuevo con asunto libre). Al enviar encadenado
+    se manda `threadId` + `In-Reply-To`/`References` y el asunto se fuerza a
+    `Re: <asunto original>` (Gmail solo agrupa si coincide). `tarea_mails`
+    guarda `gmail_thread_id` y `rfc_message_id` (Message-ID que generamos
+    nosotros; migración `a1d4c7e9b2f6`). Los mails enviados antes de esto no
+    tienen hilo y no sirven de ancla. Ojo: la cadena solo se ve completa en la
+    cuenta remitente; cada destinatario ve lo que le llegó a él.
   - **Pendiente, no empezar sin decisión explícita:** que cada usuario de
     la app conecte su propia cuenta Gmail y mande en su nombre (en vez de
     todo saliendo como vos). No se puede construir todavía porque depende

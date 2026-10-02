@@ -6,6 +6,8 @@ una vez con scripts/gmail_authorize.py y se guarda en el .env del server.
 
 import base64
 from email.mime.text import MIMEText
+from email.utils import make_msgid
+from typing import NamedTuple
 
 import httpx
 from google.auth.exceptions import RefreshError
@@ -58,25 +60,47 @@ def _credenciales() -> Credentials:
     return creds
 
 
-def enviar_mail(destinatarios: list[str], asunto: str, cuerpo: str) -> str:
-    """Manda el mail y devuelve el message id de Gmail. Levanta
+class MailEnviado(NamedTuple):
+    gmail_message_id: str
+    gmail_thread_id: str | None
+    rfc_message_id: str
+
+
+def enviar_mail(
+    destinatarios: list[str],
+    asunto: str,
+    cuerpo: str,
+    en_cadena: tuple[str, str] | None = None,
+) -> MailEnviado:
+    """Manda el mail. `en_cadena` = (threadId de Gmail, Message-ID RFC del
+    mail anterior) para colgarlo de la misma conversación — Gmail además
+    exige que el asunto coincida con el de la cadena. Levanta
     GmailNoConfigurado o GmailError si algo falla — el llamador decide
     cómo guardar el resultado (ver TareaMail.estado)."""
     creds = _credenciales()
 
+    rfc_id = make_msgid(domain=settings.gmail_sender_email.split("@")[-1])
     msg = MIMEText(cuerpo)
     msg["To"] = ", ".join(destinatarios)
     msg["From"] = f"{settings.gmail_sender_nombre} <{settings.gmail_sender_email}>"
     msg["Subject"] = asunto
-    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
+    msg["Message-ID"] = rfc_id
+    payload: dict = {}
+    if en_cadena:
+        thread_id, rfc_anterior = en_cadena
+        msg["In-Reply-To"] = rfc_anterior
+        msg["References"] = rfc_anterior
+        payload["threadId"] = thread_id
+    payload["raw"] = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
 
     resp = httpx.post(
         GMAIL_SEND_URL,
         headers={"Authorization": f"Bearer {creds.token}"},
-        json={"raw": raw},
+        json=payload,
         timeout=15,
     )
     if resp.status_code >= 400:
         raise GmailError(f"Gmail devolvió {resp.status_code}: {resp.text}")
 
-    return resp.json()["id"]
+    data = resp.json()
+    return MailEnviado(data["id"], data.get("threadId"), rfc_id)

@@ -47,9 +47,22 @@
           {% endif %}
         </div>
 
+        {% if cadena %}
+        <div class="field">
+          <label class="combo__check-row cadena-toggle" style="border:1px solid var(--line);border-radius:7px">
+            <input type="checkbox" name="misma_cadena" value="1" id="chk-misma-cadena"
+                   data-asunto-cadena="{{ cadena.asunto }}" data-asunto-libre="{{ asunto_libre }}"
+                   {{ "checked" if misma_cadena }}>
+            <span class="combo__check-row__nombre">Enviar en la misma cadena que el mail anterior</span>
+          </label>
+          <div class="field-hint">Se manda como respuesta, con el asunto de la cadena. Destildalo para mandar un mail nuevo con otro asunto.</div>
+        </div>
+        {% endif %}
+
         <div class="field">
           <div class="field__label">Asunto</div>
-          <input type="text" name="asunto" value="{{ asunto }}" required>
+          <input type="text" name="asunto" id="mail-asunto" value="{{ asunto }}" required
+                 {{ "readonly" if misma_cadena }}>
         </div>
 
         <div class="field">
