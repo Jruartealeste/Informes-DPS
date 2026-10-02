@@ -267,17 +267,30 @@ def tipos_combo_ctx(seleccionados: set[str]) -> dict:
 
 
 def _guardar_tipos_responsables(db: Session, tarea: Tarea, tipos: list[str], responsable_ids: set[int]):
-    tarea.tipos.clear()
+    # Sincroniza por diferencia (no clear() + re-append): SQLAlchemy hace los
+    # INSERT antes que los DELETE del orphan, así que reinsertar un
+    # responsable/tipo que ya estaba choca con su UNIQUE/PK y la edición da 500.
+    tipo_ids = set()
     for nombre in tipos:
         nombre = nombre.strip()
         if not nombre:
             continue
         tipo = db.scalar(select(TipoTarea).where(TipoTarea.nombre == nombre))
         if tipo:
-            tarea.tipos.append(TareaTipoTarea(tipo_tarea_id=tipo.id))
+            tipo_ids.add(tipo.id)
 
-    tarea.responsables.clear()
-    for responsable_id in responsable_ids:
+    for tt in list(tarea.tipos):
+        if tt.tipo_tarea_id not in tipo_ids:
+            tarea.tipos.remove(tt)
+    ya_tipos = {tt.tipo_tarea_id for tt in tarea.tipos}
+    for tipo_id in tipo_ids - ya_tipos:
+        tarea.tipos.append(TareaTipoTarea(tipo_tarea_id=tipo_id))
+
+    for r in list(tarea.responsables):
+        if r.responsable_id not in responsable_ids:
+            tarea.responsables.remove(r)
+    ya_resp = {r.responsable_id for r in tarea.responsables}
+    for responsable_id in responsable_ids - ya_resp:
         tarea.responsables.append(TareaResponsable(responsable_id=responsable_id))
 
 

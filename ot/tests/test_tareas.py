@@ -189,3 +189,24 @@ def test_necesitan_revision(client, db_session):
 
     r = client.get("/tareas/partial", params={"revision": "1"})
     assert "Sin tipo ni fecha" in r.text
+
+
+def test_guardar_tipos_responsables_conserva_existentes_sin_chocar(db_session):
+    """Regresión: editar una tarea manteniendo un responsable/tipo ya asignado
+    daba 500 (IntegrityError por reinsertar antes de borrar el orphan)."""
+    from app.models import Responsable, Tarea, TipoTarea
+    from app.routers.tareas import _guardar_tipos_responsables
+
+    resp_id = db_session.query(Responsable).first().id
+    tipo = db_session.query(TipoTarea).first()
+    tarea = Tarea(detalle="x")
+    db_session.add(tarea)
+    db_session.flush()
+
+    _guardar_tipos_responsables(db_session, tarea, [], {resp_id})
+    db_session.commit()
+    _guardar_tipos_responsables(db_session, tarea, [tipo.nombre], {resp_id})
+    db_session.commit()
+
+    assert [t.tipo_tarea_id for t in tarea.tipos] == [tipo.id]
+    assert [r.responsable_id for r in tarea.responsables] == [resp_id]
