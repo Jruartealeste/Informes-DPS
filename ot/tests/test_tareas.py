@@ -210,3 +210,26 @@ def test_guardar_tipos_responsables_conserva_existentes_sin_chocar(db_session):
 
     assert [t.tipo_tarea_id for t in tarea.tipos] == [tipo.id]
     assert [r.responsable_id for r in tarea.responsables] == [resp_id]
+
+
+def test_guardar_tipos_crea_tipo_faltante_del_catalogo(db_session):
+    """Regresión: con el catálogo tipos_tarea vacío (prod) el tipo elegido se
+    descartaba en silencio y la tarea quedaba 'Necesita revisión'."""
+    import pytest
+    from fastapi import HTTPException
+    from app.models import Responsable, Tarea, TipoTarea
+    from app.routers.tareas import _guardar_tipos_responsables
+
+    db_session.query(TipoTarea).delete()
+    db_session.commit()
+    resp_id = db_session.query(Responsable).first().id
+    tarea = Tarea(detalle="x")
+    db_session.add(tarea)
+    db_session.flush()
+
+    _guardar_tipos_responsables(db_session, tarea, ["diseño"], {resp_id})
+    db_session.commit()
+    assert [t.tipo_tarea.nombre for t in tarea.tipos] == ["diseño"]
+
+    with pytest.raises(HTTPException):
+        _guardar_tipos_responsables(db_session, tarea, ["inventado"], {resp_id})
