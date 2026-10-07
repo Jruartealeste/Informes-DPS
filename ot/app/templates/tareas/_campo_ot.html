@@ -10,6 +10,7 @@
   <div class="combo">
     <input type="text" name="ot_numero" class="field-ot__box combo__input" style="font-family:var(--mono)"
            autocomplete="off" required value="{{ ot_numero }}" placeholder="Buscar OT interna existente">
+    {% if ot_generada %}<input type="hidden" name="ot_generada" value="{{ ot_generada }}">{% endif %}
     <button type="button" class="combo__toggle" aria-label="Mostrar OT internas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 12 15 18 9"></polyline>

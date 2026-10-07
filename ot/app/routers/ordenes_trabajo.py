@@ -32,7 +32,7 @@ def siguiente_numero_interno(db: Session) -> str:
 @router.get("/nuevo-numero")
 def nuevo_numero(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
-        request, "tareas/_campo_ot.html", {"ot_numero": siguiente_numero_interno(db)}
+        request, "tareas/_campo_ot.html", {"ot_numero": (n := siguiente_numero_interno(db)), "ot_generada": n}
     )
 
 

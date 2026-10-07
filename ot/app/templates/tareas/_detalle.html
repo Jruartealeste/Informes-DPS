@@ -19,7 +19,7 @@
       <div class="drawer__body">
         <div class="field">
           <div class="field__label">OT interna <span class="field__req">*</span></div>
-          {% with ot_numero = det.ot_numero_form if det else (p.ot_numero if p else ''), ot_bloqueada = det.ot_bloqueada if det else False, ot_cliente = det.ot_cliente if det else '' %}
+          {% with ot_numero = det.ot_numero_form if det else (p.ot_numero if p else ''), ot_bloqueada = det.ot_bloqueada if det else False, ot_cliente = det.ot_cliente if det else '', ot_generada = p.ot_generada if p else '' %}
           {% include "tareas/_campo_ot.html" %}
           {% endwith %}
           <datalist id="ot-catalogo">

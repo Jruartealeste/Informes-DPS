@@ -223,6 +223,9 @@ def duplicar_form(tarea_id: int, request: Request, ot: str = "misma", db: Sessio
             "pre": {
                 "origen": det["detalle"],
                 "ot_numero": ot_numero,
+                # Número reservado solo "de palabra": se reasigna al guardar si
+                # mientras tanto otra tarea se lo llevó (ver crear_tarea).
+                "ot_generada": ot_numero if ot == "nueva" else "",
                 "detalle": t.detalle,
                 "pedido_por": t.pedido_por or "",
                 "link_drive": t.link_drive or "",
@@ -242,6 +245,13 @@ def duplicar_form(tarea_id: int, request: Request, ot: str = "misma", db: Sessio
 @router.get("/tareas/{tarea_id}")
 def tarea_detalle(tarea_id: int, request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "tareas/_detalle.html", contexto_detalle(db, tarea_id))
+
+
+def _tarea_o_404(db: Session, tarea_id: int) -> Tarea:
+    tarea = db.get(Tarea, tarea_id)
+    if tarea is None:
+        raise HTTPException(404, "Tarea no encontrada.")
+    return tarea
 
 
 def _resolver_ot_interna(db: Session, numero: str, cliente_id: int) -> tuple[int | None, str | None]:
@@ -347,6 +357,7 @@ def crear_tarea(
     request: Request,
     db: Session = Depends(get_db),
     ot_numero: str = Form(""),
+    ot_generada: str = Form(""),
     detalle: str = Form(...),
     fecha_pedido: str = Form(""),
     pedido_por: str = Form(""),
@@ -362,6 +373,14 @@ def crear_tarea(
     _validar_campos_obligatorios(True, ot_numero, fecha_pedido, tipos_lista, responsables)
 
     cliente = cliente_activo(request, db)
+    # El número vino de "+ Nueva" / "Duplicar → OT nueva" (se calcula al abrir, sin
+    # reservar). Si entretanto otra tarea lo ocupó, se asigna el siguiente libre en
+    # vez de pegar esta tarea en silencio a la OT ajena.
+    if ot_generada and ot_numero.strip() == ot_generada:
+        from app.routers.ordenes_trabajo import siguiente_numero_interno
+
+        if db.scalar(select(OtInterna.id).where(OtInterna.numero_interno == ot_generada)):
+            ot_numero = siguiente_numero_interno(db)
     ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero, cliente.id)
     tarea = Tarea(
         ot_interna_id=ot_interna_id,
@@ -401,7 +420,7 @@ def editar_tarea(
     tipos: str = Form(""),
     responsable_ids: str = Form(""),
 ):
-    tarea = db.get(Tarea, tarea_id)
+    tarea = _tarea_o_404(db, tarea_id)
     tipos_lista = [x.strip() for x in tipos.split(",") if x.strip()]
     responsables = parse_ids(responsable_ids)
     _validar_campos_obligatorios(tarea.ot_interna_id is None, ot_numero, fecha_pedido, tipos_lista, responsables)
@@ -426,7 +445,7 @@ def editar_tarea(
 
 @router.post("/tareas/{tarea_id}/anular")
 def anular_tarea(tarea_id: int, request: Request, db: Session = Depends(get_db)):
-    tarea = db.get(Tarea, tarea_id)
+    tarea = _tarea_o_404(db, tarea_id)
     if puede_anular(tarea):
         tarea.estado_tarea = EstadoTarea.ANULADA
         db.commit()
@@ -441,7 +460,7 @@ def actualizar_estado(
     db: Session = Depends(get_db),
     estado_tarea: str = Form(""),
 ):
-    tarea = db.get(Tarea, tarea_id)
+    tarea = _tarea_o_404(db, tarea_id)
     tarea.estado_tarea = EstadoTarea[estado_tarea] if estado_tarea else None
     db.commit()
 
@@ -455,7 +474,7 @@ def actualizar_facturacion(
     db: Session = Depends(get_db),
     estado_facturacion: str = Form(...),
 ):
-    tarea = db.get(Tarea, tarea_id)
+    tarea = _tarea_o_404(db, tarea_id)
     tarea.estado_facturacion = EstadoFacturacion[estado_facturacion]
     db.commit()
 

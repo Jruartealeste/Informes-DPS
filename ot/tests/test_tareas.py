@@ -297,3 +297,26 @@ def test_duplicar_form_ot_nueva_usa_proximo_numero(client, db_session):
     tid = _tarea_para_duplicar(db_session)
     r = client.get(f"/tareas/{tid}/duplicar/form?ot=nueva")
     assert 'value="4401"' in r.text
+
+
+def test_duplicar_ot_nueva_dos_aperturas_no_comparten_ot(client, db_session):
+    tid = _tarea_para_duplicar(db_session)
+    forms = [client.get(f"/tareas/{tid}/duplicar/form?ot=nueva") for _ in range(2)]
+    assert all('value="4401"' in f.text and 'name="ot_generada" value="4401"' in f.text for f in forms)
+    base = {"detalle": "dup", "fecha_pedido": "2026-10-07", "tipos": "diseño",
+            "ot_numero": "4401", "ot_generada": "4401"}
+    from app.models import Responsable, TipoTarea
+    db_session.add(TipoTarea(nombre="diseño")) if not db_session.query(TipoTarea).filter_by(nombre="diseño").first() else None
+    r = db_session.query(Responsable).first()
+    if r is None:
+        r = Responsable(nombre="Resp"); db_session.add(r)
+    db_session.commit()
+    base["responsable_ids"] = str(r.id)
+    assert client.post("/tareas", data=base).status_code == 200
+    assert client.post("/tareas", data=base).status_code == 200
+    numeros = sorted(o.numero_interno for o in db_session.query(OtInterna).all())
+    assert numeros == ["4400", "4401", "4402"]
+
+
+def test_anular_tarea_inexistente_es_404(client):
+    assert client.post("/tareas/99999/anular").status_code == 404
