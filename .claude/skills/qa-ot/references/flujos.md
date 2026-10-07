@@ -61,7 +61,8 @@ Tablas: `tareas`, `ot_interna`, `tarea_tipos_tarea`, `tarea_responsables`,
 
 ## 7. OT internas (`/ordenes-trabajo`, `/ordenes-trabajo/{numero_interno}`)
 - Listado, buscador y filtros. Detalle de una OT con hermana por
-  `numero_ot_advertys` compartido (las que arrancan con "413" en el seed).
+  `numero_ot_advertys` compartido (el seed NO trae hermanas: armarlas
+  asignando el mismo número a 2 OT con el panel de la lista).
 - Reasignar OT de sistema: afecta solo a esa `ot_interna`; base: otras OT no
   cambian y la hermana sigue coherente.
 
@@ -77,3 +78,12 @@ Tablas: `tareas`, `ot_interna`, `tarea_tipos_tarea`, `tarea_responsables`,
 ## 10. Auth
 - Sin sesión toda ruta redirige a login (307); `/auth/qa-login` solo existe
   en el server de QA.
+
+## 11. Panel de OT de sistema (`/ordenes-trabajo`, 3 modos)
+- Usar existente / Cargar número / Generar OT en Advertys. "Generar" solo crea
+  una `solicitudes_alta_ot` (la app no tiene credenciales de Advertys): nunca
+  correr `crear_ot.py` desde el QA.
+- Base: `ot_interna.numero_ot_advertys`, `ot_interna.solicitud_alta_id`,
+  `solicitudes_alta_ot.estado`. Validar 422/409/404 por POST directo. Todas las
+  OT del seed son de ALUAR: para "clientes distintos" crear una OT de otro
+  cliente por `POST /tareas`.
