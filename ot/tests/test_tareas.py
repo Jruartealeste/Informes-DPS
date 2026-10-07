@@ -325,3 +325,19 @@ def test_duplicar_ot_nueva_dos_aperturas_no_comparten_ot(client, db_session):
 
 def test_anular_tarea_inexistente_es_404(client):
     assert client.post("/tareas/99999/anular").status_code == 404
+
+
+def test_detalle_vacio_es_422_al_crear_y_editar(client, db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+    ot_numero = "4290"
+    completo = {"ot_numero": ot_numero, "fecha_pedido": "2026-10-07", "tipos": "diseño",
+                "responsable_ids": str(fer.id)}
+    assert client.post("/tareas", data={**completo, "detalle": "   "}).status_code == 422
+    assert db_session.query(Tarea).count() == 0
+
+    assert client.post("/tareas", data={**completo, "detalle": "Original"}).status_code == 200
+    tarea = db_session.query(Tarea).one()
+    r = client.patch(f"/tareas/{tarea.id}", data={**completo, "detalle": ""})
+    assert r.status_code == 422
+    db_session.expire_all()
+    assert db_session.get(Tarea, tarea.id).detalle == "Original"

@@ -284,6 +284,7 @@ def _validar_campos_obligatorios(
     fecha_pedido: str,
     tipos: list[str],
     responsable_ids: set[int],
+    detalle: str,
 ):
     """Respaldo server-side de los obligatorios de la sheet de tarea (ver
     ot/CLAUDE.md) — la sheet ya bloquea el guardado del lado del cliente,
@@ -292,6 +293,8 @@ def _validar_campos_obligatorios(
     OT interna asignada (el campo queda de solo lectura en la sheet, así
     que no viaja en el POST/PATCH y no corresponde exigirlo de nuevo)."""
     faltantes = []
+    if not detalle.strip():
+        faltantes.append("detalle")
     if ot_editable and not ot_numero.strip():
         faltantes.append("OT interna")
     if not fecha_pedido:
@@ -370,7 +373,7 @@ def crear_tarea(
 ):
     tipos_lista = [x.strip() for x in tipos.split(",") if x.strip()]
     responsables = parse_ids(responsable_ids)
-    _validar_campos_obligatorios(True, ot_numero, fecha_pedido, tipos_lista, responsables)
+    _validar_campos_obligatorios(True, ot_numero, fecha_pedido, tipos_lista, responsables, detalle)
 
     cliente = cliente_activo(request, db)
     # El número vino de "+ Nueva" / "Duplicar → OT nueva" (se calcula al abrir, sin
@@ -423,7 +426,9 @@ def editar_tarea(
     tarea = _tarea_o_404(db, tarea_id)
     tipos_lista = [x.strip() for x in tipos.split(",") if x.strip()]
     responsables = parse_ids(responsable_ids)
-    _validar_campos_obligatorios(tarea.ot_interna_id is None, ot_numero, fecha_pedido, tipos_lista, responsables)
+    _validar_campos_obligatorios(
+        tarea.ot_interna_id is None, ot_numero, fecha_pedido, tipos_lista, responsables, detalle
+    )
 
     if tarea.ot_interna_id is None:
         cliente = cliente_activo(request, db)
