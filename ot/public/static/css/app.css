@@ -131,6 +131,13 @@ button {
   font-weight: 600;
 }
 
+.sidebar__menu {
+  display: none;
+}
+.segmented__opt .lbl-corto {
+  display: none;
+}
+
 .sidebar__brand-name {
   font-size: 14px;
   font-weight: 600;
@@ -2412,3 +2419,181 @@ select.chip-fac {
   width: 200px;
 }
 
+
+/* ---------- celular (≤720px): menú en barra superior + contenido a todo el ancho ---------- */
+
+@media (max-width: 720px) {
+  .app-shell {
+    height: 100vh;
+    height: 100dvh;
+  }
+  .app-body {
+    flex-direction: column;
+  }
+  .sidebar,
+  [data-sidebar="collapsed"] .sidebar {
+    width: 100%;
+    padding: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    transition: none;
+  }
+  .sidebar__brand,
+  [data-sidebar="collapsed"] .sidebar__brand {
+    padding: 8px 14px;
+    justify-content: flex-start;
+  }
+  .sidebar__menu {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    width: 44px;
+    height: 44px;
+    margin-right: -8px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    border-radius: 8px;
+  }
+  .sidebar__menu svg {
+    width: 22px;
+    height: 22px;
+  }
+  .sidebar__menu-cerrar,
+  .sidebar.is-open .sidebar__menu-abrir {
+    display: none;
+  }
+  .sidebar.is-open .sidebar__menu-cerrar {
+    display: block;
+  }
+  /* Cerrado: solo la barra (marca + botón). Abierto: panel a pantalla completa. */
+  .sidebar:not(.is-open) > :not(.sidebar__brand) {
+    display: none;
+  }
+  .sidebar.is-open {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    overflow-y: auto;
+  }
+  .sidebar.is-open > :not(.sidebar__brand) {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+  .sidebar.is-open .sidebar__item {
+    min-height: 44px;
+  }
+  .sidebar__collapse {
+    display: none !important;
+  }
+
+  .page-header {
+    padding: 14px 14px 0;
+  }
+  .page-header__row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .table-scroll {
+    padding: 0 14px 20px;
+  }
+  /* El scroll vertical pasa a la página (si no, el panel de asignación, alto en
+     celular, le dejaría a la tabla una ventana minúscula); la tabla conserva su
+     scroll horizontal propio. */
+  .main {
+    overflow-y: auto;
+  }
+  .table-scroll {
+    flex: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  /* Panel de asignación de OT de sistema */
+  .card--asignar-lote {
+    margin: 0 14px 12px;
+    padding: 12px;
+    gap: 10px;
+  }
+  .card--asignar-lote .segmented {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    flex: 1 0 100%;
+    width: 100%;
+  }
+  .card--asignar-lote .segmented__opt {
+    border-right: 1px solid var(--line-strong);
+    border-bottom: none;
+    min-height: 44px;
+    padding: 6px 4px;
+    text-align: center;
+  }
+  .card--asignar-lote .segmented__opt:last-child {
+    border-right: none;
+  }
+  .card--asignar-lote .lbl-largo {
+    display: none;
+  }
+  .card--asignar-lote .lbl-corto {
+    display: inline;
+  }
+  .card--asignar-lote #campo-ot-existente,
+  .card--asignar-lote #campo-ot-nuevo {
+    flex: 1 0 100%;
+  }
+  .card--asignar-lote .card__grid2 {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .card--asignar-lote input.input-full,
+  .card--asignar-lote select.input-full {
+    min-height: 44px;
+    font-size: 16px; /* evita el zoom automático de iOS al enfocar */
+  }
+  .card--asignar-lote .form-acciones {
+    flex: 1 0 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .card--asignar-lote #btn-submit-lote {
+    flex: 1 0 100%;
+    min-height: 44px;
+  }
+  .card--asignar-lote #btn-limpiar-seleccion,
+  .card--asignar-lote #btn-tildar-todas {
+    min-height: 40px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* Drawer: los botones del pie pasan a una segunda fila en vez de recortarse */
+  .drawer__footer {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+  .drawer__footer-spacer {
+    display: none;
+  }
+  .drawer__footer .btn,
+  .drawer__footer .btn--primary {
+    min-height: 40px;
+  }
+
+  /* Detalle de OT: las tarjetas no pueden ser más anchas que la pantalla */
+  .card--principal,
+  .card--facturacion {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .ot-cards-row {
+    flex: none;
+    overflow: visible;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}

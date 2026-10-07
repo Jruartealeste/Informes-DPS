@@ -11,7 +11,9 @@
       document.documentElement.setAttribute('data-tema', tema);
 
       var ms = document.cookie.match(/(?:^|; )sidebar=([^;]+)/);
-      document.documentElement.setAttribute('data-sidebar', ms ? ms[1] : 'expanded');
+      // En celular el menú es una barra superior: el estado "contraído" de escritorio no aplica.
+      var celular = window.matchMedia && matchMedia('(max-width: 720px)').matches;
+      document.documentElement.setAttribute('data-sidebar', ms && !celular ? ms[1] : 'expanded');
     })();
   </script>
   <link rel="stylesheet" href="/static/css/tokens.css?v={{ static_version('css/tokens.css') }}">
@@ -25,6 +27,10 @@
       <div class="sidebar__brand">
         <div class="sidebar__mark">OT</div>
         <span class="sidebar__brand-name">Órdenes de trabajo</span>
+        <button type="button" class="sidebar__menu" id="toggle-menu" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
+          <svg class="sidebar__menu-abrir" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="7" y2="7"></line><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="17" y2="17"></line></svg>
+          <svg class="sidebar__menu-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="18" y1="6" y2="18"></line><line x1="18" x2="6" y1="6" y2="18"></line></svg>
+        </button>
       </div>
 
       <div class="sidebar__group">
@@ -485,6 +491,17 @@
       document.cookie = 'densidad=' + (densa ? '0' : '1') + '; path=/; max-age=31536000';
       pintarDensidad();
     });
+
+    // Menú móvil (barra superior): abre/cierra el panel de navegación.
+    var sidebar = document.getElementById('sidebar');
+    var btnMenu = document.getElementById('toggle-menu');
+    function menuMovil(abrir) {
+      sidebar.classList.toggle('is-open', abrir);
+      btnMenu.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+      btnMenu.setAttribute('aria-label', abrir ? 'Cerrar menú' : 'Abrir menú');
+    }
+    btnMenu.addEventListener('click', function () { menuMovil(!sidebar.classList.contains('is-open')); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') menuMovil(false); });
 
     btnSidebar.addEventListener('click', function () {
       var next = html.getAttribute('data-sidebar') === 'collapsed' ? 'expanded' : 'collapsed';
