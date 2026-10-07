@@ -18,19 +18,25 @@ def grupo_key(t: Tarea) -> str:
     return t.ot_ambigua or "sin número"
 
 
+def motivo_no_anulable(t: Tarea) -> str | None:
+    """Por qué la tarea no se puede anular, o None si se puede. Una tarea
+    facturada o marcada para facturar no se anula (decisión de Javier, 2026-10-07);
+    las finalizadas sí, con advertencia (ver advertencia_anular)."""
+    if t.estado_tarea == EstadoTarea.ANULADA:
+        return "Ya anulada"
+    if t.estado_facturacion == EstadoFacturacion.FACTURADO:
+        return "Facturada: no se puede anular"
+    if t.estado_facturacion == EstadoFacturacion.PARA_FACTURAR:
+        return "Para facturar: no se puede anular"
+    return None
+
+
 def puede_anular(t: Tarea) -> bool:
-    # Solo una tarea ya anulada no se puede anular de nuevo. Las finalizadas o
-    # en facturación sí, pero con una advertencia más fuerte (ver
-    # advertencia_anular) — pedido de Javier.
-    return t.estado_tarea != EstadoTarea.ANULADA
+    return motivo_no_anulable(t) is None
 
 
 def advertencia_anular(t: Tarea) -> str:
     texto = "¿Anular esta tarea? No se puede deshacer."
-    if t.estado_facturacion == EstadoFacturacion.FACTURADO:
-        return "⚠ Esta tarea ya está FACTURADA. Anularla no anula la factura. " + texto
-    if t.estado_facturacion == EstadoFacturacion.PARA_FACTURAR:
-        return "⚠ Esta tarea está marcada PARA FACTURAR y puede estar en la cola de facturación. " + texto
     if t.estado_tarea == EstadoTarea.FINALIZADO:
         return "⚠ Esta tarea ya está FINALIZADA. " + texto
     return texto
@@ -95,6 +101,7 @@ def tarea_vm(t: Tarea) -> dict:
         "ot_bloqueada": bool(t.ot_interna_id),
         "ot_asignada": bool(t.ot_interna_id or t.ot_ambigua),
         "puede_anular": puede_anular(t),
+        "motivo_no_anulable": motivo_no_anulable(t) or "",
         "advertencia_anular": advertencia_anular(t),
         "presupuestado": t.presupuestado,
         "fila_sheet_original": t.fila_sheet_original,

@@ -1048,3 +1048,12 @@ Tablas:
     proyecto NUEVO y vacío de Neon (no una rama de producción: una rama copia los
     datos del padre y la prueba no probaría nada). Se niega a correr si ese host
     coincide con el de producción porque restaura con `--clean`.
+
+## Anular tarea: no se anulan las facturadas (2026-10-07)
+
+Una tarea con facturación `FACTURADO` o `PARA_FACTURAR` **no se puede
+anular**: el botón queda deshabilitado con el motivo y `POST
+/tareas/{id}/anular` devuelve 409 (decisión de Javier; reemplaza lo de "Anular
+habilitado con advertencia" para esos dos estados). Una tarea `FINALIZADO` sin
+facturación sí se anula, con advertencia. Lógica en
+`app/viewmodels.py::motivo_no_anulable`/`puede_anular`.

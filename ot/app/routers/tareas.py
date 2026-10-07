@@ -20,7 +20,7 @@ from app.models import (
 )
 from app.routers.responsables import combo_ctx, parse_ids
 from app.templating import templates
-from app.viewmodels import construir_grupos, puede_anular, tarea_vm
+from app.viewmodels import construir_grupos, motivo_no_anulable, puede_anular, tarea_vm
 
 router = APIRouter()
 
@@ -446,6 +446,8 @@ def editar_tarea(
 @router.post("/tareas/{tarea_id}/anular")
 def anular_tarea(tarea_id: int, request: Request, db: Session = Depends(get_db)):
     tarea = _tarea_o_404(db, tarea_id)
+    if tarea.estado_tarea != EstadoTarea.ANULADA and not puede_anular(tarea):
+        raise HTTPException(409, motivo_no_anulable(tarea))
     if puede_anular(tarea):
         tarea.estado_tarea = EstadoTarea.ANULADA
         db.commit()

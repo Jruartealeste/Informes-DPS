@@ -42,12 +42,12 @@ Tablas: `tareas`, `ot_interna`, `tarea_tipos_tarea`, `tarea_responsables`,
 ## 4. Anular (`POST /tareas/{id}/anular`)
 - Tarea abierta: anula (confirmación nativa `window.confirm` → ejecutar
   `window.confirm = () => true` antes) y estado queda `ANULADA`.
-- Tarea `FINALIZADO` / `PARA_FACTURAR` / `FACTURADO`: desde commit 1d4262e el
-  botón está **habilitado** y trae un `hx-confirm` con advertencia propia
-  (FINALIZADA, PARA FACTURAR, FACTURADA). Verificar que la advertencia
-  aparece y correcta. El servidor solo bloquea las ya `ANULADA`
-  (`puede_anular`); el POST directo anula igual (ver hallazgos-conocidos).
-- Id inexistente: hoy 500 (debería ser 404).
+- Facturación `FACTURADO` / `PARA_FACTURAR`: **no se puede anular** (decisión
+  de Javier 2026-10-07). El botón queda deshabilitado con el motivo en el
+  `title` y el POST directo devuelve 409 sin cambiar nada.
+- `FINALIZADO` (sin facturación): se puede anular, con `hx-confirm` de
+  advertencia "FINALIZADA".
+- Id inexistente: 404.
 - Base: `estado_tarea` y que nada más se haya tocado.
 
 ## 5. Estado y facturación sueltos (`/tareas/{id}/estado`, `/facturacion`)

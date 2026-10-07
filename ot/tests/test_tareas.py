@@ -156,30 +156,35 @@ def test_anular_tarea(client, db_session):
     assert actualizada.estado_tarea == EstadoTarea.ANULADA
 
 
-def test_se_puede_anular_tarea_facturada_con_advertencia(client, db_session):
+def _tarea_con_facturacion(db_session, numero, facturacion, estado=EstadoTarea.APROBADO):
     cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
-    ot = OtInterna(numero_interno="4260", cliente_id=cliente.id)
+    ot = OtInterna(numero_interno=numero, cliente_id=cliente.id)
     db_session.add(ot)
     db_session.flush()
-    tarea = Tarea(
-        ot_interna_id=ot.id,
-        detalle="Tarea ya facturada",
-        estado_tarea=EstadoTarea.APROBADO,
-        estado_facturacion=EstadoFacturacion.FACTURADO,
-    )
+    tarea = Tarea(ot_interna_id=ot.id, detalle="Tarea " + numero, estado_tarea=estado, estado_facturacion=facturacion)
     db_session.add(tarea)
     db_session.commit()
-    tarea_id = tarea.id
+    return tarea.id
 
-    r = client.post(f"/tareas/{tarea_id}/anular")
-    assert r.status_code == 200
 
+def test_no_se_puede_anular_tarea_facturada_ni_para_facturar(client, db_session):
+    for numero, fact in (("4260", EstadoFacturacion.FACTURADO), ("4261", EstadoFacturacion.PARA_FACTURAR)):
+        tarea_id = _tarea_con_facturacion(db_session, numero, fact)
+        assert client.post(f"/tareas/{tarea_id}/anular").status_code == 409
+        db_session.expire_all()
+        assert db_session.get(Tarea, tarea_id).estado_tarea == EstadoTarea.APROBADO
+        r = client.get(f"/tareas/{tarea_id}")
+        assert "no se puede anular" in r.text and "disabled" in r.text
+
+
+def test_se_puede_anular_tarea_finalizada_con_advertencia(client, db_session):
+    tarea_id = _tarea_con_facturacion(
+        db_session, "4262", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.FINALIZADO
+    )
+    assert "FINALIZADA" in client.get(f"/tareas/{tarea_id}").text
+    assert client.post(f"/tareas/{tarea_id}/anular").status_code == 200
     db_session.expire_all()
-    actualizada = db_session.get(Tarea, tarea_id)
-    assert actualizada.estado_tarea == EstadoTarea.ANULADA
-
-    r = client.get(f"/tareas/{tarea_id}")
-    assert "FACTURADA" in r.text
+    assert db_session.get(Tarea, tarea_id).estado_tarea == EstadoTarea.ANULADA
 
 
 def test_necesitan_revision(client, db_session):
