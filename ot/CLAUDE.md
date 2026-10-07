@@ -64,8 +64,11 @@ cree o edite algo ahí.
 - **QA interactivo (clicks, forms, drawers) — no solo capturas:** skill
   `qa-ot` (`.claude/skills/qa-ot/SKILL.md`) + subagent `ot-qa`
   (`.claude/agents/ot-qa.md`). Corre contra `ot/tools/qa_server.py`, un
-  server descartable propio en `:8123` con sqlite + datos ficticios de
-  `scripts/seed.py` y login simulado — nunca contra `.env` real ni Neon.
+  server descartable propio en `:8123` con un **Postgres local en Docker**
+  (`ot-qa-pg`, `127.0.0.1:54329`, schema por `alembic upgrade head`) + datos
+  ficticios de `scripts/seed.py` y login simulado — nunca contra `.env` real
+  ni Neon. Levantar con `.claude/skills/qa-ot/scripts/levantar-entorno.sh`;
+  flujos en `references/flujos.md`, informes en `.claude/qa-informes/`.
   Detalle completo en `informes/workflows/arquitectura_claude_code.md`
   (sección "QA interactivo de `ot/`").
 

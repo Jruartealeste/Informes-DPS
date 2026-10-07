@@ -9,8 +9,10 @@ argument-hint: [pantalla o cambio puntual a revisar]
 QA funcional + visual de las pantallas de `ot/`, interactuando de verdad
 (clicks, forms, drawers, filtros — no solo capturas estáticas) contra un
 servidor descartable con datos ficticios de ALUAR
-(`ot/tools/qa_server.py`, sqlite propio, nunca `.env` real ni Neon de
-producción). Usa el browser pane (`mcp__Claude_Browser__*`, Playwright por
+(`ot/tools/qa_server.py` sobre un **Postgres local en Docker**, contenedor
+`ot-qa-pg` en `127.0.0.1:54329`, nunca `.env` real ni Neon de producción) y,
+a diferencia de una revisión solo visual, **cierra cada flujo consultando la
+base**: lo que importa es lo que se ve bien y está mal guardado. Usa el browser pane (`mcp__Claude_Browser__*`, Playwright por
 debajo) para navegar, y el skill `frontend-design` para fundamentar las
 ideas de mejora que propone.
 
@@ -38,27 +40,44 @@ acá.
 
 ## Pasos (revisión inline)
 
-1. `preview_start({name: "ot-qa"})` — levanta `ot/tools/qa_server.py` en
-   `:8123` (reusa el proceso si ya estaba arriba). Si el modelo de datos
-   cambió desde la última corrida, `preview_stop` + borrar
-   `ot/tools/.qa_data/qa_ot.db` antes de volver a levantarlo.
-2. `navigate` a `http://localhost:8123/auth/qa-login` (login simulado, sin
-   pasar por Google OAuth real).
-3. Recorrer la(s) pantalla(s) relevante(s), interactuando de verdad
-   (`computer`, `find`, `form_input`), revisando consola/red
-   (`read_console_messages`, `read_network_requests`) y responsive/tema si
-   aplica (`resize_window`, cookie `tema`).
-4. Si algo se ve mal o rompe, corregir en la conversación principal,
-   regenerar y repetir. Para ideas de diseño, cargar el skill
-   `frontend-design` antes de opinar.
+1. `bash .claude/skills/qa-ot/scripts/levantar-entorno.sh` — levanta/reusa el
+   Postgres `ot-qa-pg` (idempotente, no descarga nada, no toca Neon ni el
+   Supabase de otros proyectos). Requiere Docker corriendo.
+2. `preview_start({name: "ot-qa"})` — corre `ot/tools/qa_server.py`: aplica
+   `alembic upgrade head` (así también se prueban las migraciones), siembra si
+   está vacía y sirve en `:8123`. Si el modelo/migraciones cambiaron
+   (`git diff --stat HEAD -- ot/app/models.py ot/migrations`), parar el server
+   y volver a lanzarlo con `--reset` (`ot/.venv/Scripts/python.exe
+   ot/tools/qa_server.py --reset` desde Bash en background) para no arrastrar
+   schema viejo. `--sqlite` queda como plan B sin
+   Docker, pero no ejercita Postgres.
+3. `navigate` a `http://localhost:8123/auth/qa-login` (login simulado).
+4. Recorrer según `references/flujos.md`, interactuando de verdad (`computer`,
+   `find`, `form_input`), revisando consola/red y responsive/tema si aplica.
+   **Después de cada flujo que escribe, consultar la base**:
+   `docker exec ot-qa-pg psql -U postgres -d ot_qa -tAc "..."`.
+5. Regresión: probar cada punto de `references/hallazgos-conocidos.md`.
+6. Informe: escribir `.claude/qa-informes/INFORME-QA-OT-AAAA-MM-DD.md`
+   (Entorno y alcance — incluyendo **qué no se probó** —, Altos, Medios, Bajos,
+   Lo que funcionó bien) y actualizar `hallazgos-conocidos.md`.
+7. Si algo rompe: reportar y proponer; el fix se discute en la conversación
+   principal. Para ideas de diseño, cargar `frontend-design` antes de opinar.
 
 ## Notas
 
+- **Guardarraíl de base:** `qa_server.py` aborta si la base no es localhost;
+  igual, antes de operar confirmar con
+  `docker exec ot-qa-pg psql -U postgres -d ot_qa -tAc "select 1"` que el
+  Postgres local responde. Nunca poner credenciales de Neon/Advertys acá.
 - **Nunca contra `http://localhost:8000`** (el uvicorn real de desarrollo,
   si está corriendo) — ese sí puede estar apuntando a Neon compartido. Este
   skill y el subagent `ot-qa` solo tocan el `:8123` descartable.
 - Datos del server de QA: mismo dataset realista de `scripts/seed.py`
   (~34 tareas de ALUAR, variedad de estados, OT ambiguas y OT que
   comparten `numero_ot_advertys`) — no hace falta armar fixtures a mano.
-- `ot/tools/.qa_data/` es descartable/regenerable (gitignorado vía el
-  `*.db` de `ot/.gitignore`), igual que `exploracion/` en `informes/`.
+- Los datos viven en el volumen Docker `ot-qa-pgdata`; para empezar de cero:
+  `levantar-entorno.sh --reset` (borra contenedor y volumen) o
+  `qa_server.py --reset` (re-migra y re-siembra en el mismo contenedor).
+  `ot/tools/.qa_data/` solo se usa con `--sqlite`.
+- Los flujos de QA y sus verificaciones SQL están en `references/flujos.md`;
+  los hallazgos previos en `references/hallazgos-conocidos.md`.
