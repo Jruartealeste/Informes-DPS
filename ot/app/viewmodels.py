@@ -165,19 +165,27 @@ def ot_interna_vm(ot: OtInterna) -> dict:
     return grupo_vm(ot.numero_interno, ot.tareas)
 
 
+def _arg_shell(valor: str) -> str:
+    """Entre comillas simples, que no expanden `$var`, backticks ni `$(...)` ni en
+    PowerShell ni en bash; una comilla simple interna se duplica (PowerShell). Los
+    saltos de línea se pasan a espacios para que el comando siga siendo una línea."""
+    limpio = " ".join(valor.split())
+    return "'" + limpio.replace("'", "''") + "'"
+
+
 def _comando_crear_ot(s: SolicitudAltaOt) -> str:
     """Línea lista para copiar y correr a mano desde `informes/` (ver
     workflow `crear_ot.md`) -- esta app nunca ejecuta el script ella
-    misma."""
+    misma. Los textos son libres (los carga el equipo), así que se escapan."""
     partes = [
         "python -m modules.ordenes_trabajo.crear_ot",
-        f'"{s.anunciante}"',
-        f'"{s.resumen}"',
-        f'"{s.producto}"',
-        f'"{s.centro_costo}"',
+        _arg_shell(s.anunciante),
+        _arg_shell(s.resumen),
+        _arg_shell(s.producto),
+        _arg_shell(s.centro_costo),
     ]
     if s.equipo:
-        partes.append(f'--equipo "{s.equipo}"')
+        partes.append(f"--equipo {_arg_shell(s.equipo)}")
     return " ".join(partes)
 
 

@@ -180,6 +180,32 @@ def detalle_orden_trabajo(numero_interno: str, request: Request, db: Session = D
     )
 
 
+def _rechazar_con_solicitud_pendiente(ots: list[OtInterna]) -> None:
+    """Una OT con un pedido de alta PENDIENTE espera el número que va a devolver
+    crear_ot.py: asignarle uno a mano haría que `resolver` lo pise en silencio."""
+    pendientes = [
+        ot.numero_interno
+        for ot in ots
+        if ot.solicitud_alta and ot.solicitud_alta.estado == EstadoSolicitudAltaOt.PENDIENTE
+    ]
+    if pendientes:
+        raise HTTPException(
+            409,
+            f"OT interna(s) {', '.join(pendientes)} tienen un pedido de alta pendiente: "
+            "resolvelo o cancelalo en Solicitudes antes de asignarles una OT de sistema.",
+        )
+
+
+def _asignar_ot_sistema(ot: OtInterna, valor: str | None) -> None:
+    """Asigna (o vacía) la OT de sistema. Si la OT venía de un pedido ya resuelto
+    y el número cambia, se la desvincula: la solicitud resuelta ya no la describe
+    y, además, impediría volver a pedir el alta."""
+    solicitud = ot.solicitud_alta
+    if solicitud and solicitud.estado == EstadoSolicitudAltaOt.RESUELTA and solicitud.numero_ot_advertys != valor:
+        ot.solicitud_alta_id = None
+    ot.numero_ot_advertys = valor
+
+
 @router_paginas.post("/ordenes-trabajo/asignar-lote")
 def asignar_lote_ot_sistema(
     db: Session = Depends(get_db),
@@ -192,9 +218,16 @@ def asignar_lote_ot_sistema(
         raise HTTPException(422, "Seleccioná al menos una OT interna.")
     if not valor:
         raise HTTPException(422, "Falta el número de OT de sistema.")
-    ots = list(db.scalars(select(OtInterna).where(OtInterna.numero_interno.in_(numeros))))
+    ots = list(
+        db.scalars(
+            select(OtInterna)
+            .where(OtInterna.numero_interno.in_(numeros))
+            .options(joinedload(OtInterna.solicitud_alta))
+        )
+    )
+    _rechazar_con_solicitud_pendiente(ots)
     for ot in ots:
-        ot.numero_ot_advertys = valor
+        _asignar_ot_sistema(ot, valor)
     db.commit()
     return RedirectResponse("/ordenes-trabajo", status_code=303)
 
@@ -206,7 +239,8 @@ def reasignar_ot_sistema(
     numero_ot_advertys: str = Form(""),
 ):
     ot = _cargar_ot(db, numero_interno)
-    ot.numero_ot_advertys = numero_ot_advertys.strip() or None
+    _rechazar_con_solicitud_pendiente([ot])
+    _asignar_ot_sistema(ot, numero_ot_advertys.strip() or None)
     db.commit()
     return RedirectResponse(f"/ordenes-trabajo/{numero_interno}", status_code=303)
 
@@ -250,7 +284,7 @@ def generar_ot(
         db.scalars(
             select(OtInterna)
             .where(OtInterna.numero_interno.in_(numeros))
-            .options(joinedload(OtInterna.cliente))
+            .options(joinedload(OtInterna.cliente), joinedload(OtInterna.solicitud_alta))
         )
     )
     if len(ots) != len(numeros):
@@ -260,7 +294,11 @@ def generar_ot(
         raise HTTPException(
             422, f"OT interna(s) {', '.join(ya_con_dps)} ya tienen OT de sistema -- no se puede regenerar."
         )
-    ya_en_solicitud = [ot.numero_interno for ot in ots if ot.solicitud_alta_id]
+    ya_en_solicitud = [
+        ot.numero_interno
+        for ot in ots
+        if ot.solicitud_alta and ot.solicitud_alta.estado == EstadoSolicitudAltaOt.PENDIENTE
+    ]
     if ya_en_solicitud:
         raise HTTPException(
             422, f"OT interna(s) {', '.join(ya_en_solicitud)} ya tienen un pedido de alta pendiente."
