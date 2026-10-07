@@ -21,10 +21,11 @@ _(ninguno registrado todavía — se llena con el primer informe)_
 ## Bajos
 - `POST /tareas/{id}/anular` con id inexistente → 500 en vez de 404 (`db.get` None → `puede_anular(None)`); probable igual en `/estado` y `/facturacion`. Estado: **corregido 2026-10-07** para `/tareas/{id}/anular|estado|facturacion|PATCH` (404). Verificar `estimados.py:248` y `facturacion.py:121`, que usan el mismo `db.get(Tarea, …)` sin chequeo.
 
-- Panel de OT de sistema (2026-10-07), bajos abiertos: "correrCrear_ot.py" sin espacio (`list.html:107`); asignar-lote con OT inexistente da 303 sin hacer nada; `/reasignar` sin confirm ni required; badge "SINCRONIZADA" estático; error rojo del panel no se oculta al corregir; errores de servidor como JSON crudo; panel inutilizable en mobile 375px.
+- Panel de OT de sistema (2026-10-07), bajos abiertos: "correrCrear_ot.py" sin espacio (`list.html:107`, **corregido 2026-10-07**); asignar-lote con OT inexistente da 303 sin hacer nada; `/reasignar` sin confirm ni required; badge "SINCRONIZADA" estático; error rojo del panel no se oculta al corregir; errores de servidor como JSON crudo; panel inutilizable en mobile 375px (**corregido 2026-10-07**, ver abajo).
 
 ## Verificado y funciona (no volver a abrir sin cambio de código)
 - Duplicar "Misma OT": precarga, no guarda antes de confirmar, tarea nueva coherente (2026-10-07).
 - Anular tarea abierta desde el drawer: confirmación, refresco, solo cambia el estado (2026-10-07).
 - Crear tarea (drawer queda abierto, uniones exactas), editar tipos/responsables sin 500, y "+ Nueva" dos veces con guardados en OT distintas (2026-10-07).
 - Panel de OT de sistema: modos existente, manual y generar (solo crea solicitud, no toca Advertys), Resolver/Cancelar y reasignar desde el detalle, con sus validaciones 422/409/404 (2026-10-07).
+- Mobile ≤720px (2026-10-07): el sidebar pasa a barra superior con menú a pantalla completa; el panel de OT de sistema apila los 3 modos en una fila ("Existente / Generar / Cargar"), inputs de 44 px y botón principal a todo el ancho; drawer con pie que envuelve; detalle de OT sin desborde. Verificado a 375px en OT internas (modos existente y generar), Tareas (tabla y drawer), Estimados, Facturación y detalle de OT; escritorio (1280px) sin cambios. Regresión: a 375px `scrollWidth == 375` en esas pantallas.

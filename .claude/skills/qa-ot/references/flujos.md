@@ -87,3 +87,13 @@ Tablas: `tareas`, `ot_interna`, `tarea_tipos_tarea`, `tarea_responsables`,
   `solicitudes_alta_ot.estado`. Validar 422/409/404 por POST directo. Todas las
   OT del seed son de ALUAR: para "clientes distintos" crear una OT de otro
   cliente por `POST /tareas`.
+
+## 12. Responsive (celular, `resize_window` preset mobile = 375px)
+- En cada pantalla (`/tareas`, `/ordenes-trabajo`, detalle de OT, `/estimados`,
+  `/facturacion`, `/ordenes-trabajo/solicitudes`): `document.documentElement.scrollWidth`
+  debe ser 375 (sin desborde de página); la tabla puede scrollear horizontal por dentro.
+- Menú: el botón ☰ abre el panel a pantalla completa, ✕ y Escape lo cierran.
+- Panel de OT de sistema: los 3 modos en una fila, inputs de 44px, botón principal a
+  todo el ancho. Drawer de tarea: botones del pie envuelven, ninguno recortado.
+- Volver a `preset: "desktop"` al terminar. Para comprobar escritorio real usar
+  `width: 1280, height: 800` (el panel del navegador es angosto por defecto).
