@@ -279,7 +279,10 @@ def armar_tabla(recibos_6m: pd.DataFrame, referencias: pd.DataFrame, facturas: p
     )
     tabla["factura_compra"] = tabla["factura_compra"].fillna("")
     tabla["leyenda_compra"] = tabla["leyenda_compra"].fillna("")
-    tabla["monto_aplicado"] = tabla["aplicar"].abs()
+    # Con signo (pedido de Javier, 2026-10-08): "Aplicar" viene negativo en las
+    # facturas (FA) y positivo en las notas de credito (CA) que el recibo
+    # cancela -- cobrado = facturas - CA, no la suma de los valores absolutos.
+    tabla["monto_aplicado"] = -tabla["aplicar"]
     tabla["proveedor"] = tabla["proveedor"].fillna("(sin OC vinculada)")
     tabla["oc_origen"] = tabla["oc_origen"].fillna("")
     return tabla
@@ -316,7 +319,7 @@ def main():
     # esa cantidad de OC. Este campo solo lleva el monto en la PRIMERA fila
     # de cada (recibo, factura) y 0 en las repetidas, para que sumarlo de
     # un tirón (statTiles/charts) de el total real cobrado.
-    tabla["_dup_referencia"] = tabla.duplicated(subset=["numero_recibo", "numero_referencia"], keep="first")
+    tabla["_dup_referencia"] = tabla.duplicated(subset=["numero_recibo", "tipo_referencia", "numero_referencia"], keep="first")
     tabla["monto_cobrado_unico"] = tabla["monto_aplicado"].where(~tabla["_dup_referencia"], 0.0)
 
     # Idem para el cobrado en transferencia (dato de cabecera del recibo, se
@@ -363,6 +366,7 @@ def main():
         # principal) + orden por titulo de columna.
         "filtersInToolbar": True,
         "statTiles": [
+            {"label": "Total cobrado (facturas - NC)", "kind": "sum", "field": "monto_cobrado_unico", "fmt": "money"},
             {"label": "Cobrado en transferencia", "kind": "sum", "field": "transf_unico", "fmt": "money"},
         ],
         "tables": [

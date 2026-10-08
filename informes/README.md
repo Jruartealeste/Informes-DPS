@@ -689,6 +689,13 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   actualiza sola porque `tools/actualizar_cobranza.py` ya exporta e
   ingesta `recibos` en cada refresh. (En la ventana actual `efvo_otros` ≈
   `cancelaciones` − `retenciones`.)
+- **"Total Cobrado" = facturas − notas de crédito (corregido 2026-10-08,
+  pedido de Javier):** antes sumaba `abs(aplicar)` y por eso contaba las NC
+  (TR=CA) como si fueran cobro (ej. recibo 423: $55M cobrados con $0 de
+  transferencia). En Referencias Canceladas `Aplicar` viene negativo en FA y
+  positivo en CA, así que `monto_aplicado = -aplicar`. Chequeado: la suma por
+  recibo coincide con `recibos.cancelaciones` en los 25 recibos de la ventana.
+  La dedupe de `monto_cobrado_unico` ahora incluye `tipo_referencia`.
 - **Sin gráficos, a diferencia de los demás informes (pedido explícito de
   Javier, 2026-08-04):** "los gráficos están demás" para este caso de uso
   operativo (revisar recibo por recibo qué pagar) — no es un olvido, es
