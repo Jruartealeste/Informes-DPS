@@ -366,7 +366,6 @@ def main():
         # principal) + orden por titulo de columna.
         "filtersInToolbar": True,
         "statTiles": [
-            {"label": "Total cobrado (facturas - NC)", "kind": "sum", "field": "monto_cobrado_unico", "fmt": "money"},
             {"label": "Cobrado en transferencia", "kind": "sum", "field": "transf_unico", "fmt": "money"},
         ],
         "tables": [
@@ -389,7 +388,6 @@ def main():
                         "numero_recibo": "N° Recibo",
                         "cliente_recibo": "Cliente",
                         "_cant_facturas": "Facturas del recibo (cant.)",
-                        "_total_cobrado": "Total Cobrado del recibo",
                         "cobrado_transf": "Cobrado en Transferencia del recibo",
                         "_cant_proveedores": "Proveedores del recibo (cant.)",
                         "_saldo_oc": "Saldo a Pagar del recibo",
@@ -423,7 +421,6 @@ def main():
                     {"key": "fecha_recibo", "field": "fecha_recibo", "op": "first"},
                     {"key": "cliente_recibo", "field": "cliente_recibo", "op": "first"},
                     {"key": "_cant_facturas", "field": "numero_referencia", "op": "nunique"},
-                    {"key": "_total_cobrado", "field": "monto_cobrado_unico", "op": "sum"},
                     # Cobrado en transferencia (columna "Efvo.Otros" del recibo, pedido
                     # de Javier 2026-10-08): dato de cabecera del recibo, no de sus
                     # facturas/OC -- "first" (se repite igual en cada linea de detalle).
@@ -434,15 +431,15 @@ def main():
                 "groupColumns": [
                     ["fecha_recibo", "Fecha Recibo"], ["numero_recibo", "N° Recibo"],
                     ["cliente_recibo", "Cliente"], ["_cant_facturas", "Facturas"],
-                    ["_total_cobrado", "Total Cobrado"], ["_cobrado_transf", "Cobrado Transf."],
+                    ["_cobrado_transf", "Cobrado Transf."],
                     ["_cant_proveedores", "Proveedores"],
                     ["_saldo_oc", "Saldo a Pagar"],
                 ],
-                "groupNumericCols": ["_total_cobrado", "_cobrado_transf", "_saldo_oc"],
-                # Mobile: la fila muestra N° Recibo, Total Cobrado y Saldo a Pagar; el
+                "groupNumericCols": ["_cobrado_transf", "_saldo_oc"],
+                # Mobile: la fila muestra N° Recibo, Cobrado Transf. y Saldo a Pagar; el
                 # resto (fecha, cliente, cantidades) va en una ficha dentro del detalle.
-                "groupMobileHide": ["fecha_recibo", "cliente_recibo", "_cant_facturas", "_cobrado_transf", "_cant_proveedores"],
-                "groupMobileWidths": {"_total_cobrado": 108, "_saldo_oc": 108},
+                "groupMobileHide": ["fecha_recibo", "cliente_recibo", "_cant_facturas", "_cant_proveedores"],
+                "groupMobileWidths": {"_cobrado_transf": 108, "_saldo_oc": 108},
                 "detailColumns": [
                     ["numero_referencia", "N° Factura"], ["detalle_factura", "Detalle Factura"],
                     ["texto_cabecera", "Texto Cabecera"],

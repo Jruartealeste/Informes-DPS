@@ -696,6 +696,10 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   positivo en CA, así que `monto_aplicado = -aplicar`. Chequeado: la suma por
   recibo coincide con `recibos.cancelaciones` en los 25 recibos de la ventana.
   La dedupe de `monto_cobrado_unico` ahora incluye `tipo_referencia`.
+- **Unificado 2026-10-08 (Javier): la fila del recibo y el tile muestran solo
+  "Cobrado Transf." (Efvo.Otros)**; se sacó "Total Cobrado" de la fila resumen
+  y del tile (difería en las retenciones, ~$13M en la ventana). El monto por
+  factura (facturas − NC) sigue en el detalle y en el CSV.
 - **Sin gráficos, a diferencia de los demás informes (pedido explícito de
   Javier, 2026-08-04):** "los gráficos están demás" para este caso de uso
   operativo (revisar recibo por recibo qué pagar) — no es un olvido, es
