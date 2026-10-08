@@ -255,8 +255,8 @@ def armar_tabla(recibos_6m: pd.DataFrame, referencias: pd.DataFrame, facturas: p
     oc_detalle = _oc_por_factura(items_oc, ordenes_compra, ordenes_publicidad)
 
     tabla = matcheadas.merge(
-        recibos_6m[["numero_recibo", "fecha", "cliente"]].rename(
-            columns={"fecha": "fecha_recibo", "cliente": "cliente_recibo"}
+        recibos_6m[["numero_recibo", "fecha", "cliente", "efvo_otros"]].rename(
+            columns={"fecha": "fecha_recibo", "cliente": "cliente_recibo", "efvo_otros": "cobrado_transf"}
         ),
         on="numero_recibo", how="left",
     )
@@ -331,7 +331,7 @@ def main():
     total_saldo_oc = float(oc_unicas["oc_saldo"].sum())
 
     records = hr.records_from_df(tabla, [
-        "fecha_recibo", "numero_recibo", "cliente_recibo", "numero_referencia",
+        "fecha_recibo", "numero_recibo", "cliente_recibo", "cobrado_transf", "numero_referencia",
         "detalle_factura", "texto_cabecera", "monto_aplicado", "monto_cobrado_unico", "numero_oc", "proveedor",
         "oc_saldo", "oc_estado", "factura_compra", "leyenda_compra",
         "oc_origen", "tiene_oc", "ambiguo_txt", "_periodo",
@@ -379,6 +379,7 @@ def main():
                         "cliente_recibo": "Cliente",
                         "_cant_facturas": "Facturas del recibo (cant.)",
                         "_total_cobrado": "Total Cobrado del recibo",
+                        "cobrado_transf": "Cobrado en Transferencia del recibo",
                         "_cant_proveedores": "Proveedores del recibo (cant.)",
                         "_saldo_oc": "Saldo a Pagar del recibo",
                         "numero_referencia": "N° Factura de Venta",
@@ -412,19 +413,24 @@ def main():
                     {"key": "cliente_recibo", "field": "cliente_recibo", "op": "first"},
                     {"key": "_cant_facturas", "field": "numero_referencia", "op": "nunique"},
                     {"key": "_total_cobrado", "field": "monto_cobrado_unico", "op": "sum"},
+                    # Cobrado en transferencia (columna "Efvo.Otros" del recibo, pedido
+                    # de Javier 2026-10-08): dato de cabecera del recibo, no de sus
+                    # facturas/OC -- "first" (se repite igual en cada linea de detalle).
+                    {"key": "_cobrado_transf", "field": "cobrado_transf", "op": "first"},
                     {"key": "_cant_proveedores", "field": "proveedor", "op": "nunique", "filter": {"field": "tiene_oc", "equals": 1}},
                     {"key": "_saldo_oc", "field": "oc_saldo", "op": "sum_unique", "dedupeField": "numero_oc", "filter": {"field": "tiene_oc", "equals": 1}},
                 ],
                 "groupColumns": [
                     ["fecha_recibo", "Fecha Recibo"], ["numero_recibo", "N° Recibo"],
                     ["cliente_recibo", "Cliente"], ["_cant_facturas", "Facturas"],
-                    ["_total_cobrado", "Total Cobrado"], ["_cant_proveedores", "Proveedores"],
+                    ["_total_cobrado", "Total Cobrado"], ["_cobrado_transf", "Cobrado Transf."],
+                    ["_cant_proveedores", "Proveedores"],
                     ["_saldo_oc", "Saldo a Pagar"],
                 ],
-                "groupNumericCols": ["_total_cobrado", "_saldo_oc"],
+                "groupNumericCols": ["_total_cobrado", "_cobrado_transf", "_saldo_oc"],
                 # Mobile: la fila muestra N° Recibo, Total Cobrado y Saldo a Pagar; el
                 # resto (fecha, cliente, cantidades) va en una ficha dentro del detalle.
-                "groupMobileHide": ["fecha_recibo", "cliente_recibo", "_cant_facturas", "_cant_proveedores"],
+                "groupMobileHide": ["fecha_recibo", "cliente_recibo", "_cant_facturas", "_cobrado_transf", "_cant_proveedores"],
                 "groupMobileWidths": {"_total_cobrado": 108, "_saldo_oc": 108},
                 "detailColumns": [
                     ["numero_referencia", "N° Factura"], ["detalle_factura", "Detalle Factura"],
