@@ -95,7 +95,8 @@ def _cambiar_filtro_a_todos(page) -> None:
 
 def _click_por_texto_o_title(page, texto) -> bool:
     click_js = """(texto) => {
-        const candidatos = [...document.querySelectorAll('[title], span, div')];
+        // solo visibles: Advertys deja en el DOM el header expandido (oculto) y el colapsado (visible) del mismo grupo
+        const candidatos = [...document.querySelectorAll('[title], span, div')].filter(e => e.offsetParent !== null);
         const el = candidatos.find(e =>
             (e.getAttribute && e.getAttribute('title') && e.getAttribute('title').trim().startsWith(texto)) ||
             e.textContent.trim() === texto
@@ -104,7 +105,12 @@ def _click_por_texto_o_title(page, texto) -> bool:
         el.click();
         return true;
     }"""
-    return page.evaluate(click_js, texto)
+    # el menu se renderiza despues del login: reintentar hasta ~10 s
+    for _ in range(20):
+        if page.evaluate(click_js, texto):
+            return True
+        page.wait_for_timeout(500)
+    return False
 
 
 def exportar() -> Path:
