@@ -319,6 +319,10 @@ def main():
     tabla["_dup_referencia"] = tabla.duplicated(subset=["numero_recibo", "numero_referencia"], keep="first")
     tabla["monto_cobrado_unico"] = tabla["monto_aplicado"].where(~tabla["_dup_referencia"], 0.0)
 
+    # Idem para el cobrado en transferencia (dato de cabecera del recibo, se
+    # repite en cada linea de detalle): solo cuenta en la primera fila de cada recibo.
+    tabla["transf_unico"] = tabla["cobrado_transf"].where(~tabla.duplicated(subset=["numero_recibo"], keep="first"), 0.0)
+
     cant_recibos = recibos_6m["numero_recibo"].nunique()
     cant_facturas = tabla["numero_referencia"].nunique()
     cant_ambiguas = int(tabla["ambiguo"].sum())
@@ -332,7 +336,7 @@ def main():
 
     records = hr.records_from_df(tabla, [
         "fecha_recibo", "numero_recibo", "cliente_recibo", "cobrado_transf", "numero_referencia",
-        "detalle_factura", "texto_cabecera", "monto_aplicado", "monto_cobrado_unico", "numero_oc", "proveedor",
+        "detalle_factura", "texto_cabecera", "monto_aplicado", "monto_cobrado_unico", "transf_unico", "numero_oc", "proveedor",
         "oc_saldo", "oc_estado", "factura_compra", "leyenda_compra",
         "oc_origen", "tiene_oc", "ambiguo_txt", "_periodo",
     ])
@@ -358,6 +362,9 @@ def main():
         # (pedido de Javier, 2026-10-01: sacar tanta info de la pagina
         # principal) + orden por titulo de columna.
         "filtersInToolbar": True,
+        "statTiles": [
+            {"label": "Cobrado en transferencia", "kind": "sum", "field": "transf_unico", "fmt": "money"},
+        ],
         "tables": [
             {
                 "mount": "tabla-detalle",
@@ -448,6 +455,7 @@ def main():
     }
 
     secciones = "".join([
+        hr.stat_tiles_mount(),
         hr.filters_panel_html(CATEGORY_FILTERS),
         hr.section("Detalle: Recibo → Factura → OC/Proveedor", hr.mount("tabla-detalle"), wide=True),
         hr.dashboard_bundle(records, spec),
