@@ -28,6 +28,8 @@ def motivo_no_anulable(t: Tarea) -> str | None:
         return "Facturada: no se puede anular"
     if t.estado_facturacion == EstadoFacturacion.PARA_FACTURAR:
         return "Para facturar: no se puede anular"
+    if t.estimado_id is not None:
+        return "Está en un Estimado: quitala del Estimado antes de anularla"
     return None
 
 
@@ -213,13 +215,13 @@ def _comando_crear_estimado(s: SolicitudAltaEstimado, estimado: Estimado) -> str
     ya viven en el `Estimado` local que referencia."""
     partes = [
         "python -m modules.estimados_costos.crear_estimado",
-        estimado.numero_ot_advertys,
-        f'"{estimado.titulo}"',
+        _arg_shell(estimado.numero_ot_advertys),
+        _arg_shell(estimado.titulo),
     ]
     if s.fecha_solicitada:
-        partes.append(f"--fecha-solicitada {s.fecha_solicitada}")
+        partes.append(f"--fecha-solicitada {_arg_shell(s.fecha_solicitada)}")
     if s.fecha_analisis:
-        partes.append(f"--fecha-analisis {s.fecha_analisis}")
+        partes.append(f"--fecha-analisis {_arg_shell(s.fecha_analisis)}")
     return " ".join(partes)
 
 

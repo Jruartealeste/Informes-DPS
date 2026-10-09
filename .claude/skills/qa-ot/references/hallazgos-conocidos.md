@@ -8,6 +8,15 @@ sigue, "persiste". Agregar acá los hallazgos nuevos al cerrar cada informe
 ## Altos
 _(ninguno registrado todavía — se llena con el primer informe)_
 
+## Altos
+- **Comando `crear_estimado.py` sin escapar** (2026-10-09): `_comando_crear_estimado` pone el título entre comillas dobles y las fechas sin comillas (`$(…)`/backticks/comillas). Mismo bug que el de OT. Estado: **corregido 2026-10-09** (`_arg_shell` en título, OT y fechas). Informe `INFORME-QA-OT-2026-10-09.md`.
+
+## Medios (Estimados, 2026-10-09, **corregidos 2026-10-09** salvo el último ítem; regresión en `ot/tests/test_estimados.py`)
+- `cargar-numero` ignora un pedido PENDIENTE (resolver después pisa el número en silencio).
+- Tarea ANULADA sigue en el Estimado, en `/facturacion` y como candidata para armar uno nuevo.
+- Fechas del pedido de alta sin validar: >10 caracteres da 500.
+- `tarea_ids` no numérico → 422; Estimado sin tareas no genera pedido; con pedido PENDIENTE no se agregan/quitan tareas (409). Fechas D/M/AAAA validadas (422) y con `pattern` en el form. ANULADA queda fuera de candidatas y de `/facturacion` (NULL legado sigue entrando). **Abierto (no es bug, es feature):** el título de un BORRADOR no se puede editar.
+
 ## Medios
 - **Colisión de número interno en "Duplicar → OT nueva"** (confirmado 2026-10-07): `duplicar_form` calcula `siguiente_numero_interno()` al abrir sin reservar; dos aperturas dan el mismo número y al guardar la segunda tarea se pega en silencio a la `ot_interna` de la primera. `ot/app/routers/tareas.py` (`duplicar_form`, `_resolver_ot_interna`). Estado: **corregido 2026-10-07** (sin commit aún): el form manda `ot_generada` y `crear_tarea` asigna el siguiente libre si el número ya lo ocupó otra OT. Regresión: dos aperturas + dos guardados → OT 4164 y 4165, una tarea cada una.
 - **Anular sin bloqueo en servidor** (2026-10-07): el POST directo anulaba tareas FACTURADO/PARA_FACTURAR. Javier decidió que esas no se anulan. Estado: **corregido 2026-10-07**: 409 en el servidor y botón deshabilitado con motivo; FINALIZADO sigue anulable con advertencia. Regresión: POST directo a `/anular` en una tarea facturada → 409 y estado intacto.

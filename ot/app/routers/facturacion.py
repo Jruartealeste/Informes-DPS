@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
 from app.labels import ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
-from app.models import EstadoFacturacion, OtInterna, Tarea, TareaTipoTarea
+from app.models import EstadoFacturacion, EstadoTarea, OtInterna, Tarea, TareaTipoTarea
 from app.templating import templates
 
 router = APIRouter()
@@ -31,7 +31,11 @@ def _tareas_facturables(db: Session) -> list[Tarea]:
     stmt = (
         select(Tarea)
         .join(Tarea.ot_interna)
-        .where(Tarea.estimado_id.is_not(None), OtInterna.numero_ot_advertys.is_not(None))
+        .where(
+            Tarea.estimado_id.is_not(None),
+            OtInterna.numero_ot_advertys.is_not(None),
+            or_(Tarea.estado_tarea.is_(None), Tarea.estado_tarea != EstadoTarea.ANULADA),
+        )
         .options(
             joinedload(Tarea.ot_interna).joinedload(OtInterna.cliente),
             joinedload(Tarea.estimado),

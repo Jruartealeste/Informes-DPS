@@ -1,8 +1,9 @@
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
@@ -10,6 +11,7 @@ from app.labels import TIPO_TAREA_LABELS
 from app.models import (
     EstadoEstimado,
     EstadoSolicitudAltaEstimado,
+    EstadoTarea,
     Estimado,
     OtInterna,
     SolicitudAltaEstimado,
@@ -20,6 +22,27 @@ from app.templating import templates
 from app.viewmodels import solicitud_alta_estimado_vm
 
 router = APIRouter()
+
+_FECHA_RE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
+
+
+def _parsear_ids(tarea_ids: str) -> list[int]:
+    try:
+        return [int(x) for x in tarea_ids.split(",") if x.strip()]
+    except ValueError:
+        raise HTTPException(422, "Ids de tarea inválidos.")
+
+
+def _validar_fecha(valor: str, nombre: str) -> str | None:
+    valor = valor.strip()
+    if valor and not _FECHA_RE.fullmatch(valor):
+        raise HTTPException(422, f"{nombre} tiene que tener formato D/M/AAAA.")
+    return valor or None
+
+
+def _exigir_sin_pedido_pendiente(estimado: Estimado) -> None:
+    if estimado.solicitud_alta and estimado.solicitud_alta.estado == EstadoSolicitudAltaEstimado.PENDIENTE:
+        raise HTTPException(409, "Este Estimado tiene un pedido de alta pendiente: resolvelo o cancelalo primero.")
 
 
 def _ctx_base(request: Request, db: Session) -> dict:
@@ -41,7 +64,11 @@ def _tareas_candidatas(db: Session, numero_ot_advertys: str) -> list[Tarea]:
     stmt = (
         select(Tarea)
         .join(Tarea.ot_interna)
-        .where(OtInterna.numero_ot_advertys == numero_ot_advertys, Tarea.estimado_id.is_(None))
+        .where(
+            OtInterna.numero_ot_advertys == numero_ot_advertys,
+            Tarea.estimado_id.is_(None),
+            or_(Tarea.estado_tarea.is_(None), Tarea.estado_tarea != EstadoTarea.ANULADA),
+        )
         .options(
             joinedload(Tarea.ot_interna),
             selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
@@ -95,9 +122,10 @@ def _estimado_vm(e: Estimado) -> dict:
         "numero_estimado": e.numero_estimado,
         "estado": e.estado.name,
         "es_borrador": e.estado == EstadoEstimado.BORRADOR,
-        "solicitud_pendiente": bool(
+        "solicitud_pendiente": (pendiente := bool(
             e.solicitud_alta and e.solicitud_alta.estado == EstadoSolicitudAltaEstimado.PENDIENTE
-        ),
+        )),
+        "editable": e.estado == EstadoEstimado.BORRADOR and not pendiente,
         "creado_en": e.creado_en.strftime("%d/%m/%Y"),
         "tareas": [_tarea_resumen_vm(t) for t in e.tareas],
     }
@@ -187,7 +215,7 @@ def crear_estimado(
     titulo: str = Form(...),
     tarea_ids: str = Form(""),
 ):
-    ids = [int(x) for x in tarea_ids.split(",") if x.strip()]
+    ids = _parsear_ids(tarea_ids)
     if not ids:
         raise HTTPException(422, "Seleccioná al menos una tarea para el Estimado.")
     if not titulo.strip():
@@ -230,7 +258,8 @@ def agregar_tareas(estimado_id: int, db: Session = Depends(get_db), tarea_ids: s
     estimado = _cargar_estimado(db, estimado_id)
     if estimado.estado != EstadoEstimado.BORRADOR:
         raise HTTPException(409, "Este Estimado ya fue generado en Advertys, no se puede editar.")
-    ids = [int(x) for x in tarea_ids.split(",") if x.strip()]
+    _exigir_sin_pedido_pendiente(estimado)
+    ids = _parsear_ids(tarea_ids)
     if not ids:
         return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
     tareas = _cargar_tareas_validadas(db, ids, estimado.numero_ot_advertys)
@@ -245,6 +274,7 @@ def quitar_tarea(estimado_id: int, tarea_id: int, db: Session = Depends(get_db))
     estimado = _cargar_estimado(db, estimado_id)
     if estimado.estado != EstadoEstimado.BORRADOR:
         raise HTTPException(409, "Este Estimado ya fue generado en Advertys, no se puede editar.")
+    _exigir_sin_pedido_pendiente(estimado)
     tarea = db.get(Tarea, tarea_id)
     if tarea and tarea.estimado_id == estimado_id:
         tarea.estimado_id = None
@@ -260,6 +290,7 @@ def cargar_numero_estimado(estimado_id: int, db: Session = Depends(get_db), nume
     estimado = _cargar_estimado(db, estimado_id)
     if estimado.estado != EstadoEstimado.BORRADOR:
         raise HTTPException(409, "Este Estimado ya tiene un número cargado.")
+    _exigir_sin_pedido_pendiente(estimado)
     valor = numero_estimado.strip()
     if not valor:
         raise HTTPException(422, "Falta el número de Estimado.")
@@ -286,10 +317,14 @@ def generar_estimado_en_advertys(
         raise HTTPException(409, "Este Estimado ya tiene un número cargado.")
     if estimado.solicitud_alta_id:
         raise HTTPException(422, "Este Estimado ya tiene un pedido de alta pendiente.")
+    if not estimado.tareas:
+        raise HTTPException(422, "El Estimado no tiene tareas: agregá al menos una antes de pedir el alta.")
+    f_sol = _validar_fecha(fecha_solicitada, "Fecha solicitada")
+    f_ana = _validar_fecha(fecha_analisis, "Fecha análisis")
 
     solicitud = SolicitudAltaEstimado(
-        fecha_solicitada=fecha_solicitada.strip() or None,
-        fecha_analisis=fecha_analisis.strip() or None,
+        fecha_solicitada=f_sol,
+        fecha_analisis=f_ana,
         creado_por_id=request.session.get("user_id"),
     )
     db.add(solicitud)

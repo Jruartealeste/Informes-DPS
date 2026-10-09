@@ -22,7 +22,7 @@
     <div class="card__eyebrow">Resumen para cargar en Advertys</div>
     <p class="form-nota">
       Esta tabla es solo de lectura local: los items y montos del Estimado se cargan a mano en Advertys
-      (OT {{ est.numero_ot_advertys }} → "Nuevo Estimado" / abrir el Estimado {{ est.numero_estimado or '' }}).
+      (OT {{ est.numero_ot_advertys }} → {% if est.numero_estimado %}abrir el Estimado {{ est.numero_estimado }}{% else %}"Nuevo Estimado"{% endif %}).
       Tené esta pantalla al lado mientras los cargás.
     </p>
   </div>
@@ -46,8 +46,8 @@
       <button type="submit" class="btn btn--small">Cargar número</button>
     </form>
     <form method="post" action="/estimados/{{ est.id }}/generar-en-advertys" class="ot-sistema__form form-alta-estimado" style="margin-top:8px">
-      <input type="text" name="fecha_solicitada" placeholder="Fecha solicitada — opcional">
-      <input type="text" name="fecha_analisis" placeholder="Fecha análisis — opcional">
+      <input type="text" name="fecha_solicitada" placeholder="Fecha solicitada — opcional" maxlength="10" pattern="\d{1,2}/\d{1,2}/\d{4}" title="D/M/AAAA">
+      <input type="text" name="fecha_analisis" placeholder="Fecha análisis — opcional" maxlength="10" pattern="\d{1,2}/\d{1,2}/\d{4}" title="D/M/AAAA">
       <button type="submit" class="btn btn--small btn--primary">Generar Estimado en Advertys</button>
     </form>
     <p class="form-nota" style="margin-top:4px">Fechas en formato D/M/AAAA — si se dejan vacías, Advertys precarga la fecha de hoy.</p>
@@ -58,14 +58,14 @@
   <div class="card card--tareas table-scroll">
     <div class="table-card table-card--estimado-detalle">
       <div class="table-head table-head--estimado-detalle">
-        <div>OT</div><div>Detalle</div><div>Tipo</div>{% if est.es_borrador %}<div></div>{% endif %}
+        <div>OT</div><div>Detalle</div><div>Tipo</div>{% if est.editable %}<div></div>{% endif %}
       </div>
       {% for t in est.tareas %}
       <div class="row-tarea--estimado-detalle">
         <div class="cell-mono">OT {{ t.ot_numero }}</div>
         <div class="cell-detalle">{{ t.detalle }}</div>
         <div class="cell-muted">{{ t.tipos_label }}</div>
-        {% if est.es_borrador %}
+        {% if est.editable %}
         <div>
           <form method="post" action="/estimados/{{ est.id }}/tareas/{{ t.id }}/quitar">
             <button type="submit" class="link-btn">Quitar</button>
@@ -80,7 +80,7 @@
     </div>
   </div>
 
-  {% if est.es_borrador and disponibles %}
+  {% if est.editable and disponibles %}
   <form method="post" action="/estimados/{{ est.id }}/agregar" id="form-agregar-tareas" class="card card--estimado-resumen">
     <input type="hidden" name="tarea_ids" id="tarea_ids_input">
     <div class="card__eyebrow">Agregar más tareas de la misma OT de sistema</div>
@@ -104,7 +104,7 @@
   {% endif %}
 </div>
 
-{% if est.es_borrador and disponibles %}
+{% if est.editable and disponibles %}
 <script>
   document.getElementById('form-agregar-tareas').addEventListener('submit', function (ev) {
     var marcadas = Array.prototype.filter.call(document.querySelectorAll('.chk-tarea'), function (c) { return c.checked; });
