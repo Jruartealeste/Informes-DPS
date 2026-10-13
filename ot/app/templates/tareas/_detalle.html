@@ -4,6 +4,7 @@
     <form
       {% if det %}hx-patch="/tareas/{{ det.id }}"{% else %}hx-post="/tareas"{% endif %}
       hx-target="#tabla-tareas" hx-swap="outerHTML">
+      {% if det %}<input type="hidden" name="version" value="{{ det.version }}">{% endif %}
 
       <div class="drawer__header">
         <div style="min-width:0">

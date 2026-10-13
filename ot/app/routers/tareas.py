@@ -20,7 +20,7 @@ from app.models import (
 )
 from app.routers.responsables import combo_ctx, parse_ids
 from app.templating import templates
-from app.viewmodels import construir_grupos, motivo_no_anulable, parsear_estado, puede_anular, tarea_vm
+from app.viewmodels import construir_grupos, motivo_no_anulable, parsear_estado, puede_anular, tarea_vm, version_tarea
 
 router = APIRouter()
 
@@ -407,6 +407,14 @@ def crear_tarea(
     return _tabla_y_cerrar_drawer(db, request, drawer_html)
 
 
+def _asignar_estado_tarea(tarea: Tarea, nuevo: EstadoTarea | None) -> None:
+    """Pasar a ANULADA tiene las mismas reglas que /anular (facturada, para
+    facturar o dentro de un Estimado no se anula), sea cual sea la ruta."""
+    if nuevo == EstadoTarea.ANULADA and tarea.estado_tarea != EstadoTarea.ANULADA and not puede_anular(tarea):
+        raise HTTPException(409, motivo_no_anulable(tarea))
+    tarea.estado_tarea = nuevo
+
+
 @router.patch("/tareas/{tarea_id}")
 def editar_tarea(
     tarea_id: int,
@@ -422,8 +430,13 @@ def editar_tarea(
     estado_facturacion: str = Form(EstadoFacturacion.SIN_FACTURAR.name),
     tipos: str = Form(""),
     responsable_ids: str = Form(""),
+    version: str = Form(""),
 ):
     tarea = _tarea_o_404(db, tarea_id)
+    if version and version != version_tarea(tarea):
+        raise HTTPException(
+            409, "Otra persona modificó esta tarea mientras la tenías abierta. Cerrá el panel y volvé a abrirla para ver los cambios."
+        )
     tipos_lista = [x.strip() for x in tipos.split(",") if x.strip()]
     responsables = parse_ids(responsable_ids)
     _validar_campos_obligatorios(
@@ -440,7 +453,7 @@ def editar_tarea(
     tarea.pedido_por = pedido_por or None
     tarea.link_drive = link_drive or None
     tarea.presupuestado = {"si": True, "no": False}.get(presupuestado.lower())
-    tarea.estado_tarea = parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True)
+    _asignar_estado_tarea(tarea, parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True))
     tarea.estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
     _guardar_tipos_responsables(db, tarea, tipos_lista, responsables)
     db.commit()
@@ -468,7 +481,7 @@ def actualizar_estado(
     estado_tarea: str = Form(""),
 ):
     tarea = _tarea_o_404(db, tarea_id)
-    tarea.estado_tarea = parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True)
+    _asignar_estado_tarea(tarea, parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True))
     db.commit()
 
     return _tabla_y_cerrar_drawer(db, request)

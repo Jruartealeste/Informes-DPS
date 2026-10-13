@@ -1,3 +1,5 @@
+import hashlib
+
 from fastapi import HTTPException
 
 from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
@@ -79,6 +81,19 @@ def responsables_con_mail(t: Tarea) -> list[dict]:
     ]
 
 
+def version_tarea(t: Tarea) -> str:
+    """Huella del contenido editable de la tarea (campos + tipos + responsables).
+    El drawer la manda al guardar: si cambió desde que se abrió, otra persona
+    editó la tarea y guardar pisaría su trabajo (409). Se calcula por contenido
+    y no con `actualizado_en`, que no cambia al editar solo tipos o responsables."""
+    partes = (
+        t.ot_interna_id, t.detalle, t.fecha_pedido, t.pedido_por, t.link_drive, t.presupuestado,
+        t.estado_tarea, t.estado_facturacion,
+        sorted(tt.tipo_tarea_id for tt in t.tipos), sorted(r.responsable_id for r in t.responsables),
+    )
+    return hashlib.sha1(repr(partes).encode()).hexdigest()[:16]
+
+
 def tarea_vm(t: Tarea) -> dict:
     responsables = [r.responsable.nombre for r in t.responsables]
     tipos = [tt.tipo_tarea.nombre for tt in t.tipos]
@@ -92,6 +107,7 @@ def tarea_vm(t: Tarea) -> dict:
 
     return {
         "id": t.id,
+        "version": version_tarea(t),
         "fecha_pedido": t.fecha_pedido.strftime("%d/%m") if t.fecha_pedido else "—",
         "fecha_pedido_iso": t.fecha_pedido.isoformat() if t.fecha_pedido else "",
         "tipos": tipos,

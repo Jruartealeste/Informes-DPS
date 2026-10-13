@@ -1,3 +1,5 @@
+import re
+
 from app.models import Cliente, EstadoFacturacion, EstadoOtInterna, EstadoTarea, OtInterna, Responsable, Tarea
 
 
@@ -361,3 +363,46 @@ def test_estado_vacio_sigue_siendo_sin_estado(client, db_session):
     assert client.post(f"/tareas/{tarea_id}/estado", data={"estado_tarea": ""}).status_code == 200
     db_session.expire_all()
     assert db_session.get(Tarea, tarea_id).estado_tarea is None
+
+
+def _form_edicion(db_session, numero, **extra):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+    return {"ot_numero": numero, "detalle": "Original", "fecha_pedido": "2026-10-07", "tipos": "diseño",
+            "responsable_ids": str(fer.id), **extra}
+
+
+def test_editar_con_version_vieja_da_409_y_no_pisa(client, db_session):
+    """Dos personas abren la misma tarea: la que guarda segunda (con su vista
+    vieja) no pisa lo de la primera, ni siquiera facturación o responsables."""
+    tarea_id = _tarea_con_facturacion(db_session, "4280", EstadoFacturacion.SIN_FACTURAR)
+    version = re.search(r'name="version" value="(\w+)"', client.get(f"/tareas/{tarea_id}").text).group(1)
+    form = _form_edicion(db_session, "4280", estado_facturacion="SIN_FACTURAR", version=version)
+
+    assert client.patch(f"/tareas/{tarea_id}", data={**form, "detalle": "Edit A"}).status_code == 200
+    r = client.patch(f"/tareas/{tarea_id}", data={**form, "detalle": "Edit B (vista vieja)"})
+    assert r.status_code == 409 and "Otra persona" in r.json()["detail"]
+    db_session.expire_all()
+    assert db_session.get(Tarea, tarea_id).detalle == "Edit A"
+
+    # un cambio de facturación hecho por otra ruta también invalida la vista vieja
+    nueva = re.search(r'name="version" value="(\w+)"', client.get(f"/tareas/{tarea_id}").text).group(1)
+    client.post(f"/tareas/{tarea_id}/facturacion", data={"estado_facturacion": "FACTURADO"})
+    r = client.patch(f"/tareas/{tarea_id}", data={**form, "version": nueva, "estado_facturacion": "PARA_FACTURAR"})
+    assert r.status_code == 409
+    db_session.expire_all()
+    assert db_session.get(Tarea, tarea_id).estado_facturacion == EstadoFacturacion.FACTURADO
+
+
+def test_anular_por_patch_o_estado_respeta_la_regla_de_anular(client, db_session):
+    for numero, fact in (("4281", EstadoFacturacion.FACTURADO), ("4282", EstadoFacturacion.PARA_FACTURAR)):
+        tarea_id = _tarea_con_facturacion(db_session, numero, fact)
+        form = _form_edicion(db_session, numero, estado_tarea="ANULADA", estado_facturacion=fact.name)
+        assert client.patch(f"/tareas/{tarea_id}", data=form).status_code == 409
+        assert client.post(f"/tareas/{tarea_id}/estado", data={"estado_tarea": "ANULADA"}).status_code == 409
+        db_session.expire_all()
+        assert db_session.get(Tarea, tarea_id).estado_tarea == EstadoTarea.APROBADO
+
+    libre = _tarea_con_facturacion(db_session, "4283", EstadoFacturacion.SIN_FACTURAR)
+    assert client.post(f"/tareas/{libre}/estado", data={"estado_tarea": "ANULADA"}).status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Tarea, libre).estado_tarea == EstadoTarea.ANULADA

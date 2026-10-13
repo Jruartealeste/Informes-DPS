@@ -159,6 +159,14 @@
     }
   });
 
+  // htmx ignora en silencio las respuestas 4xx/5xx: avisar con el motivo del
+  // servidor (ej. 409 "otra persona modificó esta tarea") en vez de no hacer nada.
+  document.body.addEventListener('htmx:responseError', function (ev) {
+    var xhr = ev.detail.xhr, msg = 'No se pudo completar la acción (' + xhr.status + ').';
+    try { msg = JSON.parse(xhr.responseText).detail || msg; } catch (e) {}
+    alert(typeof msg === 'string' ? msg : 'No se pudo completar la acción (' + xhr.status + ').');
+  });
+
   function cerrarDrawer(ev) {
     if (ev) ev.stopPropagation();
     var form = document.querySelector('#drawer-root form');

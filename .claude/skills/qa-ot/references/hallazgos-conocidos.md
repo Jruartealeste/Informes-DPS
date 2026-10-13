@@ -8,10 +8,10 @@ sigue, "persiste". Agregar acá los hallazgos nuevos al cerrar cada informe
 ## Altos
 _(ninguno registrado todavía — se llena con el primer informe)_
 
-## Altos (2026-10-13, concurrencia/facturación/sync; informe `INFORME-QA-OT-2026-10-13-b.md`) — abiertos
-- **PATCH de tarea pisa con vista vieja** (último gana, incluye facturación y responsables; sin versión).
-- **Anular se saltea** con `PATCH estado_tarea=ANULADA` y `POST /tareas/{id}/estado ANULADA` sobre tareas FACTURADO/PARA_FACTURAR.
-## Medios (misma fecha) — abiertos
+## Altos (2026-10-13, concurrencia/facturación/sync; informe `INFORME-QA-OT-2026-10-13-b.md`) — **corregidos 2026-10-13**
+- **PATCH de tarea pisa con vista vieja**: **corregido** — el drawer manda `version` (huella del contenido: campos + tipos + responsables, `version_tarea`); si cambió, 409 y un aviso (`htmx:responseError` en `base.html`). Sin `version` en el body no se controla (compatibilidad). No cubre `/estado`, `/facturacion` ni las rutas de Facturación (último gana, pero tocan un solo campo).
+- **Anular se saltea** con `PATCH`/`POST /estado` a ANULADA: **corregido** (`_asignar_estado_tarea` aplica `puede_anular`; 409). Regresión en `test_tareas.py`.
+## Medios (misma fecha) — abiertos (sin tocar)
 - Sync: registro inválido (duplicado en lote, `numero_ot`>20, `estado`>40, `negocio`>80) → 500 sin entrada en `sync_log`; `numero_ot` vacío aceptado.
 - `/facturacion/tareas/{id}/estado` acepta tareas sin Estimado o PARA_INICIAR; id inexistente → 200. Estimado BORRADOR aparece en la cola (¿intencional?).
 

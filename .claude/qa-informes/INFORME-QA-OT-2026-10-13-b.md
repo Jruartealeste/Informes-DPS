@@ -21,3 +21,6 @@
 
 ## Funcionó bien
 Sync: 401 sin token, token malo o esquema distinto; upsert por `numero_ot` sin duplicar; lista vacía 200; 422 para cuerpo no-lista, JSON roto, falta `numero_ot`, fecha mala. Facturación: transiciones PARA_FACTURAR→FACTURADO y →NO_CORRESPONDE, contador y kicker coherentes (5→3 pendientes), valor inexistente 422, pantalla sin errores (captura OK).
+
+## Seguimiento
+Los dos Altos quedaron corregidos el mismo día (control de versión en el PATCH + `puede_anular` en `/estado` y PATCH), verificados contra Postgres y en la UI real (aviso 409 con el drawer abierto; guardado normal sin falsos conflictos). Los Medios siguen abiertos.
