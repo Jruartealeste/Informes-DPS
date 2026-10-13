@@ -107,6 +107,7 @@ mismos archivos (`config.py`, `ingest.py`, `generate_html_report.py`,
 | **Cobranza x Proveedores** (cruce Recibo Cliente + Facturas + O.C. Producción/Publicidad) | `modules/cobranza_proveedores/` | `items_factura_oc_cobranza` (no ingesta, cruza `recibos`+`referencias_canceladas`+`facturas`+`items_factura_oc_cobranza`+`ordenes_compra_produccion`+`ordenes_publicidad`) | `salida/informe_cobranza_proveedores.html` |
 | **Balance Mensual** (Consultas > Contabilidad > Balance Mensual, cruzado con Imputaciones) | `modules/balance_mensual/` | *(sin tabla en `advertys.db`: lee directo los dos export crudos, sin ingest)* | `salida/balance_mensual_<desde>_<hasta>.xlsx` (deliverable Excel, no HTML) |
 | **Facturación ALUAR** (ventas a un cliente puntual por concepto contable, cruzado con Imputaciones) | `modules/facturacion_aluar/` | `facturacion_aluar` (recorte de Imputaciones + Facturas, no ingesta un export propio), `facturas_relacionadas_aluar` (crawl) | `salida/informe_facturacion_aluar.html` |
+| Productos (Entidades > Generales > Productos > Producto) | `modules/productos/` | `productos` (reemplazo total, solo Habilitados) | (sin informe propio, `modules.sync_tareas_app.push` lo manda a `ot/` para precargar el combo Producto del alta de OT) |
 
 Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
 
