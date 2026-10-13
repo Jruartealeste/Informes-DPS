@@ -8,6 +8,13 @@ sigue, "persiste". Agregar acá los hallazgos nuevos al cerrar cada informe
 ## Altos
 _(ninguno registrado todavía — se llena con el primer informe)_
 
+## Altos (2026-10-13, concurrencia/facturación/sync; informe `INFORME-QA-OT-2026-10-13-b.md`) — abiertos
+- **PATCH de tarea pisa con vista vieja** (último gana, incluye facturación y responsables; sin versión).
+- **Anular se saltea** con `PATCH estado_tarea=ANULADA` y `POST /tareas/{id}/estado ANULADA` sobre tareas FACTURADO/PARA_FACTURAR.
+## Medios (misma fecha) — abiertos
+- Sync: registro inválido (duplicado en lote, `numero_ot`>20, `estado`>40, `negocio`>80) → 500 sin entrada en `sync_log`; `numero_ot` vacío aceptado.
+- `/facturacion/tareas/{id}/estado` acepta tareas sin Estimado o PARA_INICIAR; id inexistente → 200. Estimado BORRADOR aparece en la cola (¿intencional?).
+
 ## Altos
 - **Comando `crear_estimado.py` sin escapar** (2026-10-09): `_comando_crear_estimado` pone el título entre comillas dobles y las fechas sin comillas (`$(…)`/backticks/comillas). Mismo bug que el de OT. Estado: **corregido 2026-10-09** (`_arg_shell` en título, OT y fechas). Informe `INFORME-QA-OT-2026-10-09.md`.
 
