@@ -124,3 +124,10 @@ def test_tarea_en_estimado_no_se_anula_hasta_quitarla(client, db_session):
     assert client.post(f"/tareas/{ids[0]}/anular").status_code == 200
     db_session.expire_all()
     assert db_session.get(Tarea, ids[0]).estado_tarea == EstadoTarea.ANULADA
+
+
+def test_titulo_de_mas_de_300_caracteres_da_422(client, db_session):
+    ids = _armar(db_session)
+    datos = {"numero_ot_advertys": "260", "tarea_ids": str(ids[0])}
+    assert client.post("/estimados", data={**datos, "titulo": "a" * 301}).status_code == 422
+    assert client.post("/estimados", data={**datos, "titulo": "a" * 300}, follow_redirects=False).status_code == 303

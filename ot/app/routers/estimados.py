@@ -220,6 +220,8 @@ def crear_estimado(
         raise HTTPException(422, "Seleccioná al menos una tarea para el Estimado.")
     if not titulo.strip():
         raise HTTPException(422, "El título es obligatorio.")
+    if len(titulo.strip()) > 300:
+        raise HTTPException(422, "El título no puede pasar de 300 caracteres.")
 
     numero_ot_advertys = numero_ot_advertys.strip()
     tareas = _cargar_tareas_validadas(db, ids, numero_ot_advertys)

@@ -11,10 +11,10 @@ _(ninguno registrado todavía — se llena con el primer informe)_
 ## Altos
 - **Comando `crear_estimado.py` sin escapar** (2026-10-09): `_comando_crear_estimado` pone el título entre comillas dobles y las fechas sin comillas (`$(…)`/backticks/comillas). Mismo bug que el de OT. Estado: **corregido 2026-10-09** (`_arg_shell` en título, OT y fechas). Informe `INFORME-QA-OT-2026-10-09.md`.
 
-## Medios (2026-10-13, ciclo de Estimados; informe `INFORME-QA-OT-2026-10-13.md`) — bug de estado corregido, título largo abierto
+## Medios (2026-10-13, ciclo de Estimados; informe `INFORME-QA-OT-2026-10-13.md`) — corregidos
 - `/tareas/{id}/estado`, `/tareas/{id}/facturacion`, crear/editar tarea y `/facturacion/tareas/{id}/estado` con valor inexistente → 500. **Corregido 2026-10-13** (`parsear_estado` → 422; regresión en `test_tareas.py`). Aclaración: estado vacío = "Sin estado" (NULL) es intencional de la UI, no era bug.
-- Título de Estimado >300 caracteres sin validar (`String(300)`); 500 probable en Postgres, sin confirmar.
-- Ciclo completo de Estimados (crear/agregar/quitar/pedido/resolver/bloqueos/404) verificado OK en SQLite.
+- Título de Estimado >300 caracteres → **500 en Postgres** (confirmado 2026-10-13). **Corregido 2026-10-13** (422; regresión en `test_estimados.py`).
+- Ciclo completo de Estimados (crear/agregar/quitar/pedido/resolver/bloqueos/404) verificado OK en SQLite y en Postgres local (2026-10-13).
 
 ## Medios (Estimados, 2026-10-09, **corregidos 2026-10-09** salvo el último ítem; regresión en `ot/tests/test_estimados.py`)
 - `cargar-numero` ignora un pedido PENDIENTE (resolver después pisa el número en silencio).
