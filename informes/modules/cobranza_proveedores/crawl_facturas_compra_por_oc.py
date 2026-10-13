@@ -41,12 +41,14 @@ Uso:
     python -m modules.cobranza_proveedores.crawl_facturas_compra_por_oc
 """
 import sys
+import time
 from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
 
 import db
 from common import normalizar_numero
+from tools import crawl_comun as cc
 from tools.advertys_session import AdvertysLoginError, base_url, esperar_postback, login
 from . import generate_html_report as informe
 from .crawl_oc_por_factura import (
@@ -200,7 +202,9 @@ def leer_facturas_compra(page, numero_oc: str, origen: str, proveedor: str, ahor
     return resultado
 
 
-def main():
+def main_legacy():
+    """Corrida vieja (--legacy): borra la tabla y recrawlea todo, de a uno.
+    Se conserva tal cual por pedido de Javier (2026-10-13)."""
     init_db()
     ordenes = ordenes_a_revisar()
     if not ordenes:
@@ -240,6 +244,154 @@ def main():
         sys.exit(1)
     n = reemplazar_todo(resultados)
     print(f"OK: {n} facturas de compra guardadas para {len({r['numero_oc'] for r in resultados})} ordenes ({errores} con error).")
+
+
+# ---------------------------------------------------------------------------
+# Modo incremental (default desde 2026-10-13) -- ver tools/crawl_comun.py
+#
+# Para OC/OP la fecha de la orden NO congela (una orden vieja puede recibir una
+# factura de compra nueva): manda la firma de cabecera -- estado, saldo,
+# facturado/comprado/cobrado/pagado, que ya trae el export de cada tabla y se
+# actualiza antes de esta cadena. Si Advertys no reflejara una factura de
+# compra nueva en esas columnas, `--completo` es la red de seguridad.
+# ---------------------------------------------------------------------------
+MODULO_CACHE = "facturas_compra_oc_cobranza"
+# Clave compuesta de la tabla de resultados (misma que arma `clave_orden`).
+EXPR_CLAVE = "numero_oc || '|' || COALESCE(oc_origen, '') || '|' || COALESCE(proveedor_oc, '')"
+
+
+def clave_orden(numero_oc, origen, proveedor) -> str:
+    return f"{numero_oc}|{origen or ''}|{proveedor or ''}"
+
+
+def _firmas_cabecera() -> tuple[dict, dict]:
+    """(por_numero_oc_produccion, por_numero_oc_publicidad -> lista de
+    (proveedor, tupla de campos)) desde las tablas ya ingeridas."""
+    prod, pub = {}, {}
+    with db.get_connection() as conn:
+        for r in conn.execute("SELECT numero_oc, estado, saldo, importe_sin_iva, facturado, comprado, cobrado, pagado, ajustado FROM ordenes_compra_produccion"):
+            prod[str(r["numero_oc"])] = tuple(r)[1:]
+        for r in conn.execute("SELECT numero_oc, proveedor, ano_op, estado, saldo, importe_sin_iva, facturado, comprado, cobrado, pagado, ajustado FROM ordenes_publicidad"):
+            pub.setdefault(str(r["numero_oc"]), []).append((r["proveedor"], tuple(r)[2:]))
+    return prod, pub
+
+
+def candidatos_ordenes() -> list[cc.Candidato]:
+    prod, pub = _firmas_cabecera()
+    out = []
+    for numero_oc, origen, proveedor in ordenes_a_revisar():
+        if origen.startswith("Publicidad"):
+            filas = pub.get(str(numero_oc), [])
+            propias = [f for p, f in filas if _norm(p) == _norm(proveedor)] or [f for _, f in filas]
+            f_ = cc.firma(*sorted(str(x) for x in propias)) if propias else ""
+        else:
+            f_ = cc.firma(*prod[str(numero_oc)]) if str(numero_oc) in prod else ""
+        out.append(cc.Candidato(clave_orden(numero_oc, origen, proveedor), f_, None))
+    return out
+
+
+def procesar_orden(page, cand: cc.Candidato) -> list[dict]:
+    numero_oc, origen, proveedor = cand.clave.split("|", 2)
+    es_op = origen.startswith("Publicidad")
+    lst = cc.listado_de(page, LISTADO_PUBLICIDAD if es_op else LISTADO_PRODUCCION)
+    lst.asegurar()
+    lst.buscar(numero_oc)
+
+    # El buscador matchea texto en cualquier columna: quedarse con las filas
+    # cuyo numero de orden es exactamente el buscado (igual que el modo legacy).
+    col_orden = "Orden" if es_op else "Nº O.C."
+    todas = leer_grid_visible(page)
+    buscado = str(normalizar_numero(numero_oc) or "")
+    filas = [f for f in todas if str(normalizar_numero(f.get(col_orden)) or "") == buscado]
+    idx = _elegir_fila(filas, proveedor, es_op)
+    if idx is None:
+        # None = "no se pudo ver la orden": NO se cachea ni pisa lo guardado
+        # (con 3 workers 34 ordenes dieron este falso negativo y quedaron
+        # cacheadas como vacias, 2026-10-13).
+        print(f"    AVISO: no se encontro la orden {numero_oc} ({origen}), salteo")
+        return None
+    pos = todas.index(filas[idx])
+    tabla = cc.tabla_visible(page)
+    tabla.locator("tr[id*='DXDataRow']").nth(pos).locator("td").nth(3).click(timeout=5000)
+    lst.en_registro = True
+
+    pestana = PESTANA_PUBLICIDAD if es_op else PESTANA_PRODUCCION
+    if not cc.esperar_texto(page, pestana, timeout=15000):
+        raise RuntimeError(f"orden {numero_oc}: no aparecio la pestana '{pestana}'")
+    cc.click_texto(page, pestana)
+    cc.esperar_postback_rapido(page)
+    cc.esperar_filas(page, timeout=4000)
+
+    ahora = datetime.now(timezone.utc).isoformat()
+    resultado = []
+    for fila in leer_grid_visible(page):
+        ref_compra = (fila.get("Ver Referencia Compra") or "").strip()
+        if not ref_compra:
+            continue  # asiento de venta u otro, no es factura de compra
+        resultado.append({
+            "numero_oc": numero_oc,
+            "oc_origen": origen,
+            "proveedor_oc": proveedor,
+            "ta": fila.get("TA", "").strip(),
+            "numero_asiento": fila.get("N° Asiento", "").strip(),
+            "tr": fila.get("TR", "").strip(),
+            "numero_referencia_compra": ref_compra,
+            "fecha": fila.get("Fecha", "").strip(),
+            "importe": normalizar_numero(fila.get("Importe")) or 0.0,
+            "leyenda": fila.get("Leyenda", "").strip(),
+            "importe_compra": normalizar_numero(fila.get("Importe Compra")) or 0.0,
+            "saldo_compra": normalizar_numero(fila.get("Saldo Compra")) or 0.0,
+            "fecha_crawl": ahora,
+        })
+    return resultado
+
+
+def main(argv=None):
+    args = cc.parsear_args("Facturas de compra de cada OC/OP (solo lectura).", argv)
+    if args.legacy:
+        return main_legacy()
+
+    t0 = time.time()
+    init_db()
+    candidatos = candidatos_ordenes()
+    if not candidatos:
+        print("No hay OC/OP en el informe de cobranza (correr antes los ingest/crawls, ver docstring).")
+        return
+
+    cache = cc.CrawlCache(MODULO_CACHE)
+    sembrados = cc.sembrar_si_vacia(
+        cache, "facturas_compra_oc_cobranza", EXPR_CLAVE,
+        {c.clave: c.firma for c in candidatos}, {})
+    if sembrados:
+        print(f"Cache vacia: sembrada con {sembrados} ordenes de la corrida anterior.")
+
+    pol = cc.Politica(congelar_mes_cerrado=False)
+    a_visitar, saltados, motivos = cc.seleccionar(candidatos, cache, pol, completo=args.completo)
+    print(f"{len(candidatos)} ordenes: {len(a_visitar)} a revisar, {len(saltados)} salteadas por cache. Motivos: {motivos}")
+
+    registros, ok_claves, errores, no_encontradas = [], [], 0, 0
+    ahora = datetime.now(timezone.utc).isoformat()
+    if a_visitar:
+        resultados = cc.correr_en_paralelo(a_visitar, procesar_orden, args.workers, etiqueta=lambda c: f"Orden {c.clave}")
+        for r in resultados:
+            if r.error:
+                errores += 1
+                continue
+            if r.valor is None:  # orden no encontrada en el listado: no se cachea
+                no_encontradas += 1
+                continue
+            registros.extend(r.valor)
+            ok_claves.append(r.item.clave)
+            cache.guardar(r.item.clave, r.item.firma, None, len(r.valor), len(r.valor), fecha_crawl=ahora)
+        if errores == len(a_visitar):
+            print("Todas las ordenes fallaron: no se pisa la tabla existente.")
+            sys.exit(1)
+
+    vigentes = [c.clave for c in candidatos]
+    total = cc.reemplazar_por_clave("facturas_compra_oc_cobranza", EXPR_CLAVE, COLUMNAS_TABLA, registros, ok_claves, vigentes)
+    cache.olvidar_fuera_de(vigentes)
+    print(f"OK: {total} facturas de compra en la tabla ({len(ok_claves)} ordenes revisadas, "
+          f"{len(saltados)} desde cache, {errores} con error, {no_encontradas} no encontradas) en {time.time() - t0:.0f}s.")
 
 
 if __name__ == "__main__":

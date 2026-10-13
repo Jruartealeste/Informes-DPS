@@ -44,6 +44,7 @@ Uso:
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,6 +53,7 @@ from playwright.sync_api import sync_playwright
 
 import db
 from common import normalizar_numero
+from tools import crawl_comun as cc
 from . import config
 
 load_dotenv()
@@ -334,7 +336,10 @@ def leer_referencias_canceladas(page, numero_recibo: str) -> list[dict]:
     return items
 
 
-def main():
+def main_legacy():
+    """Corrida vieja (--legacy): borra la tabla y recrawlea todo, de a uno.
+    Se conserva tal cual por pedido de Javier (2026-10-13), por si el modo
+    incremental da algo raro."""
     if not URL or not USER or not PASSWORD:
         print("ERROR: completa ADVERTYS_URL, ADVERTYS_USER y ADVERTYS_PASSWORD en .env")
         sys.exit(1)
@@ -374,6 +379,110 @@ def main():
 
     cantidad = reemplazar_todo(resultados)
     print(f"OK: {cantidad} referencias canceladas guardadas ({len(recibos)} recibos revisados).")
+
+
+# ---------------------------------------------------------------------------
+# Modo incremental (default desde 2026-10-13) -- ver tools/crawl_comun.py
+# ---------------------------------------------------------------------------
+MODULO_CACHE = "referencias_canceladas"
+LISTADO_RECIBOS = "Default.aspx#ViewID=IC_ReciboCliente_ListView&ObjectClassName=DPS_SAS_SR.Module.IC_ReciboCliente"
+DIAS_RECIENTES = 7  # un recibo de la ultima semana todavia se edita/anula
+
+
+def candidatos_recibos() -> list[cc.Candidato]:
+    """Recibos de la ventana con su firma de cabecera (lo que, si cambia,
+    obliga a revisitar) y su fecha (para el cierre de mes)."""
+    sql = f"""
+        SELECT numero_recibo, fecha, cancelaciones, estado, anticipo, retenciones,
+               ch_terceros, ch_dif_cliente, efvo_otros
+        FROM {config.DB_TABLE}
+        WHERE fecha >= date('now', '-2 months')
+        ORDER BY fecha DESC
+    """
+    with db.get_connection() as conn:
+        return [cc.Candidato(r["numero_recibo"], cc.firma(*tuple(r)[2:]), r["fecha"]) for r in conn.execute(sql)]
+
+
+def procesar_recibo(page, cand: cc.Candidato) -> list[dict]:
+    """Abre el recibo y lee su pestana 'Referencias Canceladas'. Levanta
+    excepcion si no lo encuentra (no se cachea: se reintenta en la proxima)."""
+    numero = cand.clave
+    lst = cc.listado_de(page, LISTADO_RECIBOS)
+    lst.asegurar()
+    if lst.buscar(numero) == 0:
+        raise RuntimeError(f"recibo {numero} no encontrado en el listado")
+    lst.abrir_fila(numero)
+    if not cc.esperar_texto(page, "Referencias Canceladas", timeout=15000):
+        raise RuntimeError(f"recibo {numero}: no aparecio la pestana 'Referencias Canceladas'")
+    cc.click_texto(page, "Referencias Canceladas")
+    cc.esperar_postback_rapido(page)
+    cc.esperar_filas(page, timeout=3000)  # sin filas = recibo sin referencias (no es error)
+    items = []
+    for fila in leer_grid_completo(page):
+        items.append({
+            "numero_recibo": numero,
+            "cuenta": _col(fila, "Cuenta").strip(),
+            "tipo_referencia": _col(fila, "TR").strip(),
+            "numero_referencia": _col(fila, "Referencia").strip(),
+            "fecha": _col(fila, "Fecha").strip(),
+            "saldo": normalizar_numero(_col(fila, "Saldo")),
+            "aplicar": normalizar_numero(_col(fila, "Aplicar")),
+            "dif_cambio": normalizar_numero(_col(fila, "Dif.Cambio")),
+            "saldo_me": normalizar_numero(_col(fila, "Saldo ME")),
+            "cotizacion": normalizar_numero(_col(fila, "Cotizacion")),
+            "aplicado_me": normalizar_numero(_col(fila, "Aplicado ME")),
+        })
+    return items
+
+
+def main(argv=None):
+    args = cc.parsear_args("Referencias canceladas de cada Recibo Cliente (solo lectura).", argv)
+    if args.legacy:
+        return main_legacy()
+    if not URL or not USER or not PASSWORD:
+        print("ERROR: completa ADVERTYS_URL, ADVERTYS_USER y ADVERTYS_PASSWORD en .env")
+        sys.exit(1)
+
+    t0 = time.time()
+    init_db()
+    candidatos = candidatos_recibos()
+    if not candidatos:
+        print("No hay recibos en la ventana de 2 meses (o falta correr modules/recibos/ingest.py).")
+        return
+
+    cache = cc.CrawlCache(MODULO_CACHE)
+    sembrados = cc.sembrar_si_vacia(
+        cache, "referencias_canceladas", "numero_recibo",
+        {c.clave: c.firma for c in candidatos}, {c.clave: c.fecha for c in candidatos})
+    if sembrados:
+        print(f"Cache vacia: sembrada con {sembrados} recibos de la corrida anterior.")
+
+    pol = cc.Politica(congelar_mes_cerrado=True, dias_recientes=DIAS_RECIENTES)
+    a_visitar, saltados, motivos = cc.seleccionar(candidatos, cache, pol, completo=args.completo)
+    print(f"{len(candidatos)} recibos en la ventana: {len(a_visitar)} a revisar, {len(saltados)} salteados por cache. Motivos: {motivos}")
+
+    ahora = datetime.now(timezone.utc).isoformat()
+    registros, ok_claves, errores = [], [], 0
+    if a_visitar:
+        resultados = cc.correr_en_paralelo(a_visitar, procesar_recibo, args.workers, etiqueta=lambda c: f"Recibo {c.clave}")
+        for r in resultados:
+            if r.error:
+                errores += 1
+                continue
+            for it in r.valor:
+                it["fecha_crawl"] = ahora
+            registros.extend(r.valor)
+            ok_claves.append(r.item.clave)
+            cache.guardar(r.item.clave, r.item.firma, r.item.fecha, len(r.valor), len(r.valor), fecha_crawl=ahora)
+        if errores == len(a_visitar):
+            print("ERROR: fallaron todos los recibos revisados; no se toca la tabla existente.")
+            sys.exit(1)
+
+    vigentes = [c.clave for c in candidatos]
+    total = cc.reemplazar_por_clave("referencias_canceladas", "numero_recibo", COLUMNAS_TABLA, registros, ok_claves, vigentes)
+    cache.olvidar_fuera_de(vigentes)
+    print(f"OK: {total} referencias canceladas en la tabla ({len(ok_claves)} recibos revisados, "
+          f"{len(saltados)} desde cache, {errores} con error) en {time.time() - t0:.0f}s.")
 
 
 if __name__ == "__main__":

@@ -34,6 +34,7 @@ Uso:
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,6 +43,7 @@ from playwright.sync_api import sync_playwright
 
 import db
 from common import normalizar_numero
+from tools import crawl_comun as cc
 
 load_dotenv()
 
@@ -395,7 +397,9 @@ def leer_items_factura(page, numero_referencia: str) -> tuple[list[dict], str | 
     return items, tipo_inferido
 
 
-def main():
+def main_legacy():
+    """Corrida vieja (--legacy): borra la tabla y recrawlea todo, de a uno.
+    Se conserva tal cual por pedido de Javier (2026-10-13)."""
     if not URL or not USER or not PASSWORD:
         print("ERROR: completa ADVERTYS_URL, ADVERTYS_USER y ADVERTYS_PASSWORD en .env")
         sys.exit(1)
@@ -492,6 +496,168 @@ def main():
 
     cantidad = reemplazar_todo(resultados)
     print(f"OK: {cantidad} items de factura guardados en items_factura_oc_cobranza ({len(facturas)} facturas revisadas).")
+
+
+# ---------------------------------------------------------------------------
+# Modo incremental (default desde 2026-10-13) -- ver tools/crawl_comun.py
+# ---------------------------------------------------------------------------
+MODULO_CACHE = "items_factura_oc_cobranza"
+LISTADO_FACTURAS = "Default.aspx#ViewID=DPS_Factura_ListView&ObjectClassName=DPS_SAS_SR.Module.DPS_Factura"
+DIAS_RECIENTES = 7
+
+
+def candidatos_facturas() -> list[cc.Candidato]:
+    """N Referencia distintos de referencias_canceladas, con la fecha (la mas
+    reciente entre las facturas candidatas) y una firma de cabecera tomada de
+    la tabla `facturas` (total/estado/NC), que ya se actualiza antes de esta
+    cadena. Una referencia que no aparece en `facturas` queda sin fecha ni
+    firma: no se congela y solo se revisita si no hay nada util cacheado."""
+    refs = facturas_a_revisar()
+    info: dict[str, list] = {r: [] for r in refs}
+    with db.get_connection() as conn:
+        for r in conn.execute("SELECT numero_referencia, fecha, total_ml, estado, tiene_ncnd, tipo_asiento FROM facturas"):
+            if r["numero_referencia"] in info:
+                info[r["numero_referencia"]].append(r)
+    out = []
+    for ref in refs:
+        filas = info[ref]
+        fecha = max((f["fecha"] for f in filas if f["fecha"]), default=None)
+        f_ = cc.firma(*sorted(f"{f['tipo_asiento']}|{f['total_ml']}|{f['estado']}|{f['tiene_ncnd']}" for f in filas)) if filas else ""
+        out.append(cc.Candidato(ref, f_, fecha))
+    return out
+
+
+def _leer_texto_cabecera_rapido(page) -> str:
+    """Igual que leer_texto_cabecera pero sin sleeps fijos."""
+    for nombre in ("Texto cabecera", "Texto Cabecera"):
+        if cc.texto_visible(page, nombre).count() > 0:
+            cc.click_texto(page, nombre)
+            break
+    else:
+        return ""
+    cc.esperar_postback_rapido(page)
+    campo = page.locator("span[id$='_dviTextoCabecera_View']").filter(visible=True)
+    try:
+        campo.first.wait_for(state="visible", timeout=3000)
+        lineas = [l.strip() for l in campo.first.inner_text().splitlines()]
+        return " | ".join(l for l in lineas if l)
+    except Exception:
+        return ""
+
+
+def _leer_items_rapido(page, numero_referencia: str) -> tuple[list[dict], str | None]:
+    # La ficha tarda en cargar: esperar a que aparezca alguna pestana de items.
+    esperando = [p for p, _ in PESTANAS_ITEMS]
+    t0 = time.time()
+    while time.time() - t0 < 15 and not any(cc.texto_visible(page, p).count() for p in esperando):
+        page.wait_for_timeout(150)
+    texto_cabecera = _leer_texto_cabecera_rapido(page)
+    tipo_inferido = None
+    for pestana, ta in PESTANAS_ITEMS:
+        if cc.texto_visible(page, pestana).count() > 0:
+            cc.click_texto(page, pestana)
+            tipo_inferido = ta
+            break
+    if tipo_inferido is None:
+        print(f"    AVISO: no se encontro ninguna pestana de items ({esperando}) para {numero_referencia}")
+        return [], None
+    cc.esperar_postback_rapido(page)
+    cc.esperar_filas(page, timeout=3000)
+
+    items = []
+    for fila in leer_grid_completo(page):
+        orden_compra_raw = _col(fila, "Orden Compra").strip()
+        items.append({
+            "numero_referencia": numero_referencia,
+            "tipo_asiento_inferido": tipo_inferido,
+            "detalle": _col(fila, "Detalle").strip(),
+            "neto_sin_iva": normalizar_numero(_col(fila, "Neto Sin Iva")) or 0.0,
+            "orden_trabajo_raw": _col(fila, "Orden Trabajo").strip(),
+            "estimado_costos_raw": _col(fila, "Estimado Costos").strip(),
+            "orden_compra_raw": orden_compra_raw,
+            "numero_oc": parsear_numero_oc(orden_compra_raw),
+            "texto_cabecera": texto_cabecera,
+        })
+    return items, tipo_inferido
+
+
+def procesar_factura(page, cand: cc.Candidato) -> list[dict]:
+    """Abre TODAS las filas del listado que matchean el N Referencia (caso
+    raro FP/FM, ver docstring del modulo) y lee los items de cada una."""
+    ref = cand.clave
+    lst = cc.listado_de(page, LISTADO_FACTURAS)
+    lst.asegurar()
+    n_filas = lst.buscar(ref)
+    if n_filas == 0:
+        # None = "no se pudo ver la factura": no se cachea ni pisa lo guardado.
+        print(f"    AVISO: no se encontro la factura {ref} en la grilla")
+        return None
+    if n_filas > 1:
+        print(f"    AVISO: {n_filas} facturas distintas comparten N Referencia {ref} (caso raro FP/FM) -- se revisan todas")
+    items_total = []
+    for idx in range(n_filas):
+        if idx > 0:
+            lst.asegurar()
+            lst.buscar(ref)
+        lst.abrir_fila(ref, idx)
+        items, _ = _leer_items_rapido(page, ref)
+        items_total.extend(items)
+    return items_total
+
+
+def main(argv=None):
+    args = cc.parsear_args("OC/OP de cada factura cobrada (solo lectura).", argv)
+    if args.legacy:
+        return main_legacy()
+    if not URL or not USER or not PASSWORD:
+        print("ERROR: completa ADVERTYS_URL, ADVERTYS_USER y ADVERTYS_PASSWORD en .env")
+        sys.exit(1)
+
+    t0 = time.time()
+    init_db()
+    candidatos = candidatos_facturas()
+    if not candidatos:
+        print("No hay facturas referenciadas por recibos en la ventana de 2 meses (o falta correr")
+        print("modules/recibos/ingest.py + modules/recibos/crawl_referencias_canceladas.py primero).")
+        return
+
+    cache = cc.CrawlCache(MODULO_CACHE)
+    sembrados = cc.sembrar_si_vacia(
+        cache, "items_factura_oc_cobranza", "numero_referencia",
+        {c.clave: c.firma for c in candidatos}, {c.clave: c.fecha for c in candidatos}, columna_ok="numero_oc")
+    if sembrados:
+        print(f"Cache vacia: sembrada con {sembrados} facturas de la corrida anterior.")
+
+    pol = cc.Politica(congelar_mes_cerrado=True, dias_recientes=DIAS_RECIENTES, reintentar_sin_ok=True)
+    a_visitar, saltados, motivos = cc.seleccionar(candidatos, cache, pol, completo=args.completo)
+    print(f"{len(candidatos)} facturas: {len(a_visitar)} a revisar, {len(saltados)} salteadas por cache. Motivos: {motivos}")
+
+    ahora = datetime.now(timezone.utc).isoformat()
+    registros, ok_claves, errores, no_encontradas = [], [], 0, 0
+    if a_visitar:
+        resultados = cc.correr_en_paralelo(a_visitar, procesar_factura, args.workers, etiqueta=lambda c: f"Factura {c.clave}")
+        for r in resultados:
+            if r.error:
+                errores += 1
+                continue
+            if r.valor is None:
+                no_encontradas += 1
+                continue
+            for it in r.valor:
+                it["fecha_crawl"] = ahora
+            registros.extend(r.valor)
+            ok_claves.append(r.item.clave)
+            n_ok = sum(1 for it in r.valor if it["numero_oc"])
+            cache.guardar(r.item.clave, r.item.firma, r.item.fecha, len(r.valor), n_ok, fecha_crawl=ahora)
+        if errores == len(a_visitar):
+            print("ERROR: fallaron todas las facturas revisadas; no se toca la tabla existente.")
+            sys.exit(1)
+
+    vigentes = [c.clave for c in candidatos]
+    total = cc.reemplazar_por_clave("items_factura_oc_cobranza", "numero_referencia", COLUMNAS_TABLA, registros, ok_claves, vigentes)
+    cache.olvidar_fuera_de(vigentes)
+    print(f"OK: {total} items de factura en la tabla ({len(ok_claves)} facturas revisadas, "
+          f"{len(saltados)} desde cache, {errores} con error, {no_encontradas} no encontradas) en {time.time() - t0:.0f}s.")
 
 
 if __name__ == "__main__":

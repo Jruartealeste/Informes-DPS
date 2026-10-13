@@ -1,8 +1,16 @@
 """
 Refresh de la cadena de Cobranza x Proveedores, aparte de
-tools/actualizar_todo.py porque tarda ~70 min (verificado 2026-09-30, 23
-recibos / 59 facturas / 118 ordenes): el crawl de referencias canceladas
-visita un recibo a la vez y el de facturas de compra una orden a la vez.
+tools/actualizar_todo.py porque la corrida vieja tardaba ~70 min (verificado
+2026-09-30, 23 recibos / 59 facturas / 118 ordenes): cada crawl borraba su
+tabla y visitaba todo de a uno.
+
+Desde 2026-10-13 los 3 crawls son INCREMENTALES por default (tools/
+crawl_comun.py: cache + regla de cierre de mes, solo visitan lo nuevo o
+cambiado). Modos, que se propagan a los 3 crawls:
+    (sin flags)    incremental
+    --completo     ignora la cache y revisita todo (con upsert)
+    --legacy       la corrida vieja tal cual (borra y recrawlea todo, de a uno)
+    --workers N    N navegadores en paralelo (default 1)
 
 Pasos, en orden (cada uno lee lo que dejo el anterior):
     1. recibos             (export + ingest)
@@ -22,7 +30,9 @@ Uso (desde informes/):
 """
 import subprocess
 import sys
+import time
 
+from tools import crawl_comun as cc
 from tools.actualizar_todo import _correr, exportar_e_ingerir
 
 CRAWLS = [
@@ -32,17 +42,27 @@ CRAWLS = [
 ]
 
 
-def main():
+def main(argv=None):
+    args = cc.parsear_args("Refresh de Cobranza x Proveedores.", argv)
+    flags = (["--completo"] if args.completo else []) + (["--legacy"] if args.legacy else []) + ["--workers", str(args.workers)]
+    modo = "legacy" if args.legacy else ("completo" if args.completo else "incremental")
+    print(f"Modo: {modo}, workers: {args.workers}", flush=True)
+    t_inicio = time.time()
+    tiempos = {}
     ok, errores = {}, {}
 
+    t = time.time()
     exito, detalle = exportar_e_ingerir("recibos")
+    tiempos["recibos"] = time.time() - t
     (ok if exito else errores)["recibos"] = detalle
 
     if exito:
         for modulo, descripcion in CRAWLS:
             print(f"--- {descripcion} (Playwright, tarda varios minutos)...", flush=True)
-            resultado = _correr([modulo])
+            t = time.time()
+            resultado = _correr([modulo, *flags])
             clave = modulo.rsplit(".", 1)[-1]
+            tiempos[clave] = time.time() - t
             if resultado.returncode != 0:
                 detalle = (resultado.stderr or resultado.stdout).strip().splitlines()
                 errores[clave] = detalle[-1] if detalle else "sin detalle"
@@ -62,6 +82,7 @@ def main():
         print(f"OK  {k}: {v}")
     for k, v in errores.items():
         print(f"ERROR {k}: {v}")
+    print("Tiempos: " + ", ".join(f"{k} {v:.0f}s" for k, v in tiempos.items()) + f" | total {time.time() - t_inicio:.0f}s ({modo})")
     sys.exit(1 if errores else 0)
 
 

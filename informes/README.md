@@ -704,6 +704,29 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   Javier, 2026-08-04):** "los gráficos están demás" para este caso de uso
   operativo (revisar recibo por recibo qué pagar) — no es un olvido, es
   la decisión de diseño para este módulo puntual.
+- **Refresh incremental (2026-10-13, pedido de Javier: "tarda 70 minutos
+  no importa qué tan actualizado esté"):** los 3 crawls de la cadena
+  (`modules/recibos/crawl_referencias_canceladas.py`,
+  `modules/cobranza_proveedores/crawl_oc_por_factura.py` y
+  `.../crawl_facturas_compra_por_oc.py`) ya no borran su tabla y recorren
+  todo: usan `tools/crawl_comun.py` (caché `crawl_cache` en `advertys.db` +
+  regla de qué revisitar) y solo visitan lo nuevo o cambiado. Reglas:
+  **mes cerrado** (hoy > día 20 del mes siguiente) → un recibo o factura de
+  ese mes ya cacheado queda congelado; recibos de los últimos 7 días siempre
+  se revisitan; cambia la firma de cabecera (estado/importes del ingest) →
+  se revisita; **OC/OP no se congelan por fecha** (una orden vieja puede
+  recibir una factura de compra nueva) y dependen solo de la firma
+  (estado/saldo/facturado/comprado/cobrado/pagado de `ordenes_compra` /
+  `ordenes_publicidad`). Un ítem "no encontrado" en el listado no se cachea
+  ni pisa lo guardado. Flags (en `tools.actualizar_cobranza` y en cada
+  crawl): sin flag = incremental; `--completo` = ignora la caché y
+  revisita todo (red de seguridad si algo no cuadra); `--legacy` = la
+  corrida vieja, intacta (`main_legacy()`), por si el modo nuevo da algo
+  raro; `--workers N` = N navegadores en paralelo. La primera corrida
+  incremental siembra la caché desde las tablas que dejó una corrida vieja.
+  Validado en vivo contra advertys.db: las 3 tablas salen idénticas fila a
+  fila entre incremental y `--completo`. Recetas para otros crawls: skill
+  `acelerar-crawl`; operación: skill `refresh-cobranza`.
 
 ### Notas del módulo Balance Mensual
 

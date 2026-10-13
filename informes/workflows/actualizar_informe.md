@@ -31,6 +31,17 @@ o "regenerá el informe de Facturas".
 `ingest.py` de esos tres módulos primero y recién después
 `python -m modules.pendientes.generate_html_report` (sin paso 1 propio).
 
+**Caso especial — Cobranza x Proveedores (`modules/cobranza_proveedores/`):**
+no tiene `ingest.py` propio; su cadena (recibos → referencias canceladas →
+OC/OP de cada factura → facturas de compra de cada orden) se refresca con
+`python -m tools.actualizar_cobranza` (parado en `informes/`). Desde
+2026-10-13 es **incremental** (solo visita lo nuevo o cambiado, regla de
+cierre de mes día 20; ver README, "Refresh incremental"): normalmente unos
+minutos en vez de ~70. Flags: `--completo` (ignora caché), `--legacy`
+(corrida vieja, ~70 min), `--workers N`. Necesita `facturas`,
+`ordenes_compra` y `ordenes_publicidad` al día (`tools.actualizar_todo`).
+Skill operativa: `refresh-cobranza`.
+
 **Caso especial — IIBB (`modules/iibb/`):** el informe de IIBB no depende
 solo del export de Imputaciones — también necesita `facturas`,
 `ordenes_compra` y `ordenes_publicidad` frescas (para resolver
