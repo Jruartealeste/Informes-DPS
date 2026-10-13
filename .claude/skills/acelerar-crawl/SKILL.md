@@ -82,6 +82,29 @@ Nuevo/Editar/Guardar/Eliminar.
 Orden sugerido: cobranza → IIBB → el resto, cada uno validado contra su
 propia corrida vieja antes de pasar al siguiente.
 
+## Resultado de cobranza (2026-10-13) y lecciones
+
+Cadena completa en modo incremental: 200 s (antes ~70 min). `--completo
+--workers 3`: recibos 31 en 146 s, facturas 69 en 258 s, órdenes 100 en 441 s.
+Las 3 tablas salieron idénticas fila a fila entre incremental y completo.
+Lo que costó descubrir:
+
+- **Un "no encontrado" nunca se cachea ni pisa lo guardado** (el procesar
+  devuelve `None`). Corolario para validar: que la tabla salga idéntica NO
+  prueba nada si hubo "no encontradas" (conservan las filas viejas); exigir
+  también 0 no encontradas.
+- **`Listado` verifica la vista (ViewID) en la URL.** El `go_back` puede caer
+  en otro listado si el crawl alterna vistas (OC Producción ↔ OP Publicidad);
+  sin ese chequeo todo lo posterior daba falsos "no encontrado".
+- **Buscar = esperar a que la búsqueda se aplicó** (todas las filas visibles
+  contienen el texto), no solo al spinner: la grilla vieja sin filtrar seguía
+  visible y contó 20 "facturas" con el mismo N° de referencia.
+- **El combo de filtro necesita reintentos**: el input existe antes de que el
+  cliente lo inicialice y el primer click no abre el desplegable.
+- **El paralelismo rinde poco** (el servidor de Advertys es el límite:
+  ~12 s por ítem con 3 hilos vs ~6 s con 1, o sea ~1.3x). Lo grande es la
+  caché. Default `--workers 1`; 3 funciona y da los mismos datos.
+
 ## Gotchas
 
 - Si otra sesión está corriendo la cadena, **no editar** los `crawl_*.py` ni

@@ -30,10 +30,10 @@ Parado en `informes/` (no en la raíz del repo), con el Python completo
 
 | Comando | Cuándo | Qué hace |
 |---|---|---|
-| `-m tools.actualizar_cobranza` | uso normal | **Incremental**: solo visita lo nuevo o cambiado. Objetivo < 5 min. |
+| `-m tools.actualizar_cobranza` | uso normal | **Incremental**: solo visita lo nuevo o cambiado. Medido 2026-10-13: ~200 s en total (la mayor parte son los ~7 recibos de la última semana, que se revisitan siempre). |
 | `... --completo` | sospecha de dato viejo, o después de tocar un crawl | Ignora la caché y revisita todo (con upsert, no borra antes). |
-| `... --legacy` | si algo del modo nuevo se ve raro | La corrida vieja tal cual: borra y recrawlea todo, de a uno. ~70 min. Se mantiene a propósito como red de seguridad. |
-| `... --workers N` | junto a cualquiera de los anteriores | N navegadores en paralelo (cada uno con su login). Subir de 1 solo si ya se validó que Advertys tolera sesiones simultáneas. |
+| `... --legacy` | si algo del modo nuevo se ve raro | La corrida vieja tal cual: borra y recrawlea todo, de a uno. ~70 min (medido 2026-09-30). Se mantiene a propósito como red de seguridad. |
+| `... --workers N` | junto a cualquiera de los anteriores | N navegadores en paralelo (cada uno con su login). Validado el 2026-10-13 que 3 sesiones simultáneas dan los mismos datos, pero rinde poco (~1.3x): el límite es el servidor. Dejar el default en 1 salvo una corrida `--completo`. |
 
 ## Qué se re-visita en modo incremental y por qué
 

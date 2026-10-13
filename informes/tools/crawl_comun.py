@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import queue
+import re
 import threading
 import time
 from dataclasses import dataclass
@@ -433,6 +434,12 @@ class Listado:
         from tools.advertys_session import base_url
         self.page = page
         self.url = base_url() + url_sufijo
+        # Vista (ViewID) de este listado: el 'atras' del navegador puede caer en
+        # OTRO listado si la pagina alterno entre vistas (ej. OC Produccion y
+        # OP Publicidad), y buscar ahi da falsos "no encontrado" (visto
+        # 2026-10-13: desde la orden 36 todas fallaban).
+        m = re.search(r"ViewID=([^&]+)", url_sufijo)
+        self.view = m.group(1) if m else ""
         self.en_registro = False
         self.cargado = False
         self.recargas = 0
@@ -444,6 +451,8 @@ class Listado:
 
     def _listo(self) -> bool:
         try:
+            if self.view and self.view not in self.page.url:
+                return False
             if self.page.locator("input[id$='_Ed_I']").filter(visible=True).count() == 0:
                 return False
             return bool(self.page.evaluate(_JS_COMBO, list(FILTROS_TODOS)))
