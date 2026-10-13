@@ -7,6 +7,7 @@ from app.db import get_db
 from app.labels import ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import EstadoFacturacion, EstadoTarea, OtInterna, Tarea, TareaTipoTarea
 from app.templating import templates
+from app.viewmodels import parsear_estado
 
 router = APIRouter()
 
@@ -124,7 +125,7 @@ def actualizar_estado_facturacion(
 ):
     tarea = db.get(Tarea, tarea_id)
     if tarea:
-        tarea.estado_facturacion = EstadoFacturacion[estado_facturacion]
+        tarea.estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
         db.commit()
     grupos = _grupos_facturables(db)
     lista_html = templates.env.get_template("facturacion/_grupos.html").render(

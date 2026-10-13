@@ -341,3 +341,23 @@ def test_detalle_vacio_es_422_al_crear_y_editar(client, db_session):
     assert r.status_code == 422
     db_session.expire_all()
     assert db_session.get(Tarea, tarea.id).detalle == "Original"
+
+
+def test_estado_o_facturacion_inexistente_da_422_y_no_toca_la_tarea(client, db_session):
+    tarea_id = _tarea_con_facturacion(db_session, "4270", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.EN_PROCESO)
+    for url, campo in (
+        (f"/tareas/{tarea_id}/estado", "estado_tarea"),
+        (f"/tareas/{tarea_id}/facturacion", "estado_facturacion"),
+        (f"/facturacion/tareas/{tarea_id}/estado", "estado_facturacion"),
+    ):
+        assert client.post(url, data={campo: "BASURA"}).status_code == 422
+    db_session.expire_all()
+    t = db_session.get(Tarea, tarea_id)
+    assert t.estado_tarea == EstadoTarea.EN_PROCESO and t.estado_facturacion == EstadoFacturacion.SIN_FACTURAR
+
+
+def test_estado_vacio_sigue_siendo_sin_estado(client, db_session):
+    tarea_id = _tarea_con_facturacion(db_session, "4271", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.EN_PROCESO)
+    assert client.post(f"/tareas/{tarea_id}/estado", data={"estado_tarea": ""}).status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Tarea, tarea_id).estado_tarea is None

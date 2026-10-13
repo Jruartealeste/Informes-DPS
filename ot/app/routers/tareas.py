@@ -20,7 +20,7 @@ from app.models import (
 )
 from app.routers.responsables import combo_ctx, parse_ids
 from app.templating import templates
-from app.viewmodels import construir_grupos, motivo_no_anulable, puede_anular, tarea_vm
+from app.viewmodels import construir_grupos, motivo_no_anulable, parsear_estado, puede_anular, tarea_vm
 
 router = APIRouter()
 
@@ -393,8 +393,8 @@ def crear_tarea(
         pedido_por=pedido_por or None,
         link_drive=link_drive or None,
         presupuestado={"si": True, "no": False}.get(presupuestado.lower()),
-        estado_tarea=EstadoTarea[estado_tarea] if estado_tarea else None,
-        estado_facturacion=EstadoFacturacion[estado_facturacion],
+        estado_tarea=parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True),
+        estado_facturacion=parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación"),
     )
     db.add(tarea)
     db.flush()
@@ -440,8 +440,8 @@ def editar_tarea(
     tarea.pedido_por = pedido_por or None
     tarea.link_drive = link_drive or None
     tarea.presupuestado = {"si": True, "no": False}.get(presupuestado.lower())
-    tarea.estado_tarea = EstadoTarea[estado_tarea] if estado_tarea else None
-    tarea.estado_facturacion = EstadoFacturacion[estado_facturacion]
+    tarea.estado_tarea = parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True)
+    tarea.estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
     _guardar_tipos_responsables(db, tarea, tipos_lista, responsables)
     db.commit()
 
@@ -468,7 +468,7 @@ def actualizar_estado(
     estado_tarea: str = Form(""),
 ):
     tarea = _tarea_o_404(db, tarea_id)
-    tarea.estado_tarea = EstadoTarea[estado_tarea] if estado_tarea else None
+    tarea.estado_tarea = parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True)
     db.commit()
 
     return _tabla_y_cerrar_drawer(db, request)
@@ -482,7 +482,7 @@ def actualizar_facturacion(
     estado_facturacion: str = Form(...),
 ):
     tarea = _tarea_o_404(db, tarea_id)
-    tarea.estado_facturacion = EstadoFacturacion[estado_facturacion]
+    tarea.estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
     db.commit()
 
     return _tabla_y_cerrar_drawer(db, request)

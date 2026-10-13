@@ -1,3 +1,5 @@
+from fastapi import HTTPException
+
 from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import (
     Estimado,
@@ -10,6 +12,17 @@ from app.models import (
     SolicitudAltaOt,
     Tarea,
 )
+
+
+def parsear_estado(enum_cls, valor: str, nombre: str, *, vacio_es_none: bool = False):
+    """Convierte el valor de un form al miembro del enum; 422 si no existe
+    (en vez de KeyError -> 500). Con `vacio_es_none`, '' es "sin estado"."""
+    if not valor and vacio_es_none:
+        return None
+    try:
+        return enum_cls[valor]
+    except KeyError:
+        raise HTTPException(422, f"{nombre} inválido.")
 
 
 def grupo_key(t: Tarea) -> str:
