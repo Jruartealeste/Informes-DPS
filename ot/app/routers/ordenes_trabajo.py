@@ -7,7 +7,16 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
 from app.labels import CENTRO_COSTO_OPCIONES, EQUIPO_OPCIONES
-from app.models import Cliente, EstadoSolicitudAltaOt, OtInterna, SolicitudAltaOt, Tarea, TareaResponsable, TareaTipoTarea
+from app.models import (
+    Cliente,
+    EstadoSolicitudAltaOt,
+    OtInterna,
+    ProductoAdvertys,
+    SolicitudAltaOt,
+    Tarea,
+    TareaResponsable,
+    TareaTipoTarea,
+)
 from app.templating import templates
 from app.viewmodels import desglose_facturacion_vm, ot_interna_vm, solicitud_alta_vm
 
@@ -18,6 +27,20 @@ def _clientes_anunciantes(db: Session) -> dict[str, list[str]]:
     ClienteAnunciante en models.py)."""
     clientes = list(db.scalars(select(Cliente).options(selectinload(Cliente.anunciantes))))
     return {str(c.id): [a.anunciante for a in c.anunciantes] for c in clientes}
+
+def _productos_por_anunciante(db: Session) -> dict[str, list[str]]:
+    """{anunciante: [producto, ...]} del catálogo de Advertys (tabla
+    productos_advertys, la puebla el sync de Informes) para precargar el
+    combo Producto al generar una OT. Vacío si todavía no se sincronizó."""
+    catalogo: dict[str, list[str]] = {}
+    for anunciante, nombre in db.execute(
+        select(ProductoAdvertys.anunciante, ProductoAdvertys.nombre).order_by(
+            ProductoAdvertys.anunciante, func.lower(ProductoAdvertys.nombre)
+        )
+    ):
+        catalogo.setdefault(anunciante, []).append(nombre)
+    return catalogo
+
 
 router = APIRouter(prefix="/api/ordenes-trabajo")
 router_paginas = APIRouter()
@@ -115,6 +138,7 @@ def listado_ordenes_trabajo(request: Request, sin_dps: bool = False, db: Session
             "centro_costo_opciones": CENTRO_COSTO_OPCIONES,
             "equipo_opciones": EQUIPO_OPCIONES,
             "clientes_anunciantes": _clientes_anunciantes(db),
+            "productos_por_anunciante": _productos_por_anunciante(db),
             "seccion_activa": "ordenes_trabajo",
             "tema": request.cookies.get("tema", "dark"),
             "densidad": request.cookies.get("densidad", "1") != "0",

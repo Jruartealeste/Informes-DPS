@@ -240,6 +240,25 @@ class OrdenTrabajoEspejo(Base):
     sincronizado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ProductoAdvertys(Base):
+    """Espejo de solo lectura del catálogo de Productos de Advertys
+    (Entidades > Generales > Productos > Producto), para precargar el combo
+    Producto del alta de OT en /ordenes-trabajo. Poblado únicamente por
+    POST /api/sync/productos (ver app/routers/sync.py) por reemplazo total:
+    lo que ya no viene en el sync (producto deshabilitado o borrado en
+    Advertys) se borra acá. `anunciante` es el nombre tal cual lo muestra
+    Advertys y coincide con `ClienteAnunciante.anunciante`."""
+
+    __tablename__ = "productos_advertys"
+
+    id_advertys: Mapped[str] = mapped_column(String(20), primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(300))
+    anunciante: Mapped[str] = mapped_column(String(300), index=True)
+    categoria: Mapped[str | None] = mapped_column(String(200))
+    marca: Mapped[str | None] = mapped_column(String(200))
+    sincronizado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class SyncLog(Base):
     """Auditoría de cada sync recibido en /api/sync/* (ver
     app/routers/sync.py). `origen` identifica qué se sincronizó

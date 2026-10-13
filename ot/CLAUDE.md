@@ -1057,3 +1057,19 @@ anular**: el botón queda deshabilitado con el motivo y `POST
 habilitado con advertencia" para esos dos estados). Una tarea `FINALIZADO` sin
 facturación sí se anula, con advertencia. Lógica en
 `app/viewmodels.py::motivo_no_anulable`/`puede_anular`.
+
+
+## Catálogo de Productos de Advertys (2026-10-13)
+
+El combo Producto del alta de OT (panel "Generar OT en Advertys" en
+`/ordenes-trabajo`) se precarga con el catálogo real de Advertys
+(Entidades > Generales > Productos > Producto), filtrado por el Anunciante
+que se escribe. Flujo: `informes/` (`python -m modules.productos.export` y
+`.ingest`) lo baja y lo guarda en la tabla `productos` de `advertys.db`;
+`python -m modules.sync_tareas_app.push` lo manda a `POST /api/sync/productos`
+y queda en `productos_advertys` (reemplazo total: lo deshabilitado o borrado en
+Advertys desaparece; una lista vacía se rechaza). Solo trae productos
+**Habilitados** (lo que ofrece Advertys al dar de alta una OT). El campo sigue
+siendo texto libre con sugerencias: un producto fuera del catálogo muestra un
+aviso y pide confirmación al generar el pedido, no se bloquea (el catálogo
+puede estar desactualizado hasta el próximo sync).

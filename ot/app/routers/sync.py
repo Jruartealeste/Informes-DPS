@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
-from app.models import OrdenTrabajoEspejo, SyncLog
+from app.models import OrdenTrabajoEspejo, ProductoAdvertys, SyncLog
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
@@ -86,3 +86,54 @@ def sync_ordenes_trabajo(registros: list[OrdenTrabajoIn], db: Session = Depends(
         raise HTTPException(500, f"Error al sincronizar ordenes_trabajo: {e}") from e
 
     return {"ok": True, "cantidad": len(registros)}
+
+
+class ProductoIn(BaseModel):
+    # Largos = columnas de ProductoAdvertys (ver OrdenTrabajoIn).
+    id_advertys: str = Field(max_length=20)
+    nombre: str = Field(max_length=300)
+    anunciante: str = Field(max_length=300)
+    categoria: str | None = Field(default=None, max_length=200)
+    marca: str | None = Field(default=None, max_length=200)
+
+    @field_validator("id_advertys", "nombre", "anunciante")
+    @classmethod
+    def _no_vacio(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("no puede estar vacío")
+        return v
+
+
+@router.post("/productos", dependencies=[Depends(_verificar_token)])
+def sync_productos(registros: list[ProductoIn], db: Session = Depends(get_db)) -> dict:
+    """Reemplazo total del catálogo de Productos: upsert por `id_advertys` y
+    borra los que ya no vienen (un producto deshabilitado o borrado en
+    Advertys tiene que dejar de ofrecerse en el alta de OT). Una lista vacía
+    se rechaza: sería borrar todo el catálogo por un sync mal armado."""
+    if not registros:
+        raise HTTPException(422, "El sync de productos vino vacío: no se pisa el catálogo.")
+    unicos = {r.id_advertys: r for r in registros}
+    try:
+        existentes = {p.id_advertys: p for p in db.query(ProductoAdvertys)}
+        for id_, r in unicos.items():
+            fila = existentes.get(id_)
+            if fila is None:
+                fila = ProductoAdvertys(**r.model_dump())
+                db.add(fila)
+            else:
+                for campo, valor in r.model_dump().items():
+                    setattr(fila, campo, valor)
+            fila.sincronizado_en = dt.now(timezone.utc)
+        for id_, fila in existentes.items():
+            if id_ not in unicos:
+                db.delete(fila)
+        db.add(SyncLog(origen="productos", cantidad=len(unicos), ok=True))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        db.add(SyncLog(origen="productos", cantidad=len(registros), ok=False, detalle=str(e)[:2000]))
+        db.commit()
+        raise HTTPException(500, f"Error al sincronizar productos: {e}") from e
+
+    return {"ok": True, "cantidad": len(unicos)}
