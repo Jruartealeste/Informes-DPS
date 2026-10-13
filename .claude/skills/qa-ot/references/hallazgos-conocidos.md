@@ -13,7 +13,7 @@ _(ninguno registrado todavía — se llena con el primer informe)_
 - **Anular se saltea** con `PATCH`/`POST /estado` a ANULADA: **corregido** (`_asignar_estado_tarea` aplica `puede_anular`; 409). Regresión en `test_tareas.py`.
 ## Medios (misma fecha) — abiertos (sin tocar)
 - Sync: registro inválido → 500 sin `sync_log`; `numero_ot` vacío aceptado. **Corregido 2026-10-13**: largos y vacío validados en `OrdenTrabajoIn` (422, no se guarda nada del lote), `numero_ot` repetido en el lote vale el último, `commit` dentro del `try` (fallos de base quedan en `sync_log`). Regresión: `tests/test_sync.py`. Nota: los 422 de validación no quedan en `sync_log` (ocurren antes del handler).
-- `/facturacion/tareas/{id}/estado` acepta tareas sin Estimado o PARA_INICIAR; id inexistente → 200. Estimado BORRADOR aparece en la cola (¿intencional?).
+- `/facturacion/tareas/{id}/estado` aceptaba tareas fuera de la cola e id inexistente (200). **Corregido 2026-10-13**: solo acepta tareas de la cola (misma condición que la pantalla), si no 404; regresión en `test_estimados.py`. **Abierto:** Estimado BORRADOR aparece en la cola (¿intencional?).
 
 ## Altos
 - **Comando `crear_estimado.py` sin escapar** (2026-10-09): `_comando_crear_estimado` pone el título entre comillas dobles y las fechas sin comillas (`$(…)`/backticks/comillas). Mismo bug que el de OT. Estado: **corregido 2026-10-09** (`_arg_shell` en título, OT y fechas). Informe `INFORME-QA-OT-2026-10-09.md`.

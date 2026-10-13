@@ -350,7 +350,6 @@ def test_estado_o_facturacion_inexistente_da_422_y_no_toca_la_tarea(client, db_s
     for url, campo in (
         (f"/tareas/{tarea_id}/estado", "estado_tarea"),
         (f"/tareas/{tarea_id}/facturacion", "estado_facturacion"),
-        (f"/facturacion/tareas/{tarea_id}/estado", "estado_facturacion"),
     ):
         assert client.post(url, data={campo: "BASURA"}).status_code == 422
     db_session.expire_all()

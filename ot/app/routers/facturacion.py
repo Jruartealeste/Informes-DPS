@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -24,7 +24,7 @@ def _ctx_base(request: Request, db: Session) -> dict:
     }
 
 
-def _tareas_facturables(db: Session) -> list[Tarea]:
+def _tareas_facturables(db: Session, tarea_id: int | None = None) -> list[Tarea]:
     """Tareas listas para entrar en la cola de facturación: OT de sistema
     asignada + Estimado relacionado (condición confirmada con Javier,
     2026-09-24) -- Advertys va a facturar automáticamente por Estimado una
@@ -44,6 +44,8 @@ def _tareas_facturables(db: Session) -> list[Tarea]:
         )
         .order_by(Tarea.estimado_id, Tarea.id)
     )
+    if tarea_id is not None:
+        stmt = stmt.where(Tarea.id == tarea_id)
     return list(db.scalars(stmt).unique())
 
 
@@ -123,10 +125,12 @@ def actualizar_estado_facturacion(
     db: Session = Depends(get_db),
     estado_facturacion: str = Form(...),
 ):
-    tarea = db.get(Tarea, tarea_id)
-    if tarea:
-        tarea.estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
-        db.commit()
+    # Solo se factura lo que está en la cola (misma condición que la pantalla).
+    tareas = _tareas_facturables(db, tarea_id)
+    if not tareas:
+        raise HTTPException(404, "La tarea no está en la cola de facturación.")
+    tareas[0].estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
+    db.commit()
     grupos = _grupos_facturables(db)
     lista_html = templates.env.get_template("facturacion/_grupos.html").render(
         {"grupos": grupos, "opt_fac": OPT_FAC}

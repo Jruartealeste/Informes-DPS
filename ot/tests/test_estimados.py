@@ -131,3 +131,17 @@ def test_titulo_de_mas_de_300_caracteres_da_422(client, db_session):
     datos = {"numero_ot_advertys": "260", "tarea_ids": str(ids[0])}
     assert client.post("/estimados", data={**datos, "titulo": "a" * 301}).status_code == 422
     assert client.post("/estimados", data={**datos, "titulo": "a" * 300}, follow_redirects=False).status_code == 303
+
+
+def test_facturacion_solo_acepta_tareas_de_la_cola(client, db_session):
+    ids = _armar(db_session)
+    _crear(client, ids[:1])
+    en_cola, fuera = ids[0], ids[1]  # `fuera` no está en ningún Estimado
+
+    assert client.post(f"/facturacion/tareas/{en_cola}/estado", data={"estado_facturacion": "BASURA"}).status_code == 422
+    assert client.post(f"/facturacion/tareas/{en_cola}/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 200
+    assert client.post(f"/facturacion/tareas/{fuera}/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 404
+    assert client.post("/facturacion/tareas/99999/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 404
+    db_session.expire_all()
+    assert db_session.get(Tarea, en_cola).estado_facturacion.name == "FACTURADO"
+    assert db_session.get(Tarea, fuera).estado_facturacion.name == "SIN_FACTURAR"
