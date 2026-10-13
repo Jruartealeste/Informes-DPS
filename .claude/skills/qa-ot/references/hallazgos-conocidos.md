@@ -12,7 +12,7 @@ _(ninguno registrado todavía — se llena con el primer informe)_
 - **PATCH de tarea pisa con vista vieja**: **corregido** — el drawer manda `version` (huella del contenido: campos + tipos + responsables, `version_tarea`); si cambió, 409 y un aviso (`htmx:responseError` en `base.html`). Sin `version` en el body no se controla (compatibilidad). No cubre `/estado`, `/facturacion` ni las rutas de Facturación (último gana, pero tocan un solo campo).
 - **Anular se saltea** con `PATCH`/`POST /estado` a ANULADA: **corregido** (`_asignar_estado_tarea` aplica `puede_anular`; 409). Regresión en `test_tareas.py`.
 ## Medios (misma fecha) — abiertos (sin tocar)
-- Sync: registro inválido (duplicado en lote, `numero_ot`>20, `estado`>40, `negocio`>80) → 500 sin entrada en `sync_log`; `numero_ot` vacío aceptado.
+- Sync: registro inválido → 500 sin `sync_log`; `numero_ot` vacío aceptado. **Corregido 2026-10-13**: largos y vacío validados en `OrdenTrabajoIn` (422, no se guarda nada del lote), `numero_ot` repetido en el lote vale el último, `commit` dentro del `try` (fallos de base quedan en `sync_log`). Regresión: `tests/test_sync.py`. Nota: los 422 de validación no quedan en `sync_log` (ocurren antes del handler).
 - `/facturacion/tareas/{id}/estado` acepta tareas sin Estimado o PARA_INICIAR; id inexistente → 200. Estimado BORRADOR aparece en la cola (¿intencional?).
 
 ## Altos

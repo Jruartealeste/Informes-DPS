@@ -24,3 +24,4 @@ Sync: 401 sin token, token malo o esquema distinto; upsert por `numero_ot` sin d
 
 ## Seguimiento
 Los dos Altos quedaron corregidos el mismo día (control de versión en el PATCH + `puede_anular` en `/estado` y PATCH), verificados contra Postgres y en la UI real (aviso 409 con el drawer abierto; guardado normal sin falsos conflictos). Los Medios siguen abiertos.
+Los dos Medios del sync también quedaron corregidos (ver `hallazgos-conocidos.md`); verificados contra Postgres.
