@@ -6,7 +6,7 @@
   <div class="page-header__row">
     <div>
       <div class="page-header__kicker">
-        ALUAR · {{ ots | length if sin_dps else total_ots }} OT interna{{ 's' if (ots | length if sin_dps else total_ots) != 1 }}{{ ' sin OT de sistema' if sin_dps }}
+        {{ cliente.nombre if cliente else 'Sin cliente' }} · {{ ots | length if sin_dps else total_ots }} OT interna{{ 's' if (ots | length if sin_dps else total_ots) != 1 }}{{ ' sin OT de sistema' if sin_dps }}
       </div>
       <h1 class="page-header__title">OT internas</h1>
     </div>
@@ -81,10 +81,10 @@
       OT de sistema para las OT internas tildadas
       <span class="info-tip">
         <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
-        <div class="info-tip__panel" role="note">
+        <span class="info-tip__panel" role="note">
           Tildá una o más OT internas en la tabla de abajo — varias pueden compartir la misma OT de sistema, para
           no generar de más en Advertys.
-        </div>
+        </span>
       </span>
     </div>
     <div class="segmented" id="segmented-modo">
@@ -108,19 +108,29 @@
         No crea nada en Advertys todavía — arma un pedido para correr <code>crear_ot.py</code> a mano.
         <span class="info-tip">
           <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
-          <div class="info-tip__panel" role="note">
-            Las OT internas tildadas tienen que ser todas del mismo cliente. El Anunciante es texto libre —
-            se sugieren los ya conocidos de ese cliente, pero un cliente de acá puede corresponder a más de un
-            Anunciante real en Advertys (p. ej. FATE tiene varios), así que elegís el que corresponda.
-          </div>
+          <span class="info-tip__panel" role="note">
+            Las OT internas tildadas tienen que ser del cliente elegido en el sidebar. El Producto lista el
+            catálogo de Advertys de ese cliente; el Anunciante sale del Producto elegido (un cliente puede
+            ser varios Anunciantes en Advertys — p. ej. FATE tiene varios — y por eso se agrupan).
+          </span>
         </span>
       </p>
       <div class="card__grid2">
-        <input type="text" id="input-anunciante" class="input-full" placeholder="Anunciante" list="anunciante-catalogo">
-        <datalist id="anunciante-catalogo"></datalist>
         <input type="text" id="input-resumen" class="input-full" placeholder="Resumen">
-        <select id="select-producto" class="input-full" disabled>
-          <option value="">Producto: elegí primero el Anunciante…</option>
+        {% set n_productos = productos_cliente.values() | map('length') | sum %}
+        <select id="select-producto" class="input-full"{% if not n_productos %} disabled{% endif %}>
+          {% if n_productos %}
+          <option value="">Producto de {{ cliente.nombre }} ({{ n_productos }} en Advertys)…</option>
+          {% for anunciante, productos in productos_cliente.items() %}
+          {% if productos_cliente | length > 1 %}<optgroup label="{{ anunciante }}">{% endif %}
+            {% for p in productos %}
+            <option value="{{ p }}" data-anunciante="{{ anunciante }}">{{ p }}</option>
+            {% endfor %}
+          {% if productos_cliente | length > 1 %}</optgroup>{% endif %}
+          {% endfor %}
+          {% else %}
+          <option value="">Producto: {{ cliente.nombre if cliente else 'sin cliente' }} no tiene catálogo en Advertys</option>
+          {% endif %}
         </select>
         <select id="select-centro-costo" class="input-full">
           <option value="">Centro Costo…</option>
@@ -166,14 +176,12 @@
     {% endfor %}
   </div>
   {% if not ots %}
-  <p class="empty-state">Todavía no hay ninguna OT interna.</p>
+  <p class="empty-state">Todavía no hay ninguna OT interna{{ " de " ~ cliente.nombre if cliente }}.</p>
   {% endif %}
   <p class="empty-state" id="sin-resultados" hidden>Ninguna OT interna coincide con los filtros.</p>
 
 </div>
 
-<script id="clientes-anunciantes-data" type="application/json">{{ clientes_anunciantes | tojson }}</script>
-<script id="productos-data" type="application/json">{{ productos_por_anunciante | tojson }}</script>
 <script>
 (function () {
   var form = document.getElementById('form-asignar-lote');
@@ -183,95 +191,11 @@
   var campoExistente = document.getElementById('campo-ot-existente');
   var campoGenerar = document.getElementById('campo-ot-generar');
   var errorBox = document.getElementById('form-error-lote');
-  var inputAnunciante = document.getElementById('input-anunciante');
-  var catalogoAnunciante = document.getElementById('anunciante-catalogo');
-  var CLIENTES_ANUNCIANTES = JSON.parse(document.getElementById('clientes-anunciantes-data').textContent || '{}');
-  // Catálogo de Productos de Advertys por Anunciante (lo puebla el sync de Informes).
-  // Advertys exige un Producto existente, así que es un combo cerrado (no texto libre).
-  var PRODUCTOS = JSON.parse(document.getElementById('productos-data').textContent || '{}');
+  // Producto: catálogo de Advertys del cliente del sidebar (armado en el server);
+  // cada opción trae su Anunciante real de Advertys.
   var selectProducto = document.getElementById('select-producto');
-  // El Anunciante de la app no siempre coincide letra por letra con el de Advertys
-  // ("ALUAR ALUMINIO ARG." vs "ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM"): se infiere.
-  function tokens(s) {
-    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
-  }
-  var CLAVES = Object.keys(PRODUCTOS).map(function (a) { return { anunciante: a, tokens: tokens(a) }; });
-
-  // Puntaje: cuántas palabras escritas son prefijo de la palabra en la misma posición del
-  // nombre de Advertys (o al revés). Tiene que coincidir al menos la primera palabra.
-  function puntaje(escritas, clave) {
-    var n = 0;
-    for (var i = 0; i < escritas.length && i < clave.length; i++) {
-      var a = escritas[i], b = clave[i];
-      if (b.indexOf(a) === 0 || a.indexOf(b) === 0) n++; else break;
-    }
-    return n;
-  }
-
-  function anuncianteAdvertys() {
-    var escritas = tokens(inputAnunciante.value);
-    if (!escritas.length) return null;
-    var exacto = escritas.join(' ');
-    var mejor = null, mejorPuntaje = 0, empate = false;
-    for (var i = 0; i < CLAVES.length; i++) {
-      var c = CLAVES[i];
-      if (c.tokens.join(' ') === exacto) return c.anunciante;
-      var p = puntaje(escritas, c.tokens);
-      // Ante empate, gana el nombre con menos palabras sobrantes (FATE → "FATE S.A.I.C.I.",
-      // no "FATE - MARKETING"); si sigue empatado, no se adivina.
-      if (p > mejorPuntaje || (p === mejorPuntaje && p > 0 && c.tokens.length < largo(mejor))) {
-        mejor = c; mejorPuntaje = p; empate = false;
-      } else if (p === mejorPuntaje && p > 0 && c.tokens.length === largo(mejor)) {
-        empate = true;
-      }
-    }
-    return mejor && !empate ? mejor.anunciante : null;
-  }
-  function largo(c) { return c ? c.tokens.length : Infinity; }
-
-  function productosDelAnunciante() {
-    var a = anuncianteAdvertys();
-    return a ? PRODUCTOS[a] : [];
-  }
-
-  function opcion(valor, texto) {
-    var o = document.createElement('option');
-    o.value = valor;
-    o.textContent = texto;
-    return o;
-  }
-
-  function actualizarProductos() {
-    var opciones = productosDelAnunciante();
-    var previo = selectProducto.value;
-    selectProducto.innerHTML = '';
-    if (!inputAnunciante.value.trim()) {
-      selectProducto.appendChild(opcion('', 'Producto: elegí primero el Anunciante…'));
-    } else if (!opciones.length) {
-      selectProducto.appendChild(opcion('', 'Producto: sin catálogo en Advertys'));
-    } else {
-      var inferido = anuncianteAdvertys();
-      var nota = inferido.toLowerCase() !== inputAnunciante.value.trim().toLowerCase() ? ' de ' + inferido : '';
-      selectProducto.appendChild(opcion('', 'Producto (' + opciones.length + ' en Advertys' + nota + ')…'));
-      opciones.forEach(function (p) { selectProducto.appendChild(opcion(p, p)); });
-      if (opciones.indexOf(previo) !== -1) selectProducto.value = previo;
-    }
-    selectProducto.disabled = !opciones.length;
-  }
-  inputAnunciante.addEventListener('input', actualizarProductos);
-
-  function actualizarCatalogoAnunciante() {
-    var clientesSel = {};
-    marcadas().forEach(function (c) { if (c.dataset.cliente) clientesSel[c.dataset.cliente] = true; });
-    var ids = Object.keys(clientesSel);
-    var opciones = ids.length === 1 ? (CLIENTES_ANUNCIANTES[ids[0]] || []) : [];
-    catalogoAnunciante.innerHTML = opciones.map(function (a) {
-      return '<option value="' + a.replace(/"/g, '&quot;') + '">';
-    }).join('');
-    if (opciones.length === 1 && !inputAnunciante.value) inputAnunciante.value = opciones[0];
-    actualizarProductos();
-  }
+  var CLIENTE_ACTIVO = '{{ cliente.id if cliente else '' }}';
+  var CLIENTE_NOMBRE = {{ (cliente.nombre if cliente else '') | tojson }};
   var ETIQUETAS_BOTON = { nuevo: 'Asignar OT de sistema', existente: 'Asignar OT de sistema', generar: 'Generar OT en Advertys' };
   var ACTIONS = { nuevo: '/ordenes-trabajo/asignar-lote', existente: '/ordenes-trabajo/asignar-lote', generar: '/ordenes-trabajo/generar-ot' };
 
@@ -299,7 +223,6 @@
     var total = filasVisibles().length;
     todas.checked = n > 0 && n === total;
     todas.indeterminate = n > 0 && n < total;
-    actualizarCatalogoAnunciante();
   }
 
   function modoActual() {
@@ -424,24 +347,29 @@
         mostrarError('Las OT internas tildadas no son todas del mismo cliente.');
         return;
       }
-      var anunciante = inputAnunciante.value.trim();
+      if (Object.keys(clientesSel)[0] !== CLIENTE_ACTIVO) {
+        ev.preventDefault();
+        mostrarError('Las OT internas tildadas no son de ' + CLIENTE_NOMBRE + ' (el cliente elegido en el sidebar).');
+        return;
+      }
+      var elegido = selectProducto.options[selectProducto.selectedIndex];
+      var anunciante = elegido ? (elegido.dataset.anunciante || '') : '';
       var resumen = document.getElementById('input-resumen').value.trim();
       var producto = selectProducto.value;
       var centroCosto = document.getElementById('select-centro-costo').value;
       var equipo = document.getElementById('select-equipo').value;
-      if (anunciante && !productosDelAnunciante().length) {
+      if (selectProducto.disabled) {
         ev.preventDefault();
-        mostrarError('«' + anunciante + '» no tiene productos de Advertys cargados acá. Revisá el nombre del Anunciante o sincronizá el catálogo de Productos desde informes/.');
+        mostrarError(CLIENTE_NOMBRE + ' no tiene Productos de Advertys cargados acá: sincronizá el catálogo de Productos desde informes/.');
         return;
       }
-      if (!anunciante || !resumen || !producto || !centroCosto) {
+      if (!resumen || !producto || !centroCosto) {
         ev.preventDefault();
-        mostrarError('Completá Anunciante, Resumen, Producto y Centro Costo.');
+        mostrarError('Completá Resumen, Producto y Centro Costo.');
         return;
       }
       document.getElementById('ot_ids_input').value = ids;
-      // crear_ot.py busca el Anunciante en Advertys: mandar el nombre real inferido.
-      document.getElementById('anunciante_input').value = anuncianteAdvertys() || anunciante;
+      document.getElementById('anunciante_input').value = anunciante;
       document.getElementById('resumen_input').value = resumen;
       document.getElementById('producto_input').value = producto;
       document.getElementById('centro_costo_input').value = centroCosto;

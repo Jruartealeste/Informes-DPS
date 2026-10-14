@@ -5,13 +5,13 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.anunciantes import productos_del_cliente
+from app.cliente_ctx import cliente_activo
 from app.db import get_db
 from app.labels import CENTRO_COSTO_OPCIONES, EQUIPO_OPCIONES
 from app.models import (
-    Cliente,
     EstadoSolicitudAltaOt,
     OtInterna,
-    ProductoAdvertys,
     SolicitudAltaOt,
     Tarea,
     TareaResponsable,
@@ -19,27 +19,6 @@ from app.models import (
 )
 from app.templating import templates
 from app.viewmodels import desglose_facturacion_vm, ot_interna_vm, solicitud_alta_vm
-
-
-def _clientes_anunciantes(db: Session) -> dict[str, list[str]]:
-    """{cliente_id: [anunciante, ...]} para sugerir el Anunciante al armar
-    un pedido de alta de OT -- un cliente puede tener varios (ver
-    ClienteAnunciante en models.py)."""
-    clientes = list(db.scalars(select(Cliente).options(selectinload(Cliente.anunciantes))))
-    return {str(c.id): [a.anunciante for a in c.anunciantes] for c in clientes}
-
-def _productos_por_anunciante(db: Session) -> dict[str, list[str]]:
-    """{anunciante: [producto, ...]} del catálogo de Advertys (tabla
-    productos_advertys, la puebla el sync de Informes) para precargar el
-    combo Producto al generar una OT. Vacío si todavía no se sincronizó."""
-    catalogo: dict[str, list[str]] = {}
-    for anunciante, nombre in db.execute(
-        select(ProductoAdvertys.anunciante, ProductoAdvertys.nombre).order_by(
-            ProductoAdvertys.anunciante, func.lower(ProductoAdvertys.nombre)
-        )
-    ):
-        catalogo.setdefault(anunciante, []).append(nombre)
-    return catalogo
 
 
 router = APIRouter(prefix="/api/ordenes-trabajo")
@@ -84,32 +63,37 @@ def _cargar_ot(db: Session, numero_interno: str) -> OtInterna:
     return ot
 
 
-def _dps_existentes(db: Session) -> list[dict]:
+def _dps_existentes(db: Session, cliente_id: int | None = None) -> list[dict]:
     """OT de sistema ya cargadas en alguna OT interna, con cuántas la
     comparten -- para el picker de "asignar a OT de sistema existente" del
-    alta en lote."""
+    alta en lote. Con `cliente_id`, solo las de ese cliente."""
+    stmt = select(OtInterna.numero_ot_advertys, func.count()).where(OtInterna.numero_ot_advertys.isnot(None))
+    if cliente_id is not None:
+        stmt = stmt.where(OtInterna.cliente_id == cliente_id)
     filas = db.execute(
-        select(OtInterna.numero_ot_advertys, func.count())
-        .where(OtInterna.numero_ot_advertys.isnot(None))
-        .group_by(OtInterna.numero_ot_advertys)
-        .order_by(OtInterna.numero_ot_advertys)
+        stmt.group_by(OtInterna.numero_ot_advertys).order_by(OtInterna.numero_ot_advertys)
     ).all()
     return [{"valor": valor, "n_ots": n} for valor, n in filas]
 
 
 @router_paginas.get("/ordenes-trabajo")
 def listado_ordenes_trabajo(request: Request, sin_dps: bool = False, db: Session = Depends(get_db)):
+    # Solo las OT internas del cliente del sidebar: el panel de alta en lote
+    # (Producto, Anunciante) depende de ese cliente.
+    cliente = cliente_activo(request, db)
+    del_cliente = OtInterna.cliente_id == (cliente.id if cliente else None)
     stmt = (
         select(OtInterna)
+        .where(del_cliente)
         .options(joinedload(OtInterna.cliente), selectinload(OtInterna.tareas))
         .order_by(cast(OtInterna.numero_interno, Integer).desc())
     )
-    total_ots = db.scalar(select(func.count()).select_from(OtInterna)) or 0
+    total_ots = db.scalar(select(func.count()).select_from(OtInterna).where(del_cliente)) or 0
     n_sin_dps = (
         db.scalar(
             select(func.count())
             .select_from(OtInterna)
-            .where(OtInterna.numero_ot_advertys.is_(None))
+            .where(del_cliente, OtInterna.numero_ot_advertys.is_(None))
         )
         or 0
     )
@@ -134,11 +118,11 @@ def listado_ordenes_trabajo(request: Request, sin_dps: bool = False, db: Session
             "sin_dps": sin_dps,
             "n_solicitudes_pendientes": n_solicitudes_pendientes,
             "total_tareas": _total_tareas(db),
-            "dps_existentes": _dps_existentes(db),
+            "dps_existentes": _dps_existentes(db, cliente.id if cliente else None),
             "centro_costo_opciones": CENTRO_COSTO_OPCIONES,
             "equipo_opciones": EQUIPO_OPCIONES,
-            "clientes_anunciantes": _clientes_anunciantes(db),
-            "productos_por_anunciante": _productos_por_anunciante(db),
+            "cliente": cliente,
+            "productos_cliente": productos_del_cliente(db, cliente),
             "seccion_activa": "ordenes_trabajo",
             "tema": request.cookies.get("tema", "dark"),
             "densidad": request.cookies.get("densidad", "1") != "0",
@@ -284,11 +268,10 @@ def generar_ot(
     con Javier, para que corra `crear_ot.py` a mano desde `informes/` (ver
     ot/CLAUDE.md, decisión 2026-09-23 "solicitud + corrida manual" -- esta
     app nunca tiene ni va a tener las credenciales de Advertys). No dispara
-    ningún subprocess. El Anunciante lo elige quien arma el pedido (texto
-    libre, sugerido desde `cliente_anunciantes`) -- un Cliente de acá puede
-    corresponder a varios Anunciantes reales de Advertys (relevado
-    2026-09-24: FATE son ~6 anunciantes separados), así que ya no se puede
-    derivar automáticamente de un único valor por cliente."""
+    ningún subprocess. El cliente es el activo del sidebar y el Anunciante
+    sale del Producto elegido: el combo solo ofrece productos de los
+    Anunciantes de Advertys de ese cliente (app/anunciantes.py) -- un Cliente
+    de acá puede ser varios Anunciantes (FATE son 6)."""
     numeros = [n.strip() for n in ot_ids.split(",") if n.strip()]
     anunciante = anunciante.strip()
     centro_costo = centro_costo.strip()
@@ -331,6 +314,15 @@ def generar_ot(
     if len(clientes_ids) > 1:
         raise HTTPException(
             422, "Las OT internas seleccionadas no son todas del mismo cliente."
+        )
+    cliente = cliente_activo(request, db)
+    if cliente is None or clientes_ids != {cliente.id}:
+        raise HTTPException(
+            422, "Las OT internas seleccionadas no son del cliente elegido en el sidebar."
+        )
+    if producto.strip() not in productos_del_cliente(db, cliente).get(anunciante, []):
+        raise HTTPException(
+            422, f"«{producto.strip()}» no es un Producto de Advertys de {cliente.nombre} ({anunciante})."
         )
 
     solicitud = SolicitudAltaOt(

@@ -85,7 +85,7 @@ def test_sync_productos_vacio_o_invalido_no_toca_el_catalogo(client_anonimo, db_
     assert [p.id_advertys for p in db_session.query(ProductoAdvertys)] == ["1"]
 
 
-def test_panel_de_ot_recibe_el_catalogo_de_productos_por_anunciante(client, db_session):
+def test_combo_producto_lista_solo_el_catalogo_del_cliente_del_sidebar(client, db_session):
     from app.models import ProductoAdvertys
 
     db_session.add_all([
@@ -94,10 +94,7 @@ def test_panel_de_ot_recibe_el_catalogo_de_productos_por_anunciante(client, db_s
         ProductoAdvertys(id_advertys="3", nombre="Brochures", anunciante="GIHON - LABORATORIOS QUIMICOS SRL"),
     ])
     db_session.commit()
-    html = client.get("/ordenes-trabajo").text
+    html = client.get("/ordenes-trabajo").text  # sin cookie: ALUAR
     assert 'id="select-producto"' in html
-    crudo = re.search(r'<script id="productos-data" type="application/json">(.*?)</script>', html, re.S).group(1)
-    assert json.loads(crudo) == {
-        "ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM": ["Diseño de piezas", "Hosting"],
-        "GIHON - LABORATORIOS QUIMICOS SRL": ["Brochures"],
-    }
+    assert 'data-anunciante="ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM">Hosting<' in html
+    assert "Brochures" not in html

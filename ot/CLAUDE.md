@@ -1071,16 +1071,21 @@ y queda en `productos_advertys` (reemplazo total: lo deshabilitado o borrado en
 Advertys desaparece; una lista vacía se rechaza). Solo trae productos
 **Habilitados** (lo que ofrece Advertys al dar de alta una OT).
 
-**2026-10-14: Producto pasó a `<select>` cerrado** (antes texto libre con
-`<datalist>`; Javier: "debería ser un dropdown"). El Anunciante que se tipea no
-siempre coincide letra por letra con el de Advertys, así que se **infiere**
-(`anuncianteAdvertys()` en `list.html`): palabras escritas como prefijo de las
-del nombre de Advertys, en orden ("aluar aluminio arg." → "ALUAR ALUMINIO
-ARGENTINO SOCIEDAD ANONIM"); ante empate gana el de menos palabras y, si sigue
-empatado ("FATE" a secas), no se adivina. El pedido guarda el nombre
-**inferido** (el que `crear_ot.py` busca en Advertys). Sin catálogo para ese
-Anunciante, el combo queda deshabilitado y el envío se bloquea: hay que
-corregir el nombre o volver a sincronizar desde `informes/`.
+**2026-10-14: Producto es un `<select>` cerrado y el Anunciante ya no se
+tipea** (decisión de Javier). El cliente es el **activo del sidebar** y el
+combo lista solo los productos de los Anunciantes de Advertys de ese cliente,
+agrupados por Anunciante cuando son varios (FATE: 6). El Anunciante del pedido
+sale del Producto elegido (es el nombre real que `crear_ot.py` busca en
+Advertys). La relación Cliente ↔ Anunciante se infiere en `app/anunciantes.py`
+además de `cliente_anunciantes`: palabras del cliente como prefijo de las del
+Anunciante ("ALUAR" → "ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM", "Nordelta"
+→ "NORDELTA S.A." pero no "Asociación Vecinal Nordelta"), o siglas: **FAA =
+"FUNDACIÓN AURORA AUSTRAL"**. `POST /ordenes-trabajo/generar-ot` rechaza (422)
+OT internas de otro cliente que el del sidebar y un Producto que no sea del
+catálogo de ese cliente. Sin catálogo, el combo queda deshabilitado: hay que
+volver a sincronizar desde `informes/`. El listado `/ordenes-trabajo` también
+filtra por el cliente del sidebar (OT, contadores, kicker y picker de OT de
+sistema existente) — deja atrás el "muestra todas mezcladas" del 2026-09-24.
 
 **Deploy con migración:** el 2026-10-14 `/ordenes-trabajo` dio 500 en prod
 porque se desplegó este código sin correr `alembic upgrade head` contra prod

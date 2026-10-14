@@ -101,15 +101,22 @@ def test_reasignar_ot_sistema(client, db_session):
     assert ot.numero_ot_advertys == "260"
 
 
+_ANUNCIANTE_ALUAR = "ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM"
+
+
 def _dos_ots(db_session, a="810", b="811"):
+    from app.models import ProductoAdvertys
+
     cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
     ots = [OtInterna(numero_interno=n, cliente_id=cliente.id) for n in (a, b)]
     db_session.add_all(ots)
+    if not db_session.get(ProductoAdvertys, "P1"):
+        db_session.add(ProductoAdvertys(id_advertys="P1", nombre="Producto", anunciante=_ANUNCIANTE_ALUAR))
     db_session.commit()
     return ots
 
 
-_PEDIDO = {"anunciante": "ALUAR", "resumen": "Resumen", "producto": "Producto", "centro_costo": "Gráfica"}
+_PEDIDO = {"anunciante": _ANUNCIANTE_ALUAR, "resumen": "Resumen", "producto": "Producto", "centro_costo": "Gráfica"}
 
 
 def _centro_costo_valido():
@@ -172,3 +179,44 @@ def test_comando_crear_ot_escapa_texto_libre(db_session):
     assert "'O''Brien & Co'" in cmd
     assert "'Resumen con \"comillas\" y $var `x` $(whoami) linea 2'" in cmd
     assert cmd.endswith("--equipo 'Eq'")
+
+
+def test_generar_ot_rechaza_producto_fuera_del_catalogo_del_cliente(client, db_session):
+    _dos_ots(db_session)
+    r = _generar(client, ["810"], producto="Otro")
+    assert r.status_code == 422
+    r = _generar(client, ["810"], anunciante="GIHON - LABORATORIOS QUIMICOS SRL")
+    assert r.status_code == 422
+    assert _generar(client, ["810"]).status_code == 303
+
+
+def test_generar_ot_rechaza_ots_de_otro_cliente_que_el_del_sidebar(client, db_session):
+    _dos_ots(db_session)
+    otro = Cliente(nombre="FAA")
+    db_session.add(otro)
+    db_session.commit()
+    client.cookies.set("cliente_id", str(otro.id))
+    try:
+        assert _generar(client, ["810"]).status_code == 422
+    finally:
+        client.cookies.delete("cliente_id")
+
+
+def test_listado_muestra_solo_las_ot_del_cliente_del_sidebar(client, db_session):
+    _dos_ots(db_session)
+    otro = Cliente(nombre="FAA")
+    db_session.add(otro)
+    db_session.flush()
+    db_session.add(OtInterna(numero_interno="920", cliente_id=otro.id))
+    db_session.commit()
+
+    html = client.get("/ordenes-trabajo").text  # sin cookie: ALUAR
+    assert 'value="810"' in html and 'value="920"' not in html
+
+    client.cookies.set("cliente_id", str(otro.id))
+    try:
+        html = client.get("/ordenes-trabajo").text
+    finally:
+        client.cookies.delete("cliente_id")
+    assert 'value="920"' in html and 'value="810"' not in html
+    assert "FAA · 1 OT interna" in html
