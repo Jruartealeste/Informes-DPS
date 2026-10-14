@@ -1069,7 +1069,22 @@ que se escribe. Flujo: `informes/` (`python -m modules.productos.export` y
 `python -m modules.sync_tareas_app.push` lo manda a `POST /api/sync/productos`
 y queda en `productos_advertys` (reemplazo total: lo deshabilitado o borrado en
 Advertys desaparece; una lista vacía se rechaza). Solo trae productos
-**Habilitados** (lo que ofrece Advertys al dar de alta una OT). El campo sigue
-siendo texto libre con sugerencias: un producto fuera del catálogo muestra un
-aviso y pide confirmación al generar el pedido, no se bloquea (el catálogo
-puede estar desactualizado hasta el próximo sync).
+**Habilitados** (lo que ofrece Advertys al dar de alta una OT).
+
+**2026-10-14: Producto pasó a `<select>` cerrado** (antes texto libre con
+`<datalist>`; Javier: "debería ser un dropdown"). El Anunciante que se tipea no
+siempre coincide letra por letra con el de Advertys, así que se **infiere**
+(`anuncianteAdvertys()` en `list.html`): palabras escritas como prefijo de las
+del nombre de Advertys, en orden ("aluar aluminio arg." → "ALUAR ALUMINIO
+ARGENTINO SOCIEDAD ANONIM"); ante empate gana el de menos palabras y, si sigue
+empatado ("FATE" a secas), no se adivina. El pedido guarda el nombre
+**inferido** (el que `crear_ot.py` busca en Advertys). Sin catálogo para ese
+Anunciante, el combo queda deshabilitado y el envío se bloquea: hay que
+corregir el nombre o volver a sincronizar desde `informes/`.
+
+**Deploy con migración:** el 2026-10-14 `/ordenes-trabajo` dio 500 en prod
+porque se desplegó este código sin correr `alembic upgrade head` contra prod
+(faltaba `productos_advertys`). Después de desplegar algo con migración nueva,
+migrar prod con el `DATABASE_URL` de `.env.prod`. Para el sync a prod,
+`OT_SYNC_URL=https://ot-sand-iota.vercel.app` y el `SYNC_TOKEN` de `ot/.env`
+(en `.env.prod` el valor bajado por `vercel env pull` es relleno: es Sensitive).

@@ -119,8 +119,9 @@
         <input type="text" id="input-anunciante" class="input-full" placeholder="Anunciante" list="anunciante-catalogo">
         <datalist id="anunciante-catalogo"></datalist>
         <input type="text" id="input-resumen" class="input-full" placeholder="Resumen">
-        <input type="text" id="input-producto" class="input-full" placeholder="Producto" list="producto-catalogo" autocomplete="off">
-        <datalist id="producto-catalogo"></datalist>
+        <select id="select-producto" class="input-full" disabled>
+          <option value="">Producto: elegí primero el Anunciante…</option>
+        </select>
         <select id="select-centro-costo" class="input-full">
           <option value="">Centro Costo…</option>
           {% for c in centro_costo_opciones %}
@@ -134,7 +135,6 @@
           {% endfor %}
         </select>
       </div>
-      <p class="form-nota" id="hint-producto" style="margin:8px 0 0" hidden></p>
     </div>
     <div class="form-error" id="form-error-lote"></div>
     <div class="form-acciones">
@@ -187,26 +187,79 @@
   var catalogoAnunciante = document.getElementById('anunciante-catalogo');
   var CLIENTES_ANUNCIANTES = JSON.parse(document.getElementById('clientes-anunciantes-data').textContent || '{}');
   // Catálogo de Productos de Advertys por Anunciante (lo puebla el sync de Informes).
+  // Advertys exige un Producto existente, así que es un combo cerrado (no texto libre).
   var PRODUCTOS = JSON.parse(document.getElementById('productos-data').textContent || '{}');
-  var inputProducto = document.getElementById('input-producto');
-  var catalogoProducto = document.getElementById('producto-catalogo');
-  var hintProducto = document.getElementById('hint-producto');
+  var selectProducto = document.getElementById('select-producto');
+  // El Anunciante de la app no siempre coincide letra por letra con el de Advertys
+  // ("ALUAR ALUMINIO ARG." vs "ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM"): se infiere.
+  function tokens(s) {
+    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+  }
+  var CLAVES = Object.keys(PRODUCTOS).map(function (a) { return { anunciante: a, tokens: tokens(a) }; });
 
-  function productosDelAnunciante() { return PRODUCTOS[inputAnunciante.value.trim()] || []; }
+  // Puntaje: cuántas palabras escritas son prefijo de la palabra en la misma posición del
+  // nombre de Advertys (o al revés). Tiene que coincidir al menos la primera palabra.
+  function puntaje(escritas, clave) {
+    var n = 0;
+    for (var i = 0; i < escritas.length && i < clave.length; i++) {
+      var a = escritas[i], b = clave[i];
+      if (b.indexOf(a) === 0 || a.indexOf(b) === 0) n++; else break;
+    }
+    return n;
+  }
+
+  function anuncianteAdvertys() {
+    var escritas = tokens(inputAnunciante.value);
+    if (!escritas.length) return null;
+    var exacto = escritas.join(' ');
+    var mejor = null, mejorPuntaje = 0, empate = false;
+    for (var i = 0; i < CLAVES.length; i++) {
+      var c = CLAVES[i];
+      if (c.tokens.join(' ') === exacto) return c.anunciante;
+      var p = puntaje(escritas, c.tokens);
+      // Ante empate, gana el nombre con menos palabras sobrantes (FATE → "FATE S.A.I.C.I.",
+      // no "FATE - MARKETING"); si sigue empatado, no se adivina.
+      if (p > mejorPuntaje || (p === mejorPuntaje && p > 0 && c.tokens.length < largo(mejor))) {
+        mejor = c; mejorPuntaje = p; empate = false;
+      } else if (p === mejorPuntaje && p > 0 && c.tokens.length === largo(mejor)) {
+        empate = true;
+      }
+    }
+    return mejor && !empate ? mejor.anunciante : null;
+  }
+  function largo(c) { return c ? c.tokens.length : Infinity; }
+
+  function productosDelAnunciante() {
+    var a = anuncianteAdvertys();
+    return a ? PRODUCTOS[a] : [];
+  }
+
+  function opcion(valor, texto) {
+    var o = document.createElement('option');
+    o.value = valor;
+    o.textContent = texto;
+    return o;
+  }
 
   function actualizarProductos() {
     var opciones = productosDelAnunciante();
-    catalogoProducto.innerHTML = opciones.map(function (p) {
-      return '<option value="' + p.replace(/"/g, '&quot;') + '">';
-    }).join('');
-    inputProducto.placeholder = opciones.length ? 'Producto (' + opciones.length + ' en Advertys)' : 'Producto';
-    var valor = inputProducto.value.trim();
-    var fueraDeCatalogo = opciones.length && valor && opciones.indexOf(valor) === -1;
-    hintProducto.hidden = !fueraDeCatalogo;
-    if (fueraDeCatalogo) hintProducto.textContent = '«' + valor + '» no figura entre los productos de Advertys de este Anunciante. Elegí uno de la lista, o seguí si es nuevo.';
+    var previo = selectProducto.value;
+    selectProducto.innerHTML = '';
+    if (!inputAnunciante.value.trim()) {
+      selectProducto.appendChild(opcion('', 'Producto: elegí primero el Anunciante…'));
+    } else if (!opciones.length) {
+      selectProducto.appendChild(opcion('', 'Producto: sin catálogo en Advertys'));
+    } else {
+      var inferido = anuncianteAdvertys();
+      var nota = inferido.toLowerCase() !== inputAnunciante.value.trim().toLowerCase() ? ' de ' + inferido : '';
+      selectProducto.appendChild(opcion('', 'Producto (' + opciones.length + ' en Advertys' + nota + ')…'));
+      opciones.forEach(function (p) { selectProducto.appendChild(opcion(p, p)); });
+      if (opciones.indexOf(previo) !== -1) selectProducto.value = previo;
+    }
+    selectProducto.disabled = !opciones.length;
   }
   inputAnunciante.addEventListener('input', actualizarProductos);
-  inputProducto.addEventListener('input', actualizarProductos);
 
   function actualizarCatalogoAnunciante() {
     var clientesSel = {};
@@ -373,22 +426,22 @@
       }
       var anunciante = inputAnunciante.value.trim();
       var resumen = document.getElementById('input-resumen').value.trim();
-      var producto = document.getElementById('input-producto').value.trim();
+      var producto = selectProducto.value;
       var centroCosto = document.getElementById('select-centro-costo').value;
       var equipo = document.getElementById('select-equipo').value;
+      if (anunciante && !productosDelAnunciante().length) {
+        ev.preventDefault();
+        mostrarError('«' + anunciante + '» no tiene productos de Advertys cargados acá. Revisá el nombre del Anunciante o sincronizá el catálogo de Productos desde informes/.');
+        return;
+      }
       if (!anunciante || !resumen || !producto || !centroCosto) {
         ev.preventDefault();
         mostrarError('Completá Anunciante, Resumen, Producto y Centro Costo.');
         return;
       }
-      var catalogo = productosDelAnunciante();
-      if (catalogo.length && catalogo.indexOf(producto) === -1 &&
-          !confirm('«' + producto + '» no figura entre los productos de Advertys de este Anunciante, y Advertys exige un Producto existente. ¿Generar el pedido igual?')) {
-        ev.preventDefault();
-        return;
-      }
       document.getElementById('ot_ids_input').value = ids;
-      document.getElementById('anunciante_input').value = anunciante;
+      // crear_ot.py busca el Anunciante en Advertys: mandar el nombre real inferido.
+      document.getElementById('anunciante_input').value = anuncianteAdvertys() || anunciante;
       document.getElementById('resumen_input').value = resumen;
       document.getElementById('producto_input').value = producto;
       document.getElementById('centro_costo_input').value = centroCosto;

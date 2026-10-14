@@ -95,7 +95,7 @@ def test_panel_de_ot_recibe_el_catalogo_de_productos_por_anunciante(client, db_s
     ])
     db_session.commit()
     html = client.get("/ordenes-trabajo").text
-    assert 'id="producto-catalogo"' in html
+    assert 'id="select-producto"' in html
     crudo = re.search(r'<script id="productos-data" type="application/json">(.*?)</script>', html, re.S).group(1)
     assert json.loads(crudo) == {
         "ALUAR ALUMINIO ARGENTINO SOCIEDAD ANONIM": ["Diseño de piezas", "Hosting"],
