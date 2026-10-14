@@ -853,9 +853,10 @@ Tablas:
     cliente_ctx.py::cliente_activo`). Filtra `/tareas` y decide bajo qué
     cliente se crea una OT interna nueva (`_resolver_ot_interna`, antes
     hardcodeado a `Cliente.nombre == "ALUAR"`).
-  - La numeración de OT interna **sigue siendo una secuencia global
-    compartida entre clientes** (`MAX(numero_interno)+1`) — decisión
-    explícita de Javier, no independiente por cliente.
+  - ~~La numeración de OT interna sigue siendo una secuencia global
+    compartida entre clientes~~ — **revertido 2026-10-14**: cada anunciante
+    numera por su cuenta (ver "Numeración por anunciante y ABM de
+    anunciantes (2026-10-14)" al final).
   - El sidebar (lista de clientes + contador de tareas) se arma con un
     Jinja `context_processor` (`app/templating.py::_contexto_clientes`) en
     vez de repetirlo en cada router — resuelve `get_db` a mano respetando
@@ -1093,3 +1094,60 @@ porque se desplegó este código sin correr `alembic upgrade head` contra prod
 migrar prod con el `DATABASE_URL` de `.env.prod`. Para el sync a prod,
 `OT_SYNC_URL=https://ot-sand-iota.vercel.app` y el `SYNC_TOKEN` de `ot/.env`
 (en `.env.prod` el valor bajado por `vercel env pull` es relleno: es Sensitive).
+
+
+## Título corto de la OT interna (2026-10-14)
+
+`ot_interna.titulo` (String(60), `TITULO_OT_MAX` en `app/models.py`, migración
+`c2e5a8d1f4b7`). Decisión de Javier: **obligatorio para toda OT interna nueva**,
+máximo 60 caracteres. Las OT anteriores quedan con `NULL` ("Sin título" en la
+tabla) y se completan desde el detalle (`POST /ordenes-trabajo/{n}/titulo`, no
+admite vacío).
+- Se carga al crear la OT, que sigue naciendo al guardar una tarea: "+ Nueva"
+  agrega el input `ot_titulo` (required) debajo del número; si se cambia el
+  número por una OT existente, `base.html` lo oculta y lo desactiva.
+  `_resolver_ot_interna` devuelve 422 si va a crear una OT sin título (también
+  si el número nuevo se tipeó a mano en vez de usar "+ Nueva").
+- Se muestra en: la columna "Título" del listado de OT internas (el buscador
+  también busca por título), el encabezado y la card del detalle, la caja de
+  OT asignada en la tarea, la fila de grupo de Tareas agrupadas, y el
+  buscador de OT de la tarea ("4163 · Catálogo en inglés"; elegir escribe
+  solo el número). `cache.ot_numeros` devuelve `(numero, titulo)`.
+- "Generar OT en Advertys" precarga el Resumen con los títulos de las OT
+  tildadas, hasta que se escribe a mano.
+
+## Numeración por anunciante y ABM de anunciantes (2026-10-14)
+
+Decisiones de Javier (reemplazan la "secuencia global compartida" del 2026-09-24):
+- **Cada anunciante numera sus OT internas por su cuenta** (ej. ALUAR va por
+  4120 y FAA por 2033). `siguiente_numero_interno(db, cliente)` = mayor
+  número del cliente + 1, o `clientes.numero_ot_inicial` si todavía no llegó
+  ahí. **El mismo número puede existir en dos anunciantes** (son OT
+  distintas), con aviso: la sheet de tarea muestra "La OT N ya existe en X"
+  (no bloquea). Unicidad: `uq_ot_interna_cliente_numero (cliente_id,
+  numero_interno)` en vez de `UNIQUE(numero_interno)` (migración
+  `d4a7c9e2b5f1`, busca el nombre del unique viejo por columnas).
+- Como el número ya no identifica una OT solo, todo se resuelve **dentro del
+  anunciante del sidebar**: `_resolver_ot_interna`, `_cargar_ot`,
+  asignar-lote, generar-ot, el buscador de OT de la tarea
+  (`tareas.ot_catalogo_ctx`). `/ordenes-trabajo/{n}` de una OT de otro
+  anunciante cambia a ese anunciante si es de uno solo (cookie + redirect); si
+  el número se repite, 404 explicando en cuáles está.
+- **Pantalla Anunciantes** (`/anunciantes`, `app/routers/clientes.py`,
+  `templates/clientes/`), **solo ADMIN** (`requiere_admin`: el rol se lee de
+  la base en cada request, no de la sesión). Alta/edición: nombre (único sin
+  distinguir mayúsculas), número inicial de OT, y Anunciantes de Advertys
+  relacionados (`cliente_anunciantes`) elegidos de la lista de lo
+  sincronizado (catálogo de Productos + espejo de OT), con sugerencia al
+  escribir el nombre (`/anunciantes/sugeridos`, misma inferencia que el combo
+  Producto). El link aparece en el sidebar solo para ADMIN.
+- **Baja = desactivar, nunca borrar** (`clientes.activo`): sale del selector
+  del sidebar y queda en **solo lectura**: `SoloLecturaMiddleware`
+  (`app/cliente_ctx.py`) rechaza con 409 cualquier POST/PUT/PATCH/DELETE si el
+  anunciante del sidebar está desactivado (salvo `/anunciantes`, `/clientes`,
+  `/auth`, `/api/sync`). Se lo mira con "Ver" desde Anunciantes (aviso arriba,
+  sin botones de alta) y se reactiva desde ahí. No se puede desactivar el
+  único activo.
+- QA: el usuario de `tools/qa_server.py` se crea ADMIN para cubrir esta
+  pantalla.
+

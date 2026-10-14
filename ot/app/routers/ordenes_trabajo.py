@@ -5,11 +5,14 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app import cache
 from app.anunciantes import productos_del_cliente
-from app.cliente_ctx import cliente_activo
+from app.cliente_ctx import COOKIE_CLIENTE, cliente_activo
 from app.db import get_db
 from app.labels import CENTRO_COSTO_OPCIONES, EQUIPO_OPCIONES
 from app.models import (
+    TITULO_OT_MAX,
+    Cliente,
     EstadoSolicitudAltaOt,
     OtInterna,
     SolicitudAltaOt,
@@ -25,16 +28,30 @@ router = APIRouter(prefix="/api/ordenes-trabajo")
 router_paginas = APIRouter()
 
 
-def siguiente_numero_interno(db: Session) -> str:
-    """Próximo número de OT interna: el mayor numero_interno existente + 1."""
-    maximo = db.scalar(select(func.max(cast(OtInterna.numero_interno, Integer))))
-    return str((maximo or 0) + 1)
+def siguiente_numero_interno(db: Session, cliente: Cliente) -> str:
+    """Próximo número de OT interna del cliente: cada anunciante tiene su
+    propia secuencia (2026-10-14; antes era una sola para todos). Es el mayor
+    número ya usado por ese cliente + 1, o su `numero_ot_inicial` si todavía
+    no llegó ahí (cliente nuevo, o arranque fijado a mano)."""
+    maximo = db.scalar(
+        select(func.max(cast(OtInterna.numero_interno, Integer))).where(OtInterna.cliente_id == cliente.id)
+    )
+    return str(max((maximo or 0) + 1, cliente.numero_ot_inicial or 1))
 
 
 @router.get("/nuevo-numero")
 def nuevo_numero(request: Request, db: Session = Depends(get_db)):
+    cliente = cliente_activo(request, db)
+    n = siguiente_numero_interno(db, cliente)
+    repetido_en = sorted(
+        db.scalars(
+            select(Cliente.nombre)
+            .join(OtInterna, OtInterna.cliente_id == Cliente.id)
+            .where(OtInterna.numero_interno == n, Cliente.id != cliente.id)
+        )
+    )
     return templates.TemplateResponse(
-        request, "tareas/_campo_ot.html", {"ot_numero": (n := siguiente_numero_interno(db)), "ot_generada": n}
+        request, "tareas/_campo_ot.html", {"ot_numero": n, "ot_generada": n, "ot_repetido_en": repetido_en}
     )
 
 
@@ -42,10 +59,12 @@ def _total_tareas(db: Session) -> int:
     return db.scalar(select(func.count()).select_from(Tarea)) or 0
 
 
-def _cargar_ot(db: Session, numero_interno: str) -> OtInterna:
+def _cargar_ot(db: Session, numero_interno: str, cliente_id: int | None) -> OtInterna:
+    """OT interna por número dentro del cliente (el número se repite entre
+    anunciantes desde 2026-10-14)."""
     ot = db.scalar(
         select(OtInterna)
-        .where(OtInterna.numero_interno == numero_interno)
+        .where(OtInterna.numero_interno == numero_interno, OtInterna.cliente_id == cliente_id)
         .options(
             joinedload(OtInterna.cliente),
             selectinload(OtInterna.tareas).joinedload(Tarea.ot_interna),
@@ -152,7 +171,29 @@ def listado_solicitudes_alta(request: Request, db: Session = Depends(get_db)):
 
 @router_paginas.get("/ordenes-trabajo/{numero_interno}")
 def detalle_orden_trabajo(numero_interno: str, request: Request, db: Session = Depends(get_db)):
-    ot = _cargar_ot(db, numero_interno)
+    cliente = cliente_activo(request, db)
+    if not db.scalar(
+        select(OtInterna.id).where(OtInterna.numero_interno == numero_interno, OtInterna.cliente_id == cliente.id)
+    ):
+        # Link a una OT de otro anunciante (p. ej. guardado): si el número es de
+        # uno solo, se cambia a ese anunciante; si se repite, no se adivina.
+        otros = list(
+            db.scalars(
+                select(Cliente).join(OtInterna, OtInterna.cliente_id == Cliente.id)
+                .where(OtInterna.numero_interno == numero_interno)
+            )
+        )
+        if len(otros) == 1:
+            resp = RedirectResponse(f"/ordenes-trabajo/{numero_interno}", status_code=303)
+            resp.set_cookie(COOKIE_CLIENTE, str(otros[0].id), max_age=31536000, path="/")
+            return resp
+        if otros:
+            raise HTTPException(
+                404,
+                f"La OT {numero_interno} no es de {cliente.nombre}; existe en "
+                f"{', '.join(c.nombre for c in otros)}. Elegí el anunciante en el sidebar.",
+            )
+    ot = _cargar_ot(db, numero_interno, cliente.id)
     hermanas = []
     if ot.numero_ot_advertys:
         hermanas = list(
@@ -213,6 +254,7 @@ def _asignar_ot_sistema(ot: OtInterna, valor: str | None) -> None:
 
 @router_paginas.post("/ordenes-trabajo/asignar-lote")
 def asignar_lote_ot_sistema(
+    request: Request,
     db: Session = Depends(get_db),
     ot_ids: str = Form(""),
     numero_ot_advertys: str = Form(""),
@@ -226,7 +268,7 @@ def asignar_lote_ot_sistema(
     ots = list(
         db.scalars(
             select(OtInterna)
-            .where(OtInterna.numero_interno.in_(numeros))
+            .where(OtInterna.numero_interno.in_(numeros), OtInterna.cliente_id == cliente_activo(request, db).id)
             .options(joinedload(OtInterna.solicitud_alta))
         )
     )
@@ -240,13 +282,35 @@ def asignar_lote_ot_sistema(
 @router_paginas.post("/ordenes-trabajo/{numero_interno}/reasignar")
 def reasignar_ot_sistema(
     numero_interno: str,
+    request: Request,
     db: Session = Depends(get_db),
     numero_ot_advertys: str = Form(""),
 ):
-    ot = _cargar_ot(db, numero_interno)
+    ot = _cargar_ot(db, numero_interno, cliente_activo(request, db).id)
     _rechazar_con_solicitud_pendiente([ot])
     _asignar_ot_sistema(ot, numero_ot_advertys.strip() or None)
     db.commit()
+    return RedirectResponse(f"/ordenes-trabajo/{numero_interno}", status_code=303)
+
+
+@router_paginas.post("/ordenes-trabajo/{numero_interno}/titulo")
+def editar_titulo(
+    numero_interno: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    titulo: str = Form(""),
+):
+    """Carga o corrige el título corto de una OT interna (las anteriores al
+    2026-10-14 no tienen). Es obligatorio: no se puede dejar vacío."""
+    ot = _cargar_ot(db, numero_interno, cliente_activo(request, db).id)
+    titulo = " ".join(titulo.split())
+    if not titulo:
+        raise HTTPException(422, "El título no puede quedar vacío.")
+    if len(titulo) > TITULO_OT_MAX:
+        raise HTTPException(422, f"El título puede tener hasta {TITULO_OT_MAX} caracteres.")
+    ot.titulo = titulo
+    db.commit()
+    cache.invalidar_ot_numeros()
     return RedirectResponse(f"/ordenes-trabajo/{numero_interno}", status_code=303)
 
 
@@ -287,7 +351,7 @@ def generar_ot(
     ots = list(
         db.scalars(
             select(OtInterna)
-            .where(OtInterna.numero_interno.in_(numeros))
+            .where(OtInterna.numero_interno.in_(numeros), OtInterna.cliente_id == cliente_activo(request, db).id)
             .options(joinedload(OtInterna.cliente), joinedload(OtInterna.solicitud_alta))
         )
     )

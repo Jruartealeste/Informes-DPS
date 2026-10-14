@@ -129,6 +129,7 @@ def tarea_vm(t: Tarea) -> dict:
         "ot_dps": t.ot_interna.numero_ot_advertys if t.ot_interna else None,
         "ot_numero_form": t.ot_interna.numero_interno if t.ot_interna else (t.ot_ambigua or ""),
         "ot_cliente": t.ot_interna.cliente.nombre if t.ot_interna else "ALUAR",
+        "ot_titulo": t.ot_interna.titulo if t.ot_interna else None,
         "ot_bloqueada": bool(t.ot_interna_id),
         "ot_asignada": bool(t.ot_interna_id or t.ot_ambigua),
         "puede_anular": puede_anular(t),
@@ -151,6 +152,7 @@ def grupo_vm(key: str, tareas_orm: list[Tarea]) -> dict:
     return {
         "n": key,
         "amb": amb,
+        "titulo": ot.titulo if ot else None,
         "cliente_id": ot.cliente_id if ot else None,
         "dps": ot.numero_ot_advertys if ot else None,
         "dps_label": f"OT sistema {ot.numero_ot_advertys}" if ot and ot.numero_ot_advertys else "sin OT de sistema",
@@ -178,6 +180,7 @@ def ot_interna_vm(ot: OtInterna) -> dict:
         return {
             "n": ot.numero_interno,
             "amb": False,
+            "titulo": ot.titulo,
             "cliente_id": ot.cliente_id,
             "dps": ot.numero_ot_advertys,
             "dps_label": f"OT sistema {ot.numero_ot_advertys}" if ot.numero_ot_advertys else "sin OT de sistema",

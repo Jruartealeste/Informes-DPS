@@ -12,20 +12,27 @@ from types import SimpleNamespace
 from sqlalchemy import Integer, cast, select
 from sqlalchemy.orm import Session
 
-from app.models import OtInterna, Responsable
+from app.models import Cliente, OtInterna, Responsable
 
 _lock = threading.Lock()
-_ot_numeros: list[str] | None = None
+_ot_numeros: list[tuple[str, str | None, int, str]] | None = None
 _responsables_activos: list[SimpleNamespace] | None = None
 
 
-def ot_numeros(db: Session) -> list[str]:
+def ot_numeros(db: Session) -> list[tuple[str, str | None, int, str]]:
+    """(numero_interno, titulo, cliente_id, cliente) de todas las OT internas,
+    para el buscador de OT de la sheet de tarea (filtrado por cliente en
+    tareas.ot_catalogo_ctx: el número se repite entre anunciantes)."""
     global _ot_numeros
     if _ot_numeros is None:
         with _lock:
             if _ot_numeros is None:
-                stmt = select(OtInterna.numero_interno).order_by(cast(OtInterna.numero_interno, Integer).desc())
-                _ot_numeros = list(db.scalars(stmt))
+                stmt = (
+                    select(OtInterna.numero_interno, OtInterna.titulo, Cliente.id, Cliente.nombre)
+                    .join(Cliente, OtInterna.cliente_id == Cliente.id)
+                    .order_by(cast(OtInterna.numero_interno, Integer).desc())
+                )
+                _ot_numeros = [tuple(fila) for fila in db.execute(stmt)]
     return _ot_numeros
 
 

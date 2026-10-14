@@ -69,7 +69,7 @@
   <button type="button" class="filters__clear" id="filtros-clear" hidden>Limpiar</button>
 </div>
 
-<form method="post" id="form-asignar-lote" class="card card--asignar-lote">
+<form method="post" id="form-asignar-lote" class="card card--asignar-lote"{% if cliente_solo_lectura %} hidden{% endif %}>
     <input type="hidden" name="ot_ids" id="ot_ids_input">
     <input type="hidden" name="numero_ot_advertys" id="numero_ot_advertys_input">
     <input type="hidden" name="anunciante" id="anunciante_input">
@@ -156,15 +156,16 @@
 <div class="table-scroll">
   <div class="table-card table-card--ot-list">
     <div class="table-head table-head--ot-list">
-      <div class="row-ot__select"><input type="checkbox" id="chk-todas" aria-label="Tildar todas las OT internas"></div><div>OT interna</div><div>Estado</div><div>OT de sistema</div><div>Tareas</div><div>Facturación</div>
+      <div class="row-ot__select"><input type="checkbox" id="chk-todas" aria-label="Tildar todas las OT internas"></div><div>OT interna</div><div>Título</div><div>Estado</div><div>OT de sistema</div><div>Tareas</div><div>Facturación</div>
     </div>
     {% for ot in ots %}
     <div class="row-ot" data-estado="{{ ot.ot_estado }}" data-dps="{{ ot.dps or '' }}" data-total="{{ ot.total }}" data-fact="{{ ot.facturadas }}">
       <label class="row-ot__select">
-        <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}">
+        <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}" data-titulo="{{ ot.titulo or '' }}">
       </label>
       <a href="/ordenes-trabajo/{{ ot.n }}" class="row-ot__link">
         <div class="row-ot__n">OT {{ ot.n }}</div>
+        <div class="row-ot__titulo{{ ' is-vacio' if not ot.titulo }}"{% if ot.titulo %} title="{{ ot.titulo }}"{% endif %}>{{ ot.titulo or 'Sin título' }}</div>
         <div><span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span></div>
         <div><span class="badge badge--dps {{ 'has-dps' if ot.dps else 'no-dps' }}">{{ ot.dps_label }}</span></div>
         <div class="cell-mono">{{ ot.total }}</div>
@@ -216,11 +217,27 @@
 
   function actualizarContador() {
     var n = marcadas().length;
+    precargarResumen();
     contador.textContent = n ? n + ' seleccionada' + (n !== 1 ? 's' : '') : '';
     var todas = document.getElementById('chk-todas');
     var total = filasVisibles().length;
     todas.checked = n > 0 && n === total;
     todas.indeterminate = n > 0 && n < total;
+  }
+
+  // Resumen de "Generar OT en Advertys": se precarga con los títulos de las OT
+  // tildadas hasta que la persona lo escribe a mano.
+  var inputResumen = document.getElementById('input-resumen');
+  var resumenManual = false;
+  inputResumen.addEventListener('input', function () { resumenManual = inputResumen.value.trim() !== ''; });
+  function precargarResumen() {
+    if (resumenManual) return;
+    var titulos = [];
+    marcadas().forEach(function (c) {
+      var t = c.dataset.titulo;
+      if (t && titulos.indexOf(t) === -1) titulos.push(t);
+    });
+    inputResumen.value = titulos.join(' / ');
   }
 
   function modoActual() {

@@ -2,6 +2,7 @@
 <div class="field-ot">
   <div class="field-ot__box">
     <span class="field-ot__n">OT {{ ot_numero }}</span>
+    {% if ot_titulo %}<span class="field-ot__titulo">{{ ot_titulo }}</span>{% endif %}
     <span class="field-ot__cliente">{{ ot_cliente }}</span>
   </div>
 </div>
@@ -22,5 +23,18 @@
           hx-get="/api/ordenes-trabajo/nuevo-numero" hx-target="closest .field-ot" hx-swap="outerHTML">
     + Nueva
   </button>
+  {# Aviso (no bloquea): el número ya existe en otro anunciante. Cada uno numera
+     por su cuenta, así que es otra OT. base.html lo actualiza al tipear. #}
+  <div class="field-warn field-ot__aviso"{% if not ot_repetido_en %} hidden{% endif %}>
+    <span>⚠</span>
+    <div class="field-ot__aviso-texto">{% if ot_repetido_en %}La OT {{ ot_numero }} ya existe en {{ ot_repetido_en | join(', ') }}. Esta va a ser otra OT, de este anunciante.{% endif %}</div>
+  </div>
+  {% if ot_generada %}
+  {# OT nueva: el título es obligatorio (TITULO_OT_MAX en models.py). Si se
+     cambia el número por uno existente, base.html lo oculta y lo desactiva. #}
+  <input type="text" name="ot_titulo" class="field-ot__titulo-input" data-ot-generada="{{ ot_generada }}"
+         required maxlength="60" autocomplete="off" value="{{ ot_titulo or '' }}"
+         placeholder="Título de la OT nueva (ej. Catálogo en inglés)" aria-label="Título de la OT interna nueva">
+  {% endif %}
 </div>
 {% endif %}

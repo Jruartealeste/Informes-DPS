@@ -17,10 +17,12 @@
         hx-vals='{"agrupado": "{{ agrupado_next }}", "revision": "{{ 1 if revision else 0 }}"}'>
         {{ "Ver plana" if agrupado else "Agrupar por OT" }}
       </button>
+      {% if not cliente_solo_lectura %}
       <button type="button" class="btn btn--primary"
         hx-get="/tareas-nuevo" hx-target="#drawer-root" hx-swap="innerHTML">
         Nueva OT/tarea
       </button>
+      {% endif %}
     </div>
   </div>
 </div>

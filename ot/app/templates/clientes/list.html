@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block titulo %}Anunciantes · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <div class="page-header__kicker">{{ filas | selectattr('c.activo') | list | length }} activos · {{ filas | length }} en total</div>
+      <h1 class="page-header__title">
+        Anunciantes
+        <span class="info-tip">
+          <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+          <span class="info-tip__panel" role="note">
+            Cada anunciante de esta app se relaciona con uno o más Anunciantes reales de Advertys (de ahí salen
+            los Productos al generar una OT) y numera sus OT internas por su cuenta. Desactivar no borra nada:
+            sale del selector y queda en solo lectura.
+          </span>
+        </span>
+      </h1>
+    </div>
+    <div class="page-header__spacer"></div>
+    <div class="page-header__actions">
+      <a href="/anunciantes/nuevo" class="btn btn--primary">Nuevo anunciante</a>
+    </div>
+  </div>
+</div>
+
+<div class="table-scroll">
+  <div class="table-card table-card--anunciantes">
+    <div class="table-head table-head--anunciantes">
+      <div>Anunciante</div><div>En Advertys</div><div>OT internas</div><div>Próxima OT</div><div>Estado</div><div></div>
+    </div>
+    {% for f in filas %}
+    <div class="row-anunciante{{ ' is-inactivo' if not f.c.activo }}">
+      <div class="row-anunciante__nombre">{{ f.c.nombre }}</div>
+      <div class="row-anunciante__advertys">
+        {% for a in f.c.anunciantes %}<span class="chip-anunciante">{{ a.anunciante }}</span>{% else %}<span class="row-anunciante__vacio">Sin relacionar</span>{% endfor %}
+      </div>
+      <div class="cell-mono">{{ f.n_ots }}</div>
+      <div class="cell-mono">{{ f.proximo_numero }}</div>
+      <div><span class="badge {{ 'badge--ot-abierta' if f.c.activo else 'badge--ot-cerrada' }}">{{ 'ACTIVO' if f.c.activo else 'DESACTIVADO' }}</span></div>
+      <div class="row-anunciante__acciones">
+        <a href="/anunciantes/{{ f.c.id }}" class="btn btn--small">Editar</a>
+        {% if f.c.activo %}
+        <form method="post" action="/anunciantes/{{ f.c.id }}/desactivar" data-confirmar="¿Desactivar {{ f.c.nombre }}? Sale del selector y queda en solo lectura (no se borra nada).">
+          <button type="submit" class="btn btn--small">Desactivar</button>
+        </form>
+        {% else %}
+        <a href="/clientes/{{ f.c.id }}/activar" class="btn btn--small" title="Ver su historial (solo lectura)">Ver</a>
+        <form method="post" action="/anunciantes/{{ f.c.id }}/reactivar">
+          <button type="submit" class="btn btn--small">Reactivar</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('form[data-confirmar]').forEach(function (f) {
+  f.addEventListener('submit', function (ev) {
+    if (!confirm(f.dataset.confirmar)) ev.preventDefault();
+  });
+});
+</script>
+
+{% endblock %}

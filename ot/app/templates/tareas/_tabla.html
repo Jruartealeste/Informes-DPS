@@ -11,6 +11,7 @@
       <div class="group-row" onclick="var g=this.closest('.group');g.classList.toggle('is-collapsed');this.querySelector('.group-row__caret').classList.toggle('is-open');">
         <span class="group-row__caret is-open">▸</span>
         <span class="group-row__n">OT {{ g.n }}</span>
+        {% if g.titulo %}<span class="group-row__titulo" title="{{ g.titulo }}">{{ g.titulo }}</span>{% endif %}
         {% if not g.amb %}
         <span class="badge {{ 'badge--ot-abierta' if g.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ g.ot_estado }}</span>
         {% endif %}

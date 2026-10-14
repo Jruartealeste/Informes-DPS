@@ -837,6 +837,15 @@ button {
   color: var(--accent-text);
   white-space: nowrap;
 }
+.group-row__titulo {
+  min-width: 0;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text);
+}
 
 .badge {
   font-family: var(--mono);
@@ -1373,6 +1382,21 @@ select.chip-fac {
   font-size: 12px;
   color: var(--faint);
 }
+/* Título corto de la OT interna (2026-10-14): en la caja de solo lectura y,
+   al crear una con "+ Nueva", un input propio debajo del número. */
+.field-ot {
+  flex-wrap: wrap;
+}
+.field-ot__titulo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.field .field-ot__titulo-input {
+  flex: 1 1 100%;
+}
 
 /* variante "multi": checklist con filtro + alta rápida (responsables) —
    mismo combo--select de base, pero el menú es una lista tildable en vez de
@@ -1746,11 +1770,11 @@ select.chip-fac {
 /* ---- OT interna: listado y detalle ---- */
 
 .table-card--ot-list {
-  min-width: 720px;
+  min-width: 860px;
 }
 .table-head--ot-list,
 .row-ot {
-  grid-template-columns: 34px 150px 120px minmax(180px, 1fr) 90px 110px;
+  grid-template-columns: 34px 90px minmax(200px, 2fr) 100px minmax(150px, 1fr) 70px 90px;
 }
 .row-ot[hidden] {
   display: none;
@@ -1783,6 +1807,16 @@ select.chip-fac {
   font-family: var(--mono);
   font-weight: 500;
   color: var(--accent-text);
+}
+.row-ot__titulo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row-ot__titulo.is-vacio {
+  color: var(--faint);
+  font-style: italic;
 }
 
 /* Panel de asignación en lote: fijo arriba (fuera del scroll de la tabla),
@@ -2091,6 +2125,11 @@ select.chip-fac {
   font-size: 11px;
   color: var(--faint);
 }
+.ot-header__subtitulo {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
 
 .ot-cards-row {
   display: flex;
@@ -2220,6 +2259,11 @@ select.chip-fac {
 }
 .ot-sistema__form input[type="text"]:focus-visible {
   border-color: var(--accent);
+}
+.ot-titulo__form input[type="text"] {
+  flex: 1 1 260px;
+  width: auto;
+  max-width: 460px;
 }
 
 .badge--sincronizada {
@@ -2625,4 +2669,126 @@ select.chip-fac {
     padding-left: 14px;
     padding-right: 14px;
   }
+}
+
+/* ---- Numeración por anunciante y pantalla Anunciantes (2026-10-14) ---- */
+
+/* Aviso no bloqueante: el número de OT ya existe en otro anunciante. */
+.field-ot__aviso {
+  flex: 1 1 100%;
+  margin-top: 0;
+}
+.field-ot__aviso[hidden] {
+  display: none;
+}
+
+/* Anunciante desactivado = solo lectura. */
+.aviso-solo-lectura {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-line);
+  color: var(--warn-text);
+}
+.aviso-solo-lectura a {
+  color: inherit;
+  margin-left: 6px;
+}
+.card--asignar-lote[hidden] {
+  display: none;
+}
+
+.table-card--anunciantes {
+  min-width: 860px;
+}
+.table-head--anunciantes,
+.row-anunciante {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(220px, 2fr) 90px 90px 110px 230px;
+  gap: 10px;
+  align-items: center;
+}
+.row-anunciante {
+  font-size: 13px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.row-anunciante:first-of-type {
+  border-top: none;
+}
+.row-anunciante.is-inactivo .row-anunciante__nombre,
+.row-anunciante.is-inactivo .row-anunciante__advertys {
+  color: var(--faint);
+}
+.row-anunciante__nombre {
+  font-weight: 600;
+}
+.row-anunciante__advertys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chip-anunciante {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.row-anunciante__vacio {
+  font-size: 12px;
+  color: var(--faint);
+  font-style: italic;
+}
+.row-anunciante__acciones {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.row-anunciante__acciones form {
+  margin: 0;
+}
+
+.form-anunciante {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+}
+.form-anunciante__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-anunciante input[type="text"],
+.form-anunciante input[type="number"] {
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  color: var(--text);
+}
+.form-anunciante__lista {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: var(--raised);
+}
+.form-anunciante__opcion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.form-anunciante__opcion[hidden] {
+  display: none;
 }

@@ -10,6 +10,7 @@ from app.cliente_ctx import cliente_activo
 from app.db import get_db
 from app.labels import ESTADO_LABELS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import (
+    TITULO_OT_MAX,
     EstadoFacturacion,
     EstadoTarea,
     OtInterna,
@@ -184,17 +185,33 @@ def cargar_tarea_con_relaciones(db: Session, tarea_id: int) -> Tarea:
     )
 
 
-def contexto_detalle(db: Session, tarea_id: int) -> dict:
+def ot_catalogo_ctx(db: Session, cliente_id: int | None) -> dict:
+    """Buscador de OT de la sheet de tarea: solo las OT del cliente (el número
+    se repite entre anunciantes), y para el aviso de número repetido, en qué
+    otros anunciantes existe cada número. `cliente_id` None = todas (tareas
+    legado sin OT)."""
+    propias, otros = [], {}
+    for numero, titulo, cid, cliente in cache.ot_numeros(db):
+        if cliente_id is None or cid == cliente_id:
+            propias.append((numero, titulo))
+        else:
+            otros.setdefault(numero, []).append(cliente)
+    return {"todos_ot_numeros": propias, "ot_numeros_otros": otros}
+
+
+def contexto_detalle(db: Session, tarea_id: int, cliente_id: int | None = None) -> dict:
     """Contexto de tareas/_detalle.html — compartido con app/routers/mail.py
     para poder refrescar el drawer después de mandar un mail sin duplicar
     este armado."""
     t = cargar_tarea_con_relaciones(db, tarea_id)
     det = tarea_vm(t)
+    if cliente_id is None and t.ot_interna:
+        cliente_id = t.ot_interna.cliente_id
     return {
         "det": det,
         "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
         "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-        "todos_ot_numeros": cache.ot_numeros(db),
+        **ot_catalogo_ctx(db, cliente_id),
         **combo_ctx(db, set(det["responsable_ids"])),
         **tipos_combo_ctx(set(det["tipos"])),
     }
@@ -216,7 +233,8 @@ def duplicar_form(tarea_id: int, request: Request, ot: str = "misma", db: Sessio
 
     t = cargar_tarea_con_relaciones(db, tarea_id)
     det = tarea_vm(t)
-    ot_numero = siguiente_numero_interno(db) if ot == "nueva" else det["ot_numero_form"]
+    cliente = t.ot_interna.cliente if t.ot_interna else cliente_activo(request, db)
+    ot_numero = siguiente_numero_interno(db, cliente) if ot == "nueva" else det["ot_numero_form"]
     html = templates.env.get_template("tareas/_detalle.html").render(
         {
             "det": None,
@@ -233,7 +251,7 @@ def duplicar_form(tarea_id: int, request: Request, ot: str = "misma", db: Sessio
             },
             "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
             "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-            "todos_ot_numeros": cache.ot_numeros(db),
+            **ot_catalogo_ctx(db, cliente.id),
             **combo_ctx(db, set(det["responsable_ids"])),
             **tipos_combo_ctx(set(det["tipos"])),
         }
@@ -244,7 +262,9 @@ def duplicar_form(tarea_id: int, request: Request, ot: str = "misma", db: Sessio
 
 @router.get("/tareas/{tarea_id}")
 def tarea_detalle(tarea_id: int, request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "tareas/_detalle.html", contexto_detalle(db, tarea_id))
+    return templates.TemplateResponse(
+        request, "tareas/_detalle.html", contexto_detalle(db, tarea_id, cliente_activo(request, db).id)
+    )
 
 
 def _tarea_o_404(db: Session, tarea_id: int) -> Tarea:
@@ -254,21 +274,32 @@ def _tarea_o_404(db: Session, tarea_id: int) -> Tarea:
     return tarea
 
 
-def _resolver_ot_interna(db: Session, numero: str, cliente_id: int) -> tuple[int | None, str | None]:
+def _resolver_ot_interna(
+    db: Session, numero: str, cliente_id: int, titulo: str = ""
+) -> tuple[int | None, str | None]:
     """Devuelve (ot_interna_id, ot_ambigua). Crea la OT interna si el número es
-    limpio y todavía no existe (numeración interna, no toca Advertys) —
-    bajo el cliente activo (sidebar), la numeración sigue siendo una
-    secuencia global compartida entre clientes."""
+    limpio y todavía no existe en ese cliente (numeración interna, no toca
+    Advertys). Cada anunciante numera por su cuenta (2026-10-14), así que el
+    mismo número puede existir en otro cliente: es otra OT. Una OT nueva
+    necesita título (2026-10-14); para una existente se ignora."""
     numero = (numero or "").strip()
     if not numero:
         return None, None
-    existente = db.scalar(select(OtInterna).where(OtInterna.numero_interno == numero))
+    existente = db.scalar(
+        select(OtInterna).where(OtInterna.numero_interno == numero, OtInterna.cliente_id == cliente_id)
+    )
     if existente:
         return existente.id, None
     if "/" in numero or " " in numero or "-" in numero:
         return None, numero
+    titulo = " ".join(titulo.split())
+    if not titulo:
+        raise HTTPException(422, f"La OT interna {numero} es nueva: falta el título.")
+    if len(titulo) > TITULO_OT_MAX:
+        raise HTTPException(422, f"El título de la OT puede tener hasta {TITULO_OT_MAX} caracteres.")
     nueva = OtInterna(
         numero_interno=numero,
+        titulo=titulo,
         cliente_id=cliente_id,
         fecha_apertura=dt.date.today(),
     )
@@ -361,6 +392,7 @@ def crear_tarea(
     db: Session = Depends(get_db),
     ot_numero: str = Form(""),
     ot_generada: str = Form(""),
+    ot_titulo: str = Form(""),
     detalle: str = Form(...),
     fecha_pedido: str = Form(""),
     pedido_por: str = Form(""),
@@ -382,9 +414,11 @@ def crear_tarea(
     if ot_generada and ot_numero.strip() == ot_generada:
         from app.routers.ordenes_trabajo import siguiente_numero_interno
 
-        if db.scalar(select(OtInterna.id).where(OtInterna.numero_interno == ot_generada)):
-            ot_numero = siguiente_numero_interno(db)
-    ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero, cliente.id)
+        if db.scalar(
+            select(OtInterna.id).where(OtInterna.numero_interno == ot_generada, OtInterna.cliente_id == cliente.id)
+        ):
+            ot_numero = siguiente_numero_interno(db, cliente)
+    ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero, cliente.id, ot_titulo)
     tarea = Tarea(
         ot_interna_id=ot_interna_id,
         ot_ambigua=ot_ambigua,
@@ -421,6 +455,7 @@ def editar_tarea(
     request: Request,
     db: Session = Depends(get_db),
     ot_numero: str = Form(""),
+    ot_titulo: str = Form(""),
     detalle: str = Form(...),
     fecha_pedido: str = Form(""),
     pedido_por: str = Form(""),
@@ -445,7 +480,7 @@ def editar_tarea(
 
     if tarea.ot_interna_id is None:
         cliente = cliente_activo(request, db)
-        ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero, cliente.id)
+        ot_interna_id, ot_ambigua = _resolver_ot_interna(db, ot_numero, cliente.id, ot_titulo)
         tarea.ot_interna_id = ot_interna_id
         tarea.ot_ambigua = ot_ambigua
     tarea.detalle = detalle
@@ -510,7 +545,7 @@ def form_nueva_tarea(request: Request, db: Session = Depends(get_db)):
             "det": None,
             "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
             "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-            "todos_ot_numeros": cache.ot_numeros(db),
+            **ot_catalogo_ctx(db, cliente_activo(request, db).id),
             **combo_ctx(db, set()),
             **tipos_combo_ctx(set()),
         },

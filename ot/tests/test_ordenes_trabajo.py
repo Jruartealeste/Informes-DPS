@@ -30,7 +30,7 @@ def test_crear_tarea_con_numero_autogenerado(client, db_session):
     r = client.post(
         "/tareas",
         data={
-            "ot_numero": "501",
+            "ot_numero": "501", "ot_titulo": "Título de prueba",
             "detalle": "Tarea con OT autogenerada",
             "fecha_pedido": "2026-08-01",
             "tipos": "diseño",

@@ -16,7 +16,7 @@ def test_crear_tarea_nueva_ot(client, db_session):
     r = client.post(
         "/tareas",
         data={
-            "ot_numero": "4200",
+            "ot_numero": "4200", "ot_titulo": "Título de prueba",
             "detalle": "Diseño de flyer institucional",
             "fecha_pedido": "2026-08-01",
             "pedido_por": "marina",
@@ -82,7 +82,7 @@ def test_editar_tarea(client, db_session):
     r = client.patch(
         f"/tareas/{tarea_id}",
         data={
-            "ot_numero": "4220",
+            "ot_numero": "4220", "ot_titulo": "Título de prueba",
             "detalle": "Tarea editada",
             "fecha_pedido": "2026-08-01",
             "tipos": "diseño",
@@ -126,7 +126,7 @@ def test_no_se_puede_cambiar_ot_ya_asignada(client, db_session):
     r = client.patch(
         f"/tareas/{tarea_id}",
         data={
-            "ot_numero": "4241",
+            "ot_numero": "4241", "ot_titulo": "Título de prueba",
             "detalle": "Tarea con OT fija",
             "fecha_pedido": "2026-08-01",
             "tipos": "diseño",
@@ -250,7 +250,7 @@ def test_crear_tarea_deja_drawer_abierto_en_modo_edicion(client, db_session):
     r = client.post(
         "/tareas",
         data={
-            "ot_numero": "4300",
+            "ot_numero": "4300", "ot_titulo": "Título de prueba",
             "detalle": "Tarea que queda abierta",
             "fecha_pedido": "2026-08-01",
             "tipos": "diseño",
@@ -311,7 +311,7 @@ def test_duplicar_ot_nueva_dos_aperturas_no_comparten_ot(client, db_session):
     forms = [client.get(f"/tareas/{tid}/duplicar/form?ot=nueva") for _ in range(2)]
     assert all('value="4401"' in f.text and 'name="ot_generada" value="4401"' in f.text for f in forms)
     base = {"detalle": "dup", "fecha_pedido": "2026-10-07", "tipos": "diseño",
-            "ot_numero": "4401", "ot_generada": "4401"}
+            "ot_numero": "4401", "ot_titulo": "Título de prueba", "ot_generada": "4401"}
     from app.models import Responsable, TipoTarea
     db_session.add(TipoTarea(nombre="diseño")) if not db_session.query(TipoTarea).filter_by(nombre="diseño").first() else None
     r = db_session.query(Responsable).first()
@@ -332,7 +332,7 @@ def test_anular_tarea_inexistente_es_404(client):
 def test_detalle_vacio_es_422_al_crear_y_editar(client, db_session):
     fer = db_session.query(Responsable).filter_by(nombre="fer").one()
     ot_numero = "4290"
-    completo = {"ot_numero": ot_numero, "fecha_pedido": "2026-10-07", "tipos": "diseño",
+    completo = {"ot_numero": ot_numero, "ot_titulo": "Título de prueba", "fecha_pedido": "2026-10-07", "tipos": "diseño",
                 "responsable_ids": str(fer.id)}
     assert client.post("/tareas", data={**completo, "detalle": "   "}).status_code == 422
     assert db_session.query(Tarea).count() == 0
@@ -366,7 +366,7 @@ def test_estado_vacio_sigue_siendo_sin_estado(client, db_session):
 
 def _form_edicion(db_session, numero, **extra):
     fer = db_session.query(Responsable).filter_by(nombre="fer").one()
-    return {"ot_numero": numero, "detalle": "Original", "fecha_pedido": "2026-10-07", "tipos": "diseño",
+    return {"ot_numero": numero, "ot_titulo": "Título de prueba", "detalle": "Original", "fecha_pedido": "2026-10-07", "tipos": "diseño",
             "responsable_ids": str(fer.id), **extra}
 
 
@@ -405,3 +405,38 @@ def test_anular_por_patch_o_estado_respeta_la_regla_de_anular(client, db_session
     assert client.post(f"/tareas/{libre}/estado", data={"estado_tarea": "ANULADA"}).status_code == 200
     db_session.expire_all()
     assert db_session.get(Tarea, libre).estado_tarea == EstadoTarea.ANULADA
+
+
+def test_ot_interna_nueva_exige_titulo_corto(client, db_session):
+    from app.models import OtInterna
+
+    base = {"ot_numero": "4501", "detalle": "Tarea", "fecha_pedido": "2026-10-14", "tipos": "diseño",
+            "responsable_ids": str(db_session.query(Responsable).filter_by(nombre="fer").one().id)}
+    r = client.post("/tareas", data=base)
+    assert r.status_code == 422 and "falta el título" in r.text
+    r = client.post("/tareas", data={**base, "ot_titulo": "x" * 61})
+    assert r.status_code == 422
+    assert db_session.query(OtInterna).filter_by(numero_interno="4501").first() is None
+
+    r = client.post("/tareas", data={**base, "ot_titulo": "  Catálogo   en inglés "})
+    assert r.status_code == 200
+    ot = db_session.query(OtInterna).filter_by(numero_interno="4501").one()
+    assert ot.titulo == "Catálogo en inglés"
+
+    # una OT existente no pide título
+    r = client.post("/tareas", data={**base, "detalle": "Otra"})
+    assert r.status_code == 200
+
+
+def test_titulo_de_ot_se_edita_desde_el_detalle_y_se_ve_en_el_listado(client, db_session):
+    from app.models import Cliente, OtInterna
+
+    cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
+    db_session.add(OtInterna(numero_interno="4600", cliente_id=cliente.id))
+    db_session.commit()
+    assert "Sin título" in client.get("/ordenes-trabajo").text
+    assert client.post("/ordenes-trabajo/4600/titulo", data={"titulo": " "}, follow_redirects=False).status_code == 422
+    r = client.post("/ordenes-trabajo/4600/titulo", data={"titulo": "Folleto institucional"}, follow_redirects=False)
+    assert r.status_code == 303
+    html = client.get("/ordenes-trabajo").text
+    assert "Folleto institucional" in html and 'data-titulo="Folleto institucional"' in html

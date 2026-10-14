@@ -37,7 +37,7 @@
         <div class="sidebar__group-label" id="sidebar-anunciante-label">Anunciante</div>
         <select class="sidebar__select" aria-labelledby="sidebar-anunciante-label" onchange="location.href = '/clientes/' + this.value + '/activar'">
           {% for c in clientes_sidebar %}
-          <option value="{{ c.id }}" title="{{ c.nombre }}" {{ 'selected' if c.id == cliente_activo_id else '' }}>{{ c.nombre }} ({{ c.total_tareas }})</option>
+          <option value="{{ c.id }}" title="{{ c.nombre }}" {{ 'selected' if c.id == cliente_activo_id else '' }}>{{ c.nombre }} ({{ c.total_tareas }}){{ ' · desactivado' if not c.activo }}</option>
           {% endfor %}
         </select>
         {% set _activo = clientes_sidebar | selectattr('id', 'equalto', cliente_activo_id) | list %}
@@ -82,6 +82,16 @@
             </svg>
             <span class="sidebar__item-label">Facturación</span>
           </a>
+          {% if es_admin %}
+          <a href="/anunciantes" class="sidebar__item {{ 'is-active' if seccion_activa == 'anunciantes' else '' }}" title="Anunciantes (alta y baja)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 21h18"></path>
+              <path d="M5 21V7l7-4 7 4v14"></path>
+              <path d="M9 21v-6h6v6"></path>
+            </svg>
+            <span class="sidebar__item-label">Anunciantes</span>
+          </a>
+          {% endif %}
           <button type="button" class="sidebar__item is-disabled" disabled title="Anunciante · todavía no construido">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 3v18h18"></path>
@@ -135,6 +145,12 @@
     </aside>
 
     <main class="main">
+      {% if cliente_solo_lectura %}
+      <div class="aviso-solo-lectura" role="status">
+        Este anunciante está <strong>desactivado</strong>: se puede consultar, pero no admite cambios.
+        {% if es_admin %}<a href="/anunciantes">Reactivarlo en Anunciantes</a>{% endif %}
+      </div>
+      {% endif %}
       {% block content %}{% endblock %}
       <div id="drawer-root"></div>
       <div id="sheet-2-root"></div>
@@ -202,7 +218,10 @@
   (function () {
     function opcionesCatalogo() {
       var dl = document.getElementById('ot-catalogo');
-      return dl ? Array.prototype.map.call(dl.options, function (o) { return o.value; }) : [];
+      // label = título de la OT (puede faltar en OT viejas); se busca por los dos.
+      return dl ? Array.prototype.map.call(dl.options, function (o) {
+        return { valor: o.value, titulo: o.getAttribute('label') || '' };
+      }) : [];
     }
 
     function cerrarMenus(excepto) {
@@ -214,17 +233,23 @@
     function pintarMenu(input, mostrarTodo) {
       var menu = input.closest('.combo').querySelector('.combo__menu');
       var q = mostrarTodo ? '' : input.value.trim().toLowerCase();
-      var opciones = opcionesCatalogo().filter(function (v) {
-        return !q || v.toLowerCase().indexOf(q) !== -1;
+      var opciones = opcionesCatalogo().filter(function (o) {
+        return !q || (o.valor + ' ' + o.titulo).toLowerCase().indexOf(q) !== -1;
       }).slice(0, 50);
       if (!opciones.length) {
         menu.classList.remove('is-abierto');
         menu.innerHTML = '';
         return;
       }
-      menu.innerHTML = opciones.map(function (v) {
-        return '<div class="combo__item" role="option">' + v + '</div>';
-      }).join('');
+      menu.innerHTML = '';
+      opciones.forEach(function (o) {
+        var item = document.createElement('div');
+        item.className = 'combo__item';
+        item.setAttribute('role', 'option');
+        item.setAttribute('data-valor', o.valor);
+        item.textContent = o.titulo ? o.valor + ' · ' + o.titulo : o.valor;
+        menu.appendChild(item);
+      });
       menu.classList.add('is-abierto');
     }
 
@@ -232,8 +257,40 @@
     // toggle) — nunca solo por hacer foco en el input, porque despues
     // quedaba dificil de cerrar dentro de la sheet de nueva OT.
     document.addEventListener('input', function (ev) {
-      if (ev.target.matches && ev.target.matches('.combo__input')) pintarMenu(ev.target);
+      if (ev.target.matches && ev.target.matches('.combo__input')) {
+        pintarMenu(ev.target);
+        sincronizarTituloOt(ev.target);
+      }
     });
+
+    // El título solo se pide para la OT nueva de "+ Nueva": si se cambia el
+    // número por otro (una OT existente), se oculta y no viaja ni bloquea.
+    function sincronizarTituloOt(input) {
+      var campo = input.closest('.field-ot');
+      if (!campo) return;
+      avisarNumeroRepetido(campo, input.value.trim());
+      var titulo = campo.querySelector('.field-ot__titulo-input');
+      if (!titulo) return;
+      var esNueva = input.value.trim() === titulo.getAttribute('data-ot-generada');
+      titulo.hidden = !esNueva;
+      titulo.disabled = !esNueva;
+    }
+
+    // Cada anunciante numera por su cuenta: si el número no es una OT de este
+    // anunciante pero existe en otro, se avisa (no se bloquea).
+    function avisarNumeroRepetido(campo, numero) {
+      var aviso = campo.querySelector('.field-ot__aviso');
+      var datos = document.getElementById('ot-numeros-otros');
+      if (!aviso || !datos) return;
+      var propias = opcionesCatalogo().map(function (o) { return o.valor; });
+      var otros = JSON.parse(datos.textContent || '{}')[numero];
+      var repetido = numero && otros && propias.indexOf(numero) === -1;
+      aviso.hidden = !repetido;
+      if (repetido) {
+        aviso.querySelector('.field-ot__aviso-texto').textContent =
+          'La OT ' + numero + ' ya existe en ' + otros.join(', ') + '. Esta va a ser otra OT, de este anunciante.';
+      }
+    }
 
     // combo--select: variante de opciones fijas (reemplaza los <select>
     // nativos de la sheet de tarea) — mismo menu propio, pero el "input" es
@@ -285,7 +342,8 @@
         var wrap = itemMenu.closest('.combo');
         var itemInput = wrap.querySelector('.combo__input');
         if (itemInput) {
-          itemInput.value = item.textContent;
+          itemInput.value = item.getAttribute('data-valor') || item.textContent;
+          sincronizarTituloOt(itemInput);
           itemMenu.classList.remove('is-abierto');
           itemInput.focus();
         } else {

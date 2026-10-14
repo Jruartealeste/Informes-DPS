@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from app.cliente_ctx import CLIENTE_DEFAULT, COOKIE_CLIENTE
 from app.db import get_db
-from app.models import Cliente, OtInterna, Tarea
+from app.models import Cliente, OtInterna, RolUsuario, Tarea, Usuario
 
 # public/ (no app/): en Vercel el CDN sirve public/** sin pasar por la función
 # Python. Ver vercel.json (headers de cache) y app/main.py (mount local).
@@ -32,20 +32,30 @@ def _contexto_clientes(request: Request) -> dict:
         # se resuelve en Python sobre esa misma lista (cookie, o ALUAR por
         # default — misma regla que cliente_ctx.cliente_activo).
         filas = db.execute(
-            select(Cliente.id, Cliente.nombre, func.count(Tarea.id))
+            select(Cliente.id, Cliente.nombre, Cliente.activo, func.count(Tarea.id))
             .outerjoin(OtInterna, OtInterna.cliente_id == Cliente.id)
             .outerjoin(Tarea, Tarea.ot_interna_id == OtInterna.id)
-            .group_by(Cliente.id, Cliente.nombre)
+            .group_by(Cliente.id, Cliente.nombre, Cliente.activo)
             .order_by(Cliente.id)
         ).all()
-        clientes_sidebar = [{"id": i, "nombre": n, "total_tareas": t} for i, n, t in filas]
+        todos = [{"id": i, "nombre": n, "activo": a, "total_tareas": t} for i, n, a, t in filas]
         crudo = request.cookies.get(COOKIE_CLIENTE)
         activo_id = None
         if crudo and crudo.isdigit():
-            activo_id = next((c["id"] for c in clientes_sidebar if c["id"] == int(crudo)), None)
+            activo_id = next((c["id"] for c in todos if c["id"] == int(crudo)), None)
         if activo_id is None:
-            activo_id = next((c["id"] for c in clientes_sidebar if c["nombre"] == CLIENTE_DEFAULT), None)
-        return {"clientes_sidebar": clientes_sidebar, "cliente_activo_id": activo_id}
+            activo_id = next((c["id"] for c in todos if c["nombre"] == CLIENTE_DEFAULT), None)
+        # Los desactivados no se ofrecen en el selector; si se está mirando uno
+        # (solo lectura, desde la pantalla Anunciantes), aparece marcado.
+        clientes_sidebar = [c for c in todos if c["activo"] or c["id"] == activo_id]
+        actual = next((c for c in todos if c["id"] == activo_id), None)
+        rol = db.scalar(select(Usuario.rol).where(Usuario.id == (request.session.get("user_id") or 0)))
+        return {
+            "clientes_sidebar": clientes_sidebar,
+            "cliente_activo_id": activo_id,
+            "cliente_solo_lectura": bool(actual and not actual["activo"]),
+            "es_admin": rol == RolUsuario.ADMIN,
+        }
     finally:
         next(gen, None)
 

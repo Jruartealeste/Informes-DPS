@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import AuthMiddleware
+from app.cliente_ctx import SoloLecturaMiddleware
 from app.config import settings
 from app.timing import ServerTimingMiddleware
 from app.routers import (
@@ -46,6 +47,8 @@ app.mount(
 # Orden importa: AuthMiddleware necesita request.session, así que
 # SessionMiddleware va montada después (Starlette ejecuta el middleware
 # agregado último primero, "más afuera").
+# Más adentro que AuthMiddleware: solo corre con sesión iniciada.
+app.add_middleware(SoloLecturaMiddleware)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret, same_site="lax")
 # Al final = la más externa: mide también el tiempo de las otras dos.

@@ -56,7 +56,7 @@ os.environ["AUTH_GOOGLE_CLIENT_SECRET"] = "qa-client-secret"
 os.environ["SYNC_TOKEN"] = "qa-local-sync-token-not-real"
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
-from app.models import Cliente, Usuario  # noqa: E402
+from app.models import Cliente, RolUsuario, Usuario  # noqa: E402
 
 if USAR_SQLITE:
     Base.metadata.create_all(engine)
@@ -84,8 +84,9 @@ if db_recien_creada:
     from scripts.seed import main as seed_main  # noqa: E402
 
     seed_main()
+# ADMIN para que el QA cubra también la pantalla Anunciantes (solo ADMIN).
 if not db.query(Usuario).filter_by(email="qa@aleste.ar").first():
-    db.add(Usuario(email="qa@aleste.ar", nombre="QA Visual"))
+    db.add(Usuario(email="qa@aleste.ar", nombre="QA Visual", rol=RolUsuario.ADMIN))
     db.commit()
 db.close()
 

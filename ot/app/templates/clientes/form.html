@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block titulo %}{{ c.nombre if c else 'Nuevo anunciante' }} · Anunciantes · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <a href="/anunciantes" class="ot-header__back">← Anunciantes</a>
+      <h1 class="page-header__title">{{ c.nombre if c else 'Nuevo anunciante' }}</h1>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="{{ '/anunciantes/' ~ c.id if c else '/anunciantes' }}" class="card form-anunciante" id="form-anunciante">
+  <label class="form-anunciante__campo">
+    <span class="card__field-label">Nombre <span class="field__req">*</span></span>
+    <input type="text" name="nombre" id="input-nombre" required maxlength="80" value="{{ c.nombre if c else '' }}"
+           placeholder="Como aparece en el selector (ej. FAA)" autocomplete="off">
+  </label>
+
+  <label class="form-anunciante__campo">
+    <span class="card__field-label">Número inicial de OT interna</span>
+    <input type="number" name="numero_ot_inicial" min="1" step="1" inputmode="numeric"
+           value="{{ c.numero_ot_inicial if c and c.numero_ot_inicial else '' }}" placeholder="ej. 2033">
+    <span class="form-nota">
+      Cada anunciante numera sus OT por su cuenta. La próxima OT es el mayor entre este número y la última ya cargada + 1.
+      {% if proximo_numero %}Hoy la próxima sería la <strong>{{ proximo_numero }}</strong>.{% endif %}
+    </span>
+  </label>
+
+  <div class="form-anunciante__campo">
+    <span class="card__field-label">
+      Anunciantes en Advertys
+      <span class="info-tip">
+        <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+        <span class="info-tip__panel" role="note">
+          Los Anunciantes reales de Advertys que corresponden a este (FATE, por ejemplo, son varios). De acá salen
+          los Productos al generar una OT. Al escribir el nombre se tildan los que coinciden (por palabras o
+          siglas: FAA → FUNDACIÓN AURORA AUSTRAL); revisalos antes de guardar.
+        </span>
+      </span>
+    </span>
+    <input type="text" id="filtro-advertys" class="form-anunciante__filtro" placeholder="Filtrar anunciantes de Advertys…" autocomplete="off">
+    <div class="form-anunciante__lista" id="lista-advertys">
+      {% for a in anunciantes_advertys %}
+      <label class="form-anunciante__opcion"><input type="checkbox" name="anunciantes" value="{{ a }}"{% if a in relacionados %} checked{% endif %}> {{ a }}</label>
+      {% else %}
+      <p class="form-nota">Todavía no hay anunciantes de Advertys sincronizados (correr el push desde informes/).</p>
+      {% endfor %}
+    </div>
+    <span class="form-nota" id="advertys-resumen"></span>
+  </div>
+
+  <div class="form-acciones">
+    <button type="submit" class="btn btn--primary btn--small">{{ 'Guardar cambios' if c else 'Crear anunciante' }}</button>
+    <a href="/anunciantes" class="btn btn--small">Cancelar</a>
+  </div>
+</form>
+
+<script>
+(function () {
+  var checks = Array.prototype.slice.call(document.querySelectorAll('#lista-advertys input[type=checkbox]'));
+  var resumen = document.getElementById('advertys-resumen');
+  var filtro = document.getElementById('filtro-advertys');
+  var nombre = document.getElementById('input-nombre');
+  // Si ya hay relacionados (edición) o la persona tocó la lista, el nombre deja de tildar solo.
+  var tocada = checks.some(function (c) { return c.checked; });
+
+  function pintarResumen() {
+    var n = checks.filter(function (c) { return c.checked; }).length;
+    resumen.textContent = n
+      ? n + ' relacionado' + (n !== 1 ? 's' : '')
+      : 'Ninguno relacionado: no va a tener Productos para generar OT.';
+  }
+  checks.forEach(function (c) {
+    c.addEventListener('change', function () { tocada = true; pintarResumen(); });
+  });
+  filtro.addEventListener('input', function () {
+    var q = filtro.value.trim().toLowerCase();
+    checks.forEach(function (c) {
+      c.closest('label').hidden = !!q && c.value.toLowerCase().indexOf(q) === -1;
+    });
+  });
+
+  var timer;
+  nombre.addEventListener('input', function () {
+    if (tocada) return;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      fetch('/anunciantes/sugeridos?nombre=' + encodeURIComponent(nombre.value))
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (sugeridos) {
+          if (tocada) return;
+          checks.forEach(function (c) { c.checked = sugeridos.indexOf(c.value) !== -1; });
+          pintarResumen();
+        });
+    }, 300);
+  });
+  pintarResumen();
+})();
+</script>
+
+{% endblock %}

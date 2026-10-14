@@ -6,6 +6,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 
+TITULO_OT_MAX = 60
+
 
 class EstadoTarea(str, enum.Enum):
     PARA_INICIAR = "PARA_INICIAR"
@@ -73,6 +75,13 @@ class Cliente(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(80), unique=True)
+    # Desactivado = solo lectura: sale del selector del sidebar y no admite
+    # cambios (ver app/cliente_ctx.py), pero su historial queda consultable.
+    activo: Mapped[bool] = mapped_column(default=True, server_default="true")
+    # Primer número de la secuencia de OT internas de este anunciante; cada
+    # anunciante numera por su cuenta (2026-10-14) y la secuencia sigue desde
+    # el mayor entre esto y la última OT ya cargada.
+    numero_ot_inicial: Mapped[int | None]
 
     ots: Mapped[list["OtInterna"]] = relationship(back_populates="cliente")
     anunciantes: Mapped[list["ClienteAnunciante"]] = relationship(
@@ -115,9 +124,15 @@ class Responsable(Base):
 
 class OtInterna(Base):
     __tablename__ = "ot_interna"
+    # El número se repite entre anunciantes (cada uno tiene su secuencia,
+    # 2026-10-14): es único solo dentro del mismo cliente.
+    __table_args__ = (UniqueConstraint("cliente_id", "numero_interno", name="uq_ot_interna_cliente_numero"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    numero_interno: Mapped[str] = mapped_column(String(20), unique=True)
+    numero_interno: Mapped[str] = mapped_column(String(20))
+    # Título corto para identificarla (obligatorio al crear una nueva desde la
+    # sheet de tarea; las OT anteriores al 2026-10-14 pueden no tenerlo).
+    titulo: Mapped[str | None] = mapped_column(String(TITULO_OT_MAX))
     cliente_id: Mapped[int] = mapped_column(ForeignKey("clientes.id"))
     fecha_apertura: Mapped[date | None] = mapped_column(Date)
     estado: Mapped[EstadoOtInterna] = mapped_column(

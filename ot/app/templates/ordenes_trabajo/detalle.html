@@ -9,6 +9,7 @@
     <span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span>
     <span class="ot-header__antiguedad">{{ ot.apertura_label }}</span>
   </div>
+  {% if ot.titulo %}<p class="ot-header__subtitulo">{{ ot.titulo }}</p>{% endif %}
 </div>
 
 <div class="ot-cards-row">
@@ -24,6 +25,15 @@
         {% if anunciante %}<div class="card__field-sub">Anunciante Advertys: {{ anunciante }}</div>{% endif %}
       </div>
     </div>
+
+    <div class="card__sep"></div>
+
+    <div class="card__eyebrow">Título</div>
+    <form class="ot-sistema__form ot-titulo__form" method="post" action="/ordenes-trabajo/{{ ot.n }}/titulo">
+      <input type="text" name="titulo" value="{{ ot.titulo or '' }}" required maxlength="60"
+             placeholder="Título corto para identificarla (ej. Catálogo en inglés)" aria-label="Título de la OT interna">
+      <button type="submit" class="btn btn--small">{{ 'Guardar título' if ot.titulo else 'Cargar título' }}</button>
+    </form>
 
     <div class="card__sep"></div>
 
