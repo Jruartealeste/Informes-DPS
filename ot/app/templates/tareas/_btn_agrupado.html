@@ -1,0 +1,13 @@
+{# "Agrupar por OT" / "Ver plana". Una sola definición: list.html la incluye
+   tal cual y _controles.html con oob=true tras cada swap de tabla (mismo
+   patrón que _btn_revision.html). En mobile queda solo el ícono. #}
+{% from "_iconos.html" import icono %}
+{% set _lbl = "Ver plana" if agrupado else "Agrupar por OT" %}
+<button type="button" id="btn-agrupado" class="btn btn--icono"
+  {% if oob %}hx-swap-oob="true"{% endif %}
+  aria-label="{{ _lbl }}" title="{{ _lbl }}"
+  hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
+  hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='f_resp']"
+  hx-vals='{"agrupado": "{{ agrupado_next }}", "revision": "{{ 1 if revision else 0 }}"}'>
+  {{ icono("lista" if agrupado else "agrupar") }}<span class="solo-escritorio">{{ _lbl }}</span>
+</button>

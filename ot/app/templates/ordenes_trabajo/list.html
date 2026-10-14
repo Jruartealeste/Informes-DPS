@@ -30,9 +30,9 @@
     <label class="segmented__opt"><input type="radio" name="filtro_asignacion" value="con">Con OT de sistema <strong>{{ total_ots - n_sin_dps }}</strong></label>
   </div>
   <div class="filtros">
-    <button type="button" id="btn-filtros" class="filters__btn" aria-expanded="false" aria-controls="filtros-panel">
+    <button type="button" id="btn-filtros" class="filters__btn" aria-expanded="false" aria-controls="filtros-panel" aria-label="Filtros" title="Filtros">
       <svg class="filters__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h12"/><path d="M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>
-      Filtros
+      <span class="solo-escritorio">Filtros</span>
       <span class="filters__count" id="filtros-count" hidden></span>
     </button>
     <div class="filtros__panel" id="filtros-panel" role="group" aria-label="Filtros de OT internas" hidden>

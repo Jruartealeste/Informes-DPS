@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}Anunciantes · Órdenes de trabajo{% endblock %}
 {% block content %}
+{% from "_iconos.html" import icono %}
 
 <div class="page-header">
   <div class="page-header__row">
@@ -40,13 +41,13 @@
       <div class="cell-mono">{{ f.proximo_numero }}</div>
       <div><span class="badge {{ 'badge--ot-abierta' if f.c.activo else 'badge--ot-cerrada' }}">{{ 'ACTIVO' if f.c.activo else 'DESACTIVADO' }}</span></div>
       <div class="row-anunciante__acciones">
-        <a href="/anunciantes/{{ f.c.id }}" class="btn btn--small">Editar</a>
+        <a href="/anunciantes/{{ f.c.id }}" class="btn btn--small btn--solo-icono" aria-label="Editar {{ f.c.nombre }}" title="Editar">{{ icono("editar") }}</a>
         {% if f.c.activo %}
         <form method="post" action="/anunciantes/{{ f.c.id }}/desactivar" data-confirmar="¿Desactivar {{ f.c.nombre }}? Sale del selector y queda en solo lectura (no se borra nada).">
           <button type="submit" class="btn btn--small">Desactivar</button>
         </form>
         {% else %}
-        <a href="/clientes/{{ f.c.id }}/activar" class="btn btn--small" title="Ver su historial (solo lectura)">Ver</a>
+        <a href="/clientes/{{ f.c.id }}/activar" class="btn btn--small btn--solo-icono" aria-label="Ver {{ f.c.nombre }} (solo lectura)" title="Ver su historial (solo lectura)">{{ icono("ver") }}</a>
         <form method="post" action="/anunciantes/{{ f.c.id }}/reactivar">
           <button type="submit" class="btn btn--small">Reactivar</button>
         </form>

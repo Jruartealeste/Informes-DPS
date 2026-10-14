@@ -82,6 +82,12 @@ modifiques datos salvo lo que el propio flujo de UI escriba.
    y consistencia entre pantallas — no reemplaza tu propio juicio, es
    apoyo. De acá salen las ideas de mejora del veredicto (2-4 concretas,
    priorizadas, nunca una lista genérica de "podría estar mejor").
+6. **Botones a íconos** — qué botones con texto se pueden pasar a ícono
+   (solo, o ícono + texto corto) sin volverse confusos, y cuáles conviene
+   dejar con texto. Criterio, requisitos (aria-label + title, mismo ícono
+   para la misma acción, área de toque) y formato de tabla en
+   `.claude/skills/qa-ot/references/botones-a-iconos.md`. Es propuesta: no
+   se aplica sin OK de Javier.
 
 ## Qué devolver
 
@@ -97,6 +103,8 @@ funcionó bien. No las capturas crudas:
 - **Hallazgos visuales** puntuales (si hay), con la misma info.
 - **Ideas de mejora** (2-4, priorizadas) fundamentadas en el criterio de
   `frontend-design`, no solo gusto.
+- **Botones a íconos**: la tabla de candidatos de `botones-a-iconos.md` (y
+  en una línea los que conviene dejar con texto).
 - Si todo lo que revisaste está bien: decilo así de corto, no inventes
   hallazgos para justificar la pasada.
 

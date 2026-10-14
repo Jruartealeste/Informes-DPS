@@ -1149,11 +1149,12 @@ select.chip-fac {
 .drawer__close {
   flex: none;
   cursor: pointer;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 7px;
   background: transparent;
   border: 1px solid var(--line-strong);
+  color: var(--text);
   display: grid;
   place-items: center;
   font-size: 13px;
@@ -2579,6 +2580,20 @@ select.chip-fac {
   .main {
     overflow-y: auto;
   }
+  /* El panel de tarea y las sheets vivían en position:absolute dentro de
+     .main, que en mobile es el que scrollea: con la lista bajada se abrían
+     fuera de pantalla y se iban al deslizar (QA 2026-10-14). Fijos a la
+     ventana, y con .main quieto mientras haya uno abierto. */
+  .drawer-overlay {
+    position: fixed;
+    z-index: 70;
+  }
+  .drawer__body {
+    overscroll-behavior: contain;
+  }
+  .main:has(.drawer-overlay) {
+    overflow: hidden;
+  }
   .table-scroll {
     flex: none;
     overflow-x: auto;
@@ -2701,12 +2716,12 @@ select.chip-fac {
 }
 
 .table-card--anunciantes {
-  min-width: 860px;
+  min-width: 780px;
 }
 .table-head--anunciantes,
 .row-anunciante {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(220px, 2fr) 90px 90px 110px 230px;
+  grid-template-columns: minmax(140px, 1fr) minmax(220px, 2fr) 90px 90px 110px 150px;
   gap: 10px;
   align-items: center;
 }
@@ -2791,4 +2806,57 @@ select.chip-fac {
 }
 .form-anunciante__opcion[hidden] {
   display: none;
+}
+
+/* ---- Botones con ícono (2026-10-14, criterio en
+   .claude/skills/qa-ot/references/botones-a-iconos.md) ----
+   .btn--icono: ícono + texto; en mobile el texto (.solo-escritorio) se
+   oculta y queda el ícono (el botón ya lleva aria-label y title).
+   .btn--solo-icono: siempre solo ícono, cuadrado. */
+.icono {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.btn--icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.link-btn.btn--icono {
+  gap: 5px;
+}
+.btn--solo-icono {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+.solo-mobile {
+  display: none;
+}
+@media (max-width: 720px) {
+  .solo-escritorio {
+    display: none;
+  }
+  .solo-mobile {
+    display: inline;
+  }
+  .btn--icono {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 6px 12px;
+  }
+  .btn--solo-icono,
+  .drawer__close {
+    width: 44px;
+    height: 44px;
+  }
+  .filters__btn,
+  .filters__revision {
+    min-height: 44px;
+  }
 }

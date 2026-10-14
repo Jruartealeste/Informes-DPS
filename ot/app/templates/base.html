@@ -201,6 +201,15 @@
     document.getElementById('sheet-2-root').innerHTML = '';
   }
 
+  // Escape cierra la capa de arriba (sheet apilada, si no el panel), salvo
+  // que esté abierto un menú o un "?": esos tienen su propio Escape.
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    if (document.querySelector('.combo__menu.is-abierto, .info-tip.is-open')) return;
+    if (document.getElementById('sheet-2-root').children.length) cerrarSheet2(ev);
+    else if (document.getElementById('drawer-root').children.length) cerrarDrawer(ev);
+  });
+
   // gestor de responsables: el icono de lápiz revela/oculta el campo de
   // mail de esa fila nada más (sin ida y vuelta al servidor) — el mail
   // recién se guarda al tipear y salir del campo.

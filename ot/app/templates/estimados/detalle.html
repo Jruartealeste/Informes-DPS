@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}{{ est.titulo }} · Estimados · Órdenes de trabajo{% endblock %}
 {% block content %}
+{% from "_iconos.html" import icono %}
 
 <div class="ot-header">
   <a href="/estimados" class="ot-header__back">← Estimados</a>
@@ -68,7 +69,7 @@
         {% if est.editable %}
         <div>
           <form method="post" action="/estimados/{{ est.id }}/tareas/{{ t.id }}/quitar">
-            <button type="submit" class="link-btn">Quitar</button>
+            <button type="submit" class="link-btn btn--icono" aria-label="Quitar del Estimado" title="Quitar del Estimado">{{ icono("quitar") }}<span class="solo-escritorio">Quitar</span></button>
           </form>
         </div>
         {% endif %}

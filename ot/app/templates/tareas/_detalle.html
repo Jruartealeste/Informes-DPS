@@ -1,3 +1,4 @@
+{% from "_iconos.html" import icono %}
 {% set p = pre if pre is defined else none %}
 <div class="drawer-overlay" onclick="cerrarDrawer(event)">
   <div class="drawer" onclick="event.stopPropagation()">
@@ -14,7 +15,7 @@
           <div class="drawer__title">{{ det.detalle if det else "Sin detalle todavía" }}</div>
         </div>
         <div class="page-header__spacer"></div>
-        <button type="button" class="drawer__close" onclick="cerrarDrawer(event)">✕</button>
+        <button type="button" class="drawer__close" onclick="cerrarDrawer(event)" aria-label="Cerrar" title="Cerrar (Esc)">{{ icono("cerrar") }}</button>
       </div>
 
       <div class="drawer__body">
@@ -160,14 +161,16 @@
 
       <div class="drawer__footer">
         <button type="submit" class="btn btn--primary">Guardar</button>
-        <button type="button" class="btn" onclick="cerrarDrawer(event)">Cancelar</button>
+        {# En mobile no hace falta: repite la ✕ de arriba y empujaba el pie a dos filas. #}
+        <button type="button" class="btn solo-escritorio" onclick="cerrarDrawer(event)">Cancelar</button>
         <div class="drawer__footer-spacer"></div>
         {% if det %}
         {% set hay_responsables = det.responsables_con_mail | length > 0 %}
-        <button type="button" class="btn"
-                {% if not hay_responsables %}disabled title="Asigná un responsable primero"{% endif %}
+        <button type="button" class="btn btn--icono" aria-label="Enviar mail"
+                title="{{ 'Enviar mail' if hay_responsables else 'Enviar mail: asigná un responsable primero' }}"
+                {% if not hay_responsables %}disabled{% endif %}
                 hx-get="/tareas/{{ det.id }}/mail" hx-target="#sheet-2-root" hx-swap="innerHTML">
-          Enviar mail
+          {{ icono("mail") }}<span class="solo-escritorio">Enviar mail</span>
         </button>
         <button type="button" class="btn btn--peligro"
                 {% if not det.puede_anular %}disabled title="{{ det.motivo_no_anulable }}"{% endif %}
@@ -175,8 +178,10 @@
                 hx-confirm="{{ det.advertencia_anular }}">
           Anular
         </button>
-        <button type="button" class="link-btn"
-                hx-get="/tareas/{{ det.id }}/duplicar" hx-target="#sheet-2-root" hx-swap="innerHTML">Duplicar</button>
+        <button type="button" class="btn btn--icono" aria-label="Duplicar tarea" title="Duplicar tarea"
+                hx-get="/tareas/{{ det.id }}/duplicar" hx-target="#sheet-2-root" hx-swap="innerHTML">
+          {{ icono("duplicar") }}<span class="solo-escritorio">Duplicar</span>
+        </button>
         {% endif %}
       </div>
     </form>

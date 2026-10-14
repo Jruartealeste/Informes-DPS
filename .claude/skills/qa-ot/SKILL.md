@@ -57,9 +57,12 @@ acá.
    **Después de cada flujo que escribe, consultar la base**:
    `docker exec ot-qa-pg psql -U postgres -d ot_qa -tAc "..."`.
 5. Regresión: probar cada punto de `references/hallazgos-conocidos.md`.
+   Diseño: en las pantallas recorridas, listar qué botones con texto se
+   pueden pasar a ícono sin volverse confusos (y cuáles dejar con texto),
+   con el criterio de `references/botones-a-iconos.md`. Solo propuesta.
 6. Informe: escribir `.claude/qa-informes/INFORME-QA-OT-AAAA-MM-DD.md`
    (Entorno y alcance — incluyendo **qué no se probó** —, Altos, Medios, Bajos,
-   Lo que funcionó bien) y actualizar `hallazgos-conocidos.md`.
+   Botones a íconos, Lo que funcionó bien) y actualizar `hallazgos-conocidos.md`.
 7. Si algo rompe: reportar y proponer; el fix se discute en la conversación
    principal. Para ideas de diseño, cargar `frontend-design` antes de opinar.
 

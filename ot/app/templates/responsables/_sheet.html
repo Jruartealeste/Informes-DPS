@@ -1,3 +1,4 @@
+{% from "_iconos.html" import icono %}
 <div class="drawer-overlay" onclick="cerrarSheet2(event)">
   <div class="drawer" onclick="event.stopPropagation()">
     <div class="drawer__header">
@@ -6,7 +7,7 @@
         <div class="drawer__title">Responsables</div>
       </div>
       <div class="page-header__spacer"></div>
-      <button type="button" class="drawer__close" onclick="cerrarSheet2(event)">✕</button>
+      <button type="button" class="drawer__close" onclick="cerrarSheet2(event)" aria-label="Cerrar" title="Cerrar (Esc)">{{ icono("cerrar") }}</button>
     </div>
     <div class="drawer__body">
       {% include "responsables/_panel.html" %}
