@@ -220,3 +220,13 @@ def test_listado_muestra_solo_las_ot_del_cliente_del_sidebar(client, db_session)
         client.cookies.delete("cliente_id")
     assert 'value="920"' in html and 'value="810"' not in html
     assert "FAA · 1 OT interna" in html
+
+
+def test_listado_tiene_filtro_rapido_sin_y_con_ot_de_sistema(client, db_session):
+    a, _ = _dos_ots(db_session)
+    a.numero_ot_advertys = "300"
+    db_session.commit()
+    html = client.get("/ordenes-trabajo").text
+    assert 'value="sin" checked>Sin OT de sistema <strong>1</strong>' in html
+    assert 'value="con">Con OT de sistema <strong>1</strong>' in html
+    assert 'id="btn-tildar-todas"' not in html and 'id="btn-limpiar-seleccion"' not in html

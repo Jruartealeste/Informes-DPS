@@ -6,7 +6,7 @@
   <div class="page-header__row">
     <div>
       <div class="page-header__kicker">
-        {{ cliente.nombre if cliente else 'Sin cliente' }} · {{ ots | length if sin_dps else total_ots }} OT interna{{ 's' if (ots | length if sin_dps else total_ots) != 1 }}{{ ' sin OT de sistema' if sin_dps }}
+        {{ cliente.nombre if cliente else 'Sin cliente' }} · {{ total_ots }} OT interna{{ 's' if total_ots != 1 }}
       </div>
       <h1 class="page-header__title">OT internas</h1>
     </div>
@@ -14,9 +14,6 @@
     <div class="page-header__actions">
       <a href="/ordenes-trabajo/solicitudes" class="filters__revision{{ ' has-items' if n_solicitudes_pendientes else ' is-empty' }}">
         Solicitudes de alta{% if n_solicitudes_pendientes %} <strong>{{ n_solicitudes_pendientes }}</strong>{% endif %}
-      </a>
-      <a href="/ordenes-trabajo{{ '' if sin_dps else '?sin_dps=1' }}" class="filters__revision{{ ' has-items' if n_sin_dps else ' is-empty' }}{{ ' is-active' if sin_dps }}" aria-pressed="{{ 'true' if sin_dps else 'false' }}">
-        Sin OT de sistema <strong>{{ n_sin_dps }}</strong>
       </a>
     </div>
   </div>
@@ -27,6 +24,10 @@
   <div class="filters__search">
     <svg class="filters__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input type="text" id="filtro-q" placeholder="Buscar por número de OT interna o de sistema…" aria-label="Buscar OT internas" autocomplete="off">
+  </div>
+  <div class="segmented segmented--rapido" id="filtro-asignacion" role="radiogroup" aria-label="OT de sistema">
+    <label class="segmented__opt is-active"><input type="radio" name="filtro_asignacion" value="sin" checked>Sin OT de sistema <strong>{{ n_sin_dps }}</strong></label>
+    <label class="segmented__opt"><input type="radio" name="filtro_asignacion" value="con">Con OT de sistema <strong>{{ total_ots - n_sin_dps }}</strong></label>
   </div>
   <div class="filtros">
     <button type="button" id="btn-filtros" class="filters__btn" aria-expanded="false" aria-controls="filtros-panel">
@@ -47,7 +48,6 @@
         <span class="filtros__label">OT de sistema</span>
         <select id="filtro-dps">
           <option value="">Todas las OT de sistema</option>
-          <option value="__sin">Sin OT de sistema</option>
           {% for d in dps_existentes %}<option value="{{ d.valor }}">OT de sistema {{ d.valor }}</option>{% endfor %}
         </select>
       </label>
@@ -149,8 +149,6 @@
     <div class="form-error" id="form-error-lote"></div>
     <div class="form-acciones">
       <button type="submit" id="btn-submit-lote" class="btn btn--primary btn--small">Asignar OT de sistema</button>
-      <button type="button" id="btn-limpiar-seleccion" class="btn btn--small">Ninguna</button>
-      <button type="button" id="btn-tildar-todas" class="btn btn--small">Todas</button>
       <span id="seleccion-count" class="form-nota" style="display:inline;margin:0 0 0 8px"></span>
     </div>
   </form>
@@ -252,21 +250,24 @@
     filasVisibles().forEach(function (r) { r.querySelector('.chk-ot').checked = ev.target.checked; });
     actualizarContador();
   });
-  document.getElementById('btn-tildar-todas').addEventListener('click', function () {
-    filasVisibles().forEach(function (r) { r.querySelector('.chk-ot').checked = true; });
-    actualizarContador();
-  });
-  document.getElementById('btn-limpiar-seleccion').addEventListener('click', function () {
-    Array.prototype.forEach.call(document.querySelectorAll('.chk-ot'), function (c) { c.checked = false; });
-    actualizarContador();
-  });
-
   // ---- Buscador y filtros (en el cliente: la lista ya viene completa) ----
   var btnFiltros = document.getElementById('btn-filtros');
   var panelFiltros = document.getElementById('filtros-panel');
   var fq = document.getElementById('filtro-q');
   var fEstado = document.getElementById('filtro-estado');
   var fDps = document.getElementById('filtro-dps');
+  // Filtro rápido: por defecto se ven las OT internas sin OT de sistema (las que
+  // hay que resolver); "Con" muestra las ya asignadas.
+  function asignacion() { return document.querySelector('input[name="filtro_asignacion"]:checked').value; }
+  function pintarAsignacion() {
+    Array.prototype.forEach.call(document.querySelectorAll('#filtro-asignacion .segmented__opt'), function (opt) {
+      opt.classList.toggle('is-active', opt.querySelector('input').checked);
+    });
+  }
+  function fijarAsignacion(valor) {
+    document.querySelector('input[name="filtro_asignacion"][value="' + valor + '"]').checked = true;
+    pintarAsignacion();
+  }
   var fFac = document.getElementById('filtro-fac');
 
   function abrirPanel(v) {
@@ -282,7 +283,8 @@
       var d = r.dataset, total = +d.total, fact = +d.fact, ok = true;
       if (q && r.textContent.toLowerCase().indexOf(q) === -1) ok = false;
       if (fEstado.value && d.estado !== fEstado.value) ok = false;
-      if (fDps.value === '__sin' ? d.dps !== '' : (fDps.value && d.dps !== fDps.value)) ok = false;
+      if (asignacion() === 'sin' ? d.dps !== '' : d.dps === '') ok = false;
+      if (fDps.value && d.dps !== fDps.value) ok = false;
       if (fFac.value === 'pendiente' && !(total > fact)) ok = false;
       if (fFac.value === 'completa' && !(total > 0 && fact === total)) ok = false;
       r.hidden = !ok;
@@ -304,6 +306,7 @@
 
   function limpiarFiltros() {
     fq.value = ''; fEstado.value = ''; fDps.value = ''; fFac.value = '';
+    fijarAsignacion('sin');
     aplicarFiltros();
   }
 
@@ -315,7 +318,19 @@
     if (e.key === 'Escape' && !panelFiltros.hidden) { abrirPanel(false); btnFiltros.focus(); }
   });
   fq.addEventListener('input', aplicarFiltros);
-  [fEstado, fDps, fFac].forEach(function (c) { c.addEventListener('change', aplicarFiltros); });
+  [fEstado, fFac].forEach(function (c) { c.addEventListener('change', aplicarFiltros); });
+  // Elegir una OT de sistema puntual implica ver las asignadas.
+  fDps.addEventListener('change', function () {
+    if (fDps.value) fijarAsignacion('con');
+    aplicarFiltros();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="filtro_asignacion"]'), function (r) {
+    r.addEventListener('change', function () {
+      if (asignacion() === 'sin') fDps.value = '';
+      pintarAsignacion();
+      aplicarFiltros();
+    });
+  });
   document.getElementById('filtros-clear').addEventListener('click', limpiarFiltros);
   document.getElementById('filtros-reset').addEventListener('click', limpiarFiltros);
 

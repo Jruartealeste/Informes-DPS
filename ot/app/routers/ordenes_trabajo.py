@@ -77,7 +77,7 @@ def _dps_existentes(db: Session, cliente_id: int | None = None) -> list[dict]:
 
 
 @router_paginas.get("/ordenes-trabajo")
-def listado_ordenes_trabajo(request: Request, sin_dps: bool = False, db: Session = Depends(get_db)):
+def listado_ordenes_trabajo(request: Request, db: Session = Depends(get_db)):
     # Solo las OT internas del cliente del sidebar: el panel de alta en lote
     # (Producto, Anunciante) depende de ese cliente.
     cliente = cliente_activo(request, db)
@@ -97,8 +97,6 @@ def listado_ordenes_trabajo(request: Request, sin_dps: bool = False, db: Session
         )
         or 0
     )
-    if sin_dps:
-        stmt = stmt.where(OtInterna.numero_ot_advertys.is_(None))
     ots = list(db.scalars(stmt).unique())
     n_solicitudes_pendientes = (
         db.scalar(
@@ -115,7 +113,6 @@ def listado_ordenes_trabajo(request: Request, sin_dps: bool = False, db: Session
             "ots": [ot_interna_vm(ot) for ot in ots],
             "total_ots": total_ots,
             "n_sin_dps": n_sin_dps,
-            "sin_dps": sin_dps,
             "n_solicitudes_pendientes": n_solicitudes_pendientes,
             "total_tareas": _total_tareas(db),
             "dps_existentes": _dps_existentes(db, cliente.id if cliente else None),

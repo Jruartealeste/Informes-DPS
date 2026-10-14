@@ -1870,6 +1870,35 @@ select.chip-fac {
   color: var(--accent-text);
   font-weight: 600;
 }
+/* Filtro rápido de la barra de filtros (OT internas: sin / con OT de sistema):
+   misma altura que el botón Filtros y siempre horizontal, también en mobile. */
+.segmented--rapido {
+  margin-bottom: 0;
+  flex: none;
+}
+.segmented--rapido .segmented__opt {
+  gap: 6px;
+  font-size: 13px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.segmented--rapido .segmented__opt strong {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+@media (max-width: 560px) {
+  .segmented--rapido {
+    flex-direction: row;
+  }
+  .segmented--rapido .segmented__opt {
+    flex: 1;
+    border-bottom: none;
+    border-right: 1px solid var(--line-strong);
+  }
+  .segmented--rapido .segmented__opt:last-child {
+    border-right: none;
+  }
+}
 
 .info-tip {
   position: relative;
