@@ -10,7 +10,7 @@
       <div class="drawer__header">
         <div style="min-width:0">
           <div class="drawer__kicker">
-            {% if det %}Tarea · fila {{ det.fila_sheet_original or "s/d" }} del Sheet{% elif p %}Tarea nueva · duplicada de «{{ p.origen }}»{% else %}Tarea nueva{% endif %}
+            {% if det %}Tarea · fila {{ det.fila_sheet_original or "s/d" }} del Sheet{% elif p and p.origen %}Tarea nueva · duplicada de «{{ p.origen }}»{% else %}Tarea nueva{% endif %}
           </div>
           <div class="drawer__title">{{ det.detalle if det else "Sin detalle todavía" }}</div>
         </div>

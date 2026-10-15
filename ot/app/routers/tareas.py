@@ -545,14 +545,25 @@ def actualizar_facturacion(
 
 @router.get("/tareas-nuevo")
 def form_nueva_tarea(request: Request, db: Session = Depends(get_db)):
+    from app.routers.ordenes_trabajo import es_primera_ot, siguiente_numero_interno
+
+    cliente = cliente_activo(request, db)
+    # Anunciante sin OT internas: no hay nada que buscar, así que el panel abre
+    # directo con la OT nueva (y el aviso de que se elige el número de partida)
+    # en vez de esperar a que toquen "+ Nueva".
+    pre = None
+    if es_primera_ot(db, cliente):
+        n = siguiente_numero_interno(db, cliente)
+        pre = {"ot_numero": n, "ot_generada": n, "ot_primera": True}
     return templates.TemplateResponse(
         request,
         "tareas/_detalle.html",
         {
             "det": None,
+            "pre": pre,
             "estados": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
             "facturaciones": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
-            **ot_catalogo_ctx(db, cliente_activo(request, db).id),
+            **ot_catalogo_ctx(db, cliente.id),
             **combo_ctx(db, set()),
             **tipos_combo_ctx(set()),
         },

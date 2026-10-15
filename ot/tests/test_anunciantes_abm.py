@@ -51,6 +51,20 @@ def test_primera_ot_del_anunciante_elige_numero_de_partida(client, db_session):
     assert 'value="501"' in html and "Primera OT de este anunciante" not in html
 
 
+def test_panel_nueva_tarea_abre_con_la_primera_ot_sugerida(client, db_session):
+    faa = _cliente(db_session, "FAA", numero_ot_inicial=2033)
+    _usar(client, faa)
+
+    html = client.get("/tareas-nuevo").text
+    assert 'value="2033"' in html and "Primera OT de este anunciante" in html
+    assert "duplicada de" not in html
+    aluar = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
+    db_session.add(OtInterna(numero_interno="4120", cliente_id=aluar.id))
+    db_session.commit()
+    client.cookies.delete("cliente_id")  # ALUAR ya tiene OT: panel vacío como siempre
+    assert "Primera OT de este anunciante" not in client.get("/tareas-nuevo").text
+
+
 def test_el_mismo_numero_en_otro_anunciante_es_otra_ot_con_aviso(client, db_session):
     aluar = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
     db_session.add(OtInterna(numero_interno="2033", cliente_id=aluar.id, titulo="De ALUAR"))
