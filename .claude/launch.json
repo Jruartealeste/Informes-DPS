@@ -23,6 +23,17 @@
         "ot"
       ],
       "port": 8000
+    },
+    {
+      "name": "ot-qa-manual",
+      "runtimeExecutable": "ot/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "ot/tools/qa_server.py",
+        "--sqlite",
+        "--reset",
+        "--port=8125"
+      ],
+      "port": 8125
     }
   ]
 }

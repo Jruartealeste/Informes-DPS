@@ -37,6 +37,20 @@ def test_cada_anunciante_numera_por_su_cuenta(client, db_session):
     assert 'value="2034"' in client.get("/api/ordenes-trabajo/nuevo-numero").text
 
 
+def test_primera_ot_del_anunciante_elige_numero_de_partida(client, db_session):
+    faa = _cliente(db_session, "FAA")
+    _usar(client, faa)
+
+    html = client.get("/api/ordenes-trabajo/nuevo-numero").text
+    assert 'value="1"' in html and "Primera OT de este anunciante" in html and "data-ot-primera" in html
+    assert client.post("/tareas", data=_tarea(db_session, "500")).status_code == 200
+    db_session.refresh(faa)
+    assert faa.numero_ot_inicial == 500
+
+    html = client.get("/api/ordenes-trabajo/nuevo-numero").text
+    assert 'value="501"' in html and "Primera OT de este anunciante" not in html
+
+
 def test_el_mismo_numero_en_otro_anunciante_es_otra_ot_con_aviso(client, db_session):
     aluar = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
     db_session.add(OtInterna(numero_interno="2033", cliente_id=aluar.id, titulo="De ALUAR"))

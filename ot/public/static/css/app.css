@@ -1395,7 +1395,8 @@ select.chip-fac {
   white-space: nowrap;
   color: var(--text);
 }
-.field .field-ot__titulo-input {
+.field .field-ot__titulo-input,
+.field-ot .field-hint {
   flex: 1 1 100%;
 }
 

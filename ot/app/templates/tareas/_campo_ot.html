@@ -32,7 +32,10 @@
   {% if ot_generada %}
   {# OT nueva: el título es obligatorio (TITULO_OT_MAX en models.py). Si se
      cambia el número por uno existente, base.html lo oculta y lo desactiva. #}
-  <input type="text" name="ot_titulo" class="field-ot__titulo-input" data-ot-generada="{{ ot_generada }}"
+  {% if ot_primera %}
+  <div class="field-hint">Primera OT de este anunciante: podés cambiar el número y la numeración sigue desde ahí.</div>
+  {% endif %}
+  <input type="text" name="ot_titulo" class="field-ot__titulo-input" data-ot-generada="{{ ot_generada }}"{% if ot_primera %} data-ot-primera{% endif %}
          required maxlength="60" autocomplete="off" value="{{ ot_titulo or '' }}"
          placeholder="Título de la OT nueva (ej. Catálogo en inglés)" aria-label="Título de la OT interna nueva">
   {% endif %}

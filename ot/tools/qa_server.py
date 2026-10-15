@@ -33,7 +33,10 @@ from urllib.parse import urlparse
 OT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(__file__).resolve().parent / ".qa_data"
 DATA_DIR.mkdir(exist_ok=True)
-DB_PATH = DATA_DIR / "qa_ot.db"
+# --port=N para correr un segundo server de QA al lado de otro ya levantado
+# en 8123; usa su propio sqlite para no pisarle los datos.
+PORT = next((int(a.split("=", 1)[1]) for a in sys.argv if a.startswith("--port=")), 8123)
+DB_PATH = DATA_DIR / ("qa_ot.db" if PORT == 8123 else f"qa_ot_{PORT}.db")
 PG_URL = "postgresql+psycopg://postgres:qa_local_only@127.0.0.1:54329/ot_qa"
 
 USAR_SQLITE = "--sqlite" in sys.argv
@@ -119,4 +122,4 @@ def qa_login(request: Request):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8123)
+    uvicorn.run(app, host="127.0.0.1", port=PORT)

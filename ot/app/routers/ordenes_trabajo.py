@@ -39,6 +39,13 @@ def siguiente_numero_interno(db: Session, cliente: Cliente) -> str:
     return str(max((maximo or 0) + 1, cliente.numero_ot_inicial or 1))
 
 
+def es_primera_ot(db: Session, cliente: Cliente) -> bool:
+    """El anunciante todavía no tiene ninguna OT interna: la primera puede
+    llevar el número que se quiera, y ese fija el arranque de la secuencia
+    (ver _resolver_ot_interna en app/routers/tareas.py)."""
+    return db.scalar(select(OtInterna.id).where(OtInterna.cliente_id == cliente.id).limit(1)) is None
+
+
 @router.get("/nuevo-numero")
 def nuevo_numero(request: Request, db: Session = Depends(get_db)):
     cliente = cliente_activo(request, db)
@@ -51,7 +58,9 @@ def nuevo_numero(request: Request, db: Session = Depends(get_db)):
         )
     )
     return templates.TemplateResponse(
-        request, "tareas/_campo_ot.html", {"ot_numero": n, "ot_generada": n, "ot_repetido_en": repetido_en}
+        request,
+        "tareas/_campo_ot.html",
+        {"ot_numero": n, "ot_generada": n, "ot_primera": es_primera_ot(db, cliente), "ot_repetido_en": repetido_en},
     )
 
 

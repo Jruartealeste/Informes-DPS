@@ -274,13 +274,17 @@
 
     // El título solo se pide para la OT nueva de "+ Nueva": si se cambia el
     // número por otro (una OT existente), se oculta y no viaja ni bloquea.
+    // Excepción: en la primera OT del anunciante (data-ot-primera) cualquier
+    // número entero es una OT nueva, porque ahí se elige el de partida.
     function sincronizarTituloOt(input) {
       var campo = input.closest('.field-ot');
       if (!campo) return;
       avisarNumeroRepetido(campo, input.value.trim());
       var titulo = campo.querySelector('.field-ot__titulo-input');
       if (!titulo) return;
-      var esNueva = input.value.trim() === titulo.getAttribute('data-ot-generada');
+      var valor = input.value.trim();
+      var esNueva = valor === titulo.getAttribute('data-ot-generada') ||
+        (titulo.hasAttribute('data-ot-primera') && /^[0-9]+$/.test(valor));
       titulo.hidden = !esNueva;
       titulo.disabled = !esNueva;
     }

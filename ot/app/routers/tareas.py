@@ -11,6 +11,7 @@ from app.db import get_db
 from app.labels import ESTADO_LABELS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import (
     TITULO_OT_MAX,
+    Cliente,
     EstadoFacturacion,
     EstadoTarea,
     OtInterna,
@@ -229,12 +230,13 @@ def duplicar_sheet(tarea_id: int, request: Request, db: Session = Depends(get_db
 def duplicar_form(tarea_id: int, request: Request, ot: str = "misma", db: Session = Depends(get_db)):
     """Form de tarea nueva con los datos de la original precargados. No guarda
     nada: la fecha de pedido, el estado y la facturación arrancan de cero."""
-    from app.routers.ordenes_trabajo import siguiente_numero_interno
+    from app.routers.ordenes_trabajo import es_primera_ot, siguiente_numero_interno
 
     t = cargar_tarea_con_relaciones(db, tarea_id)
     det = tarea_vm(t)
     cliente = t.ot_interna.cliente if t.ot_interna else cliente_activo(request, db)
     ot_numero = siguiente_numero_interno(db, cliente) if ot == "nueva" else det["ot_numero_form"]
+    ot_primera = ot == "nueva" and es_primera_ot(db, cliente)
     html = templates.env.get_template("tareas/_detalle.html").render(
         {
             "det": None,
@@ -244,6 +246,7 @@ def duplicar_form(tarea_id: int, request: Request, ot: str = "misma", db: Sessio
                 # Número reservado solo "de palabra": se reasigna al guardar si
                 # mientras tanto otra tarea se lo llevó (ver crear_tarea).
                 "ot_generada": ot_numero if ot == "nueva" else "",
+                "ot_primera": ot_primera,
                 "detalle": t.detalle,
                 "pedido_por": t.pedido_por or "",
                 "link_drive": t.link_drive or "",
@@ -297,6 +300,10 @@ def _resolver_ot_interna(
         raise HTTPException(422, f"La OT interna {numero} es nueva: falta el título.")
     if len(titulo) > TITULO_OT_MAX:
         raise HTTPException(422, f"El título de la OT puede tener hasta {TITULO_OT_MAX} caracteres.")
+    # Primera OT del anunciante: el número elegido fija dónde arranca su
+    # secuencia (siguiente_numero_interno sigue desde acá).
+    if numero.isdigit() and not db.scalar(select(OtInterna.id).where(OtInterna.cliente_id == cliente_id).limit(1)):
+        db.get(Cliente, cliente_id).numero_ot_inicial = int(numero)
     nueva = OtInterna(
         numero_interno=numero,
         titulo=titulo,
