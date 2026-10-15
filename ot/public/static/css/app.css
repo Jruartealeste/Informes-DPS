@@ -729,6 +729,33 @@ button {
 .filters__revision strong {
   font-weight: 600;
 }
+/* Vencidas: rojo si hay alguna vencida (ámbar de .has-items si solo hay por vencer) */
+.filters__vencidas.has-vencidas {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+.filters__vencidas.is-active {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+.filters__sub {
+  font-size: 11px;
+  opacity: 0.85;
+}
+.cell-vence.is-vencida {
+  justify-self: start;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  font-weight: 600;
+}
+.cell-vence.is-por_vencer {
+  color: var(--warn-text);
+  font-weight: 600;
+}
 .filters .filters__revision strong {
   font-family: var(--mono);
 }
@@ -773,10 +800,10 @@ button {
   border-radius: 9px;
 }
 .table-card--agrupada {
-  min-width: 1040px;
+  min-width: 1096px;
 }
 .table-card--plana {
-  min-width: 1160px;
+  min-width: 1216px;
 }
 
 .table-head {
@@ -795,10 +822,10 @@ button {
   z-index: 2;
 }
 .table-head--agrupada {
-  grid-template-columns: 26px 56px 120px minmax(200px, 1fr) 74px 112px 40px 52px 112px 124px;
+  grid-template-columns: 26px 56px 56px 120px minmax(200px, 1fr) 74px 112px 40px 52px 112px 124px;
 }
 .table-head--plana {
-  grid-template-columns: 56px 76px 72px 120px minmax(190px, 1fr) 74px 112px 40px 52px 112px 124px;
+  grid-template-columns: 56px 56px 76px 72px 120px minmax(190px, 1fr) 74px 112px 40px 52px 112px 124px;
 }
 
 .group {
@@ -925,7 +952,7 @@ button {
 
 .row-tarea {
   display: grid;
-  grid-template-columns: 26px 56px 120px minmax(200px, 1fr) 74px 112px 40px 52px 112px 124px;
+  grid-template-columns: 26px 56px 56px 120px minmax(200px, 1fr) 74px 112px 40px 52px 112px 124px;
   gap: 10px;
   align-items: center;
   font-size: 13px;
@@ -944,7 +971,7 @@ button {
 }
 
 .row-tarea--plana {
-  grid-template-columns: 56px 76px 72px 120px minmax(190px, 1fr) 74px 112px 40px 52px 112px 124px;
+  grid-template-columns: 56px 56px 76px 72px 120px minmax(190px, 1fr) 74px 112px 40px 52px 112px 124px;
   border-top: none;
   border-bottom: 1px solid var(--line-soft);
 }
@@ -1189,6 +1216,46 @@ select.chip-fac {
   border: 1px solid var(--line-strong);
   border-radius: 7px;
   padding: 8px 12px;
+}
+.field-fecha {
+  position: relative;
+}
+.field .field-fecha input[type="text"] {
+  padding-right: 36px;
+  font-variant-numeric: tabular-nums;
+}
+.field-fecha__btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.field-fecha__btn:hover {
+  color: var(--text);
+}
+.field-fecha__btn svg {
+  width: 15px;
+  height: 15px;
+}
+/* calendario nativo invisible: solo se usa su showPicker() */
+.field .field-fecha__nativo {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 .field input[type="text"][readonly] {
   background-color: var(--bg);
@@ -1561,6 +1628,11 @@ select.chip-fac {
   display: block;
 }
 
+.field__opt {
+  font-size: 11px;
+  color: var(--faint);
+  font-weight: 400;
+}
 .field__req {
   color: var(--warn-text);
 }
@@ -2694,7 +2766,8 @@ select.chip-fac {
   flex: 1 1 100%;
   margin-top: 0;
 }
-.field-ot__aviso[hidden] {
+.field-ot__aviso[hidden],
+.field-fecha__aviso[hidden] {
   display: none;
 }
 

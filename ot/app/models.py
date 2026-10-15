@@ -298,6 +298,9 @@ class Tarea(Base):
     ot_ambigua: Mapped[str | None] = mapped_column(String(60))
     estimado_id: Mapped[int | None] = mapped_column(ForeignKey("estimados.id"))
     fecha_pedido: Mapped[date | None] = mapped_column(Date)
+    # Opcional, para seguimiento: la tabla de Tareas marca las vencidas y las
+    # que vencen pronto (ver viewmodels.estado_vencimiento).
+    fecha_vencimiento: Mapped[date | None] = mapped_column(Date)
     detalle: Mapped[str] = mapped_column(Text)
     pedido_por: Mapped[str | None] = mapped_column(String(80))
     link_drive: Mapped[str | None] = mapped_column(String(300))

@@ -35,6 +35,19 @@ def test_crear_tarea_nueva_ot(client, db_session):
     assert sorted(r.responsable.nombre for r in tarea.responsables) == ["fer", "juli"]
 
 
+def test_fecha_de_pedido_en_formato_argentino(client, db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+    datos = {"ot_numero": "4201", "ot_titulo": "Fecha", "detalle": "Fecha dd/mm", "tipos": "diseño",
+             "responsable_ids": str(fer.id)}
+
+    assert client.post("/tareas", data={**datos, "fecha_pedido": "31/02/2026"}).status_code == 422
+    r = client.post("/tareas", data={**datos, "fecha_pedido": "5/10/2026"})
+    assert r.status_code == 200
+    tarea = db_session.query(Tarea).filter_by(detalle="Fecha dd/mm").one()
+    assert tarea.fecha_pedido.isoformat() == "2026-10-05"
+    assert 'value="05/10/2026"' in client.get(f"/tareas/{tarea.id}").text
+
+
 def test_tarea_con_ot_ambigua_no_crea_ot_interna(client, db_session):
     fer = db_session.query(Responsable).filter_by(nombre="fer").one()
 
@@ -296,7 +309,7 @@ def test_duplicar_form_misma_ot_precarga_sin_fecha(client, db_session):
     assert r.status_code == 200
     assert 'hx-post="/tareas"' in r.text
     assert 'value="4400"' in r.text and "Original a duplicar" in r.text and 'value="marina"' in r.text
-    assert 'name="fecha_pedido" required value=""' in r.text
+    assert re.search(r'name="fecha_pedido"[^>]*value=""', r.text)
     assert db_session.query(Tarea).count() == 1
 
 
@@ -440,3 +453,64 @@ def test_titulo_de_ot_se_edita_desde_el_detalle_y_se_ve_en_el_listado(client, db
     assert r.status_code == 303
     html = client.get("/ordenes-trabajo").text
     assert "Folleto institucional" in html and 'data-titulo="Folleto institucional"' in html
+
+
+def test_fecha_de_vencimiento_opcional(client, db_session):
+    fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+    datos = {"ot_numero": "4202", "ot_titulo": "Vence", "detalle": "Con vencimiento", "tipos": "diseño",
+             "responsable_ids": str(fer.id), "fecha_pedido": "01/10/2026"}
+
+    assert client.post("/tareas", data={**datos, "fecha_vencimiento": "40/10/2026"}).status_code == 422
+    assert client.post("/tareas", data={**datos, "fecha_vencimiento": "20/10/2026"}).status_code == 200
+    tarea = db_session.query(Tarea).filter_by(detalle="Con vencimiento").one()
+    assert tarea.fecha_vencimiento.isoformat() == "2026-10-20"
+    assert 'value="20/10/2026"' in client.get(f"/tareas/{tarea.id}").text
+
+    sin = {**datos, "detalle": "Sin vencimiento", "ot_numero": "4203"}
+    assert client.post("/tareas", data=sin).status_code == 200
+    assert db_session.query(Tarea).filter_by(detalle="Sin vencimiento").one().fecha_vencimiento is None
+
+
+def test_estado_vencimiento():
+    import datetime as dt
+
+    from app.viewmodels import estado_vencimiento
+
+    hoy = dt.date(2026, 10, 15)
+    t = Tarea(detalle="x", estado_tarea=EstadoTarea.EN_PROCESO)
+    assert estado_vencimiento(t, hoy) is None
+    t.fecha_vencimiento = dt.date(2026, 10, 14)
+    assert estado_vencimiento(t, hoy) == "vencida"
+    t.fecha_vencimiento = hoy
+    assert estado_vencimiento(t, hoy) == "por_vencer"
+    t.fecha_vencimiento = dt.date(2026, 10, 18)
+    assert estado_vencimiento(t, hoy) == "por_vencer"
+    t.fecha_vencimiento = dt.date(2026, 10, 19)
+    assert estado_vencimiento(t, hoy) is None
+    t.fecha_vencimiento = dt.date(2026, 10, 1)
+    for cerrada in (EstadoTarea.FINALIZADO, EstadoTarea.APROBADO, EstadoTarea.ANULADA):
+        t.estado_tarea = cerrada
+        assert estado_vencimiento(t, hoy) is None
+
+
+def test_filtro_vencidas(client, db_session):
+    import datetime as dt
+
+    from app.viewmodels import hoy_ar
+
+    aluar = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
+    ot = OtInterna(numero_interno="4300", cliente_id=aluar.id, titulo="Vencimientos")
+    db_session.add(ot)
+    db_session.flush()
+    hoy = hoy_ar()
+    for detalle, vence in [("Ya vencida", hoy - dt.timedelta(days=2)), ("Vence mañana", hoy + dt.timedelta(days=1)),
+                           ("Vence lejos", hoy + dt.timedelta(days=30)), ("Sin fecha", None)]:
+        db_session.add(Tarea(ot_interna_id=ot.id, detalle=detalle, fecha_pedido=hoy, fecha_vencimiento=vence,
+                             estado_tarea=EstadoTarea.EN_PROCESO))
+    db_session.commit()
+
+    html = client.get("/tareas").text
+    assert 'aria-label="Vencidas: 1, por vencer: 1"' in html and "is-vencida" in html and "is-por_vencer" in html
+    html = client.get("/tareas/partial?vencidas=1").text
+    assert "Ya vencida" in html and "Vence mañana" in html
+    assert "Vence lejos" not in html and "Sin fecha" not in html

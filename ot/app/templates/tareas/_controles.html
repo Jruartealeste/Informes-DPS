@@ -7,4 +7,6 @@
 <input type="hidden" id="input-agrupado" name="agrupado" hx-swap-oob="true" value="{{ '1' if agrupado else '0' }}">
 {% with oob=true %}{% include "tareas/_btn_revision.html" %}{% endwith %}
 <input type="hidden" id="input-revision" name="revision" hx-swap-oob="true" value="{{ '1' if revision else '0' }}">
+{% with oob=true %}{% include "tareas/_btn_vencidas.html" %}{% endwith %}
+<input type="hidden" id="input-vencidas" name="vencidas" hx-swap-oob="true" value="{{ '1' if vencidas else '0' }}">
 <div class="filters__summary" id="filtros-resumen" hx-swap-oob="true">{{ resumen_filtro }}</div>

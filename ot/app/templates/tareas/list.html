@@ -27,6 +27,7 @@
       hx-trigger="change, keyup changed delay:300ms">
   <input type="hidden" id="input-agrupado" name="agrupado" value="{{ '1' if agrupado else '0' }}">
   <input type="hidden" id="input-revision" name="revision" value="{{ '1' if revision else '0' }}">
+  <input type="hidden" id="input-vencidas" name="vencidas" value="{{ '1' if vencidas else '0' }}">
   <div class="filters__search">
     <svg class="filters__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input type="text" name="q" value="{{ q }}" placeholder="Buscar en detalle, OT, responsable…" aria-label="Buscar tareas">
@@ -73,6 +74,7 @@
   </div>
 
   {% include "tareas/_btn_revision.html" %}
+  {% include "tareas/_btn_vencidas.html" %}
   <div class="filters__spacer"></div>
   <div class="filters__summary" id="filtros-resumen">{{ resumen_filtro }}</div>
   <a href="/tareas" class="filters__clear" id="filtros-clear" {{ "" if hay_filtros else "hidden" }}>Limpiar</a>
@@ -106,7 +108,8 @@
     btn.classList.toggle("is-active", n > 0);
     var q = form.querySelector("[name=q]").value.trim();
     var rev = (document.getElementById("input-revision") || {}).value === "1";
-    document.getElementById("filtros-clear").hidden = !(n > 0 || q || rev);
+    var venc = (document.getElementById("input-vencidas") || {}).value === "1";
+    document.getElementById("filtros-clear").hidden = !(n > 0 || q || rev || venc);
   }
 
   btn.addEventListener("click", function () { abrir(panel.hidden); });

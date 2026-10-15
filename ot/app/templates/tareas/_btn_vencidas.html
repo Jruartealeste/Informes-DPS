@@ -1,0 +1,14 @@
+{# Filtro rápido "Vencidas / por vencer", mismo patrón que _btn_revision.html
+   (list.html lo incluye tal cual; _controles.html con oob=true). Rojo si hay
+   vencidas, ámbar si solo hay por vencer. #}
+<button type="button" id="btn-vencidas"
+  class="filters__revision filters__vencidas{{ ' has-vencidas' if n_vencidas else (' has-items' if n_por_vencer else ' is-empty') }}{{ ' is-active' if vencidas }}"
+  {% if oob %}hx-swap-oob="true"{% endif %}
+  aria-pressed="{{ 'true' if vencidas else 'false' }}"
+  aria-label="Vencidas: {{ n_vencidas }}, por vencer: {{ n_por_vencer }}" title="Vencidas y por vencer (próximos 3 días)"
+  hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
+  hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='f_resp'], #filtros-form [name='revision']"
+  hx-vals='{"vencidas": "{{ vencidas_next }}", "agrupado": "{{ 1 if agrupado else 0 }}"}'>
+  <svg class="filters__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg>
+  <span class="solo-escritorio">Vencidas</span> <strong>{{ n_vencidas }}</strong>{% if n_por_vencer %}<span class="filters__sub">+{{ n_por_vencer }} por vencer</span>{% endif %}
+</button>

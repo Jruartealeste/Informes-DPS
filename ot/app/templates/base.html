@@ -589,6 +589,63 @@
       pintarSidebar();
     });
   })();
+
+  // Fecha dd/mm/aaaa (tareas/_campo_fecha.html): barras automáticas al tipear,
+  // un calendario nativo oculto que se abre con el botón y vuelca la fecha
+  // elegida en el campo de texto, y (data-aviso-mes) aviso si la fecha es de
+  // un mes anterior al actual.
+  (function () {
+    var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+      'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    function dos(n) { return ('0' + n).slice(-2); }
+    function avisarMesAnterior(t) {
+      var campo = t.closest('.field-fecha');
+      if (!campo.hasAttribute('data-aviso-mes')) return;
+      var aviso = campo.parentNode.querySelector('.field-fecha__aviso');
+      if (!aviso) return;
+      var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t.value.trim());
+      var hoy = new Date();
+      var anterior = m && (+m[3] * 12 + +m[2]) < (hoy.getFullYear() * 12 + hoy.getMonth() + 1);
+      aviso.hidden = !anterior;
+      if (anterior) {
+        aviso.querySelector('.field-fecha__aviso-texto').textContent =
+          'La fecha es de ' + MESES[+m[2] - 1] + ' de ' + m[3] + ', anterior al mes actual. Revisá que esté bien.';
+      }
+    }
+    document.addEventListener('input', function (ev) {
+      var t = ev.target;
+      if (!t.closest || !t.closest('.field-fecha') || t.type !== 'text') return;
+      if (ev.inputType && ev.inputType.indexOf('delete') === 0) { avisarMesAnterior(t); return; }
+      var v = t.value.replace(/[^0-9\/]/g, '');
+      if (v.indexOf('/') === -1) {
+        // solo dígitos (tipeados o pegados, ej. 15102026): se arma dd/mm/aaaa
+        var d = v.slice(0, 8);
+        v = d.slice(0, 2) + (d.length >= 2 ? '/' : '') + d.slice(2, 4) + (d.length >= 4 ? '/' : '') + d.slice(4);
+      } else if (/^\d{1,2}\/\d{2}$/.test(v)) {
+        v += '/';
+      }
+      t.value = v;
+      avisarMesAnterior(t);
+    });
+    document.addEventListener('click', function (ev) {
+      var btn = ev.target.closest && ev.target.closest('.field-fecha__btn');
+      if (!btn) return;
+      var campo = btn.closest('.field-fecha');
+      var nativo = campo.querySelector('.field-fecha__nativo');
+      var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(campo.querySelector('input[type="text"]').value.trim());
+      nativo.value = m ? m[3] + '-' + dos(m[2]) + '-' + dos(m[1]) : '';
+      try { nativo.showPicker(); } catch (e) { nativo.focus(); nativo.click(); }
+    });
+    document.addEventListener('change', function (ev) {
+      var nativo = ev.target;
+      if (!nativo.classList || !nativo.classList.contains('field-fecha__nativo') || !nativo.value) return;
+      var p = nativo.value.split('-');
+      var texto = nativo.closest('.field-fecha').querySelector('input[type="text"]');
+      texto.value = p[2] + '/' + p[1] + '/' + p[0];
+      texto.dispatchEvent(new Event('input', { bubbles: true }));
+      texto.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  })();
 </script>
 {% block scripts %}{% endblock %}
 </body>

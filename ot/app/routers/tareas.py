@@ -1,4 +1,5 @@
 import datetime as dt
+import re
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -22,7 +23,15 @@ from app.models import (
 )
 from app.routers.responsables import combo_ctx, parse_ids
 from app.templating import templates
-from app.viewmodels import construir_grupos, motivo_no_anulable, parsear_estado, puede_anular, tarea_vm, version_tarea
+from app.viewmodels import (
+    construir_grupos,
+    estado_vencimiento,
+    motivo_no_anulable,
+    parsear_estado,
+    puede_anular,
+    tarea_vm,
+    version_tarea,
+)
 
 router = APIRouter()
 
@@ -50,6 +59,7 @@ def _filtrar(
     f_fac: str,
     f_resp: str,
     revision: bool,
+    vencidas: bool = False,
 ) -> list[Tarea]:
     ql = q.strip().lower()
 
@@ -79,6 +89,8 @@ def _filtrar(
             es_revision = bool(t.ot_ambigua) or t.fecha_pedido is None or not tiene_tipos
             if not es_revision:
                 return False
+        if vencidas and estado_vencimiento(t) is None:
+            return False
         return True
 
     return [t for t in tareas if pasa(t)]
@@ -97,6 +109,12 @@ def _contador_revision(tareas: list[Tarea]) -> int:
     return n
 
 
+def _contador_vencidas(tareas: list[Tarea]) -> tuple[int, int]:
+    """(vencidas, por vencer) para el botón de filtro."""
+    estados = [estado_vencimiento(t) for t in tareas]
+    return estados.count("vencida"), estados.count("por_vencer")
+
+
 def _contexto_tabla(db: Session, request: Request) -> dict:
     qp = request.query_params
     q = qp.get("q", "")
@@ -104,11 +122,13 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
     f_fac = qp.get("f_fac", "")
     f_resp = qp.get("f_resp", "")
     revision = qp.get("revision") == "1"
+    vencidas = qp.get("vencidas") == "1"
     agrupado = qp.get("agrupado", "0") == "1"
 
     cliente = cliente_activo(request, db)
     todas = _cargar_tareas(db, cliente.id) if cliente else []
-    filtradas = _filtrar(todas, q, f_est, f_fac, f_resp, revision)
+    filtradas = _filtrar(todas, q, f_est, f_fac, f_resp, revision, vencidas)
+    n_vencidas, n_por_vencer = _contador_vencidas(todas)
 
     grupos_todos = construir_grupos(todas)
     grupos_filtrados = construir_grupos(filtradas)
@@ -125,7 +145,10 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
         "opt_fac": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
         "opt_resp": _opciones_responsables(todas),
         "n_revision": _contador_revision(todas),
-        "hay_filtros": bool(q or f_est or f_fac or f_resp or revision),
+        "vencidas": vencidas,
+        "n_vencidas": n_vencidas,
+        "n_por_vencer": n_por_vencer,
+        "hay_filtros": bool(q or f_est or f_fac or f_resp or revision or vencidas),
         "grupos": grupos_filtrados,
         "filas": [tarea_vm(t) for t in filtradas],
         "resumen_filtro": f"{len(filtradas)} de {len(todas)} tareas · {len(grupos_filtrados)} OT",
@@ -134,6 +157,7 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
         "total_ots": len(grupos_todos),
         "agrupado_next": "0" if agrupado else "1",
         "revision_next": "0" if revision else "1",
+        "vencidas_next": "0" if vencidas else "1",
     }
 
 
@@ -316,6 +340,24 @@ def _resolver_ot_interna(
     return nueva.id, None
 
 
+_FECHA_DMA = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})")
+
+
+def _parsear_fecha(valor: str, nombre: str = "Fecha de pedido") -> dt.date | None:
+    """La sheet manda dd/mm/aaaa (formato argentino, 2026-10-15); también se
+    acepta AAAA-MM-DD, que era lo que mandaba el input type="date"."""
+    valor = (valor or "").strip()
+    if not valor:
+        return None
+    try:
+        m = _FECHA_DMA.fullmatch(valor)
+        if m:
+            return dt.date(int(m[3]), int(m[2]), int(m[1]))
+        return dt.date.fromisoformat(valor)
+    except ValueError:
+        raise HTTPException(422, f"{nombre} inválida: {valor} (formato dd/mm/aaaa).")
+
+
 def _validar_campos_obligatorios(
     ot_editable: bool,
     ot_numero: str,
@@ -402,6 +444,7 @@ def crear_tarea(
     ot_titulo: str = Form(""),
     detalle: str = Form(...),
     fecha_pedido: str = Form(""),
+    fecha_vencimiento: str = Form(""),
     pedido_por: str = Form(""),
     link_drive: str = Form(""),
     presupuestado: str = Form(""),
@@ -430,7 +473,8 @@ def crear_tarea(
         ot_interna_id=ot_interna_id,
         ot_ambigua=ot_ambigua,
         detalle=detalle,
-        fecha_pedido=dt.date.fromisoformat(fecha_pedido) if fecha_pedido else None,
+        fecha_pedido=_parsear_fecha(fecha_pedido),
+        fecha_vencimiento=_parsear_fecha(fecha_vencimiento, "Fecha de vencimiento"),
         pedido_por=pedido_por or None,
         link_drive=link_drive or None,
         presupuestado={"si": True, "no": False}.get(presupuestado.lower()),
@@ -465,6 +509,7 @@ def editar_tarea(
     ot_titulo: str = Form(""),
     detalle: str = Form(...),
     fecha_pedido: str = Form(""),
+    fecha_vencimiento: str = Form(""),
     pedido_por: str = Form(""),
     link_drive: str = Form(""),
     presupuestado: str = Form(""),
@@ -491,7 +536,8 @@ def editar_tarea(
         tarea.ot_interna_id = ot_interna_id
         tarea.ot_ambigua = ot_ambigua
     tarea.detalle = detalle
-    tarea.fecha_pedido = dt.date.fromisoformat(fecha_pedido) if fecha_pedido else None
+    tarea.fecha_pedido = _parsear_fecha(fecha_pedido)
+    tarea.fecha_vencimiento = _parsear_fecha(fecha_vencimiento, "Fecha de vencimiento")
     tarea.pedido_por = pedido_por or None
     tarea.link_drive = link_drive or None
     tarea.presupuestado = {"si": True, "no": False}.get(presupuestado.lower())

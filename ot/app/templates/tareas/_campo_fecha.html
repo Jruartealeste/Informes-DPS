@@ -1,0 +1,25 @@
+{# Fecha dd/mm/aaaa en texto en vez de type="date": el nativo muestra el formato
+   del idioma del navegador (mm/dd/yyyy en uno en inglés). El botón abre el
+   calendario nativo oculto; base.html sincroniza los dos. Parámetros:
+   nombre, valor, requerido, aviso_mes (avisa si es de un mes anterior al actual). #}
+<div class="field-fecha"{% if aviso_mes %} data-aviso-mes{% endif %}>
+  <input type="text" name="{{ nombre }}"{% if requerido %} required{% endif %} inputmode="numeric" autocomplete="off"
+         maxlength="10" placeholder="dd/mm/aaaa" pattern="\d{1,2}/\d{1,2}/\d{4}" title="dd/mm/aaaa"
+         value="{{ valor }}">
+  <button type="button" class="field-fecha__btn" aria-label="Elegir fecha en el calendario" title="Calendario">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+      <line x1="16" y1="2" x2="16" y2="6"></line>
+      <line x1="8" y1="2" x2="8" y2="6"></line>
+      <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
+  </button>
+  <input type="date" class="field-fecha__nativo" tabindex="-1" aria-hidden="true">
+</div>
+{% if aviso_mes %}
+{# Aviso (no bloquea): solo al cambiar la fecha, no al abrir una tarea vieja. #}
+<div class="field-warn field-fecha__aviso" hidden>
+  <span>⚠</span>
+  <div class="field-fecha__aviso-texto"></div>
+</div>
+{% endif %}

@@ -39,12 +39,20 @@
         <div class="field-row">
           <div class="field">
             <div class="field__label">Fecha de pedido <span class="field__req">*</span></div>
-            <input type="date" name="fecha_pedido" required value="{{ det.fecha_pedido_iso if det else '' }}">
+            {% with nombre="fecha_pedido", valor=(det.fecha_pedido_dma if det else ''), requerido=true, aviso_mes=true %}
+            {% include "tareas/_campo_fecha.html" %}
+            {% endwith %}
           </div>
           <div class="field">
-            <div class="field__label">Pedido por</div>
-            <input type="text" name="pedido_por" value="{{ (p.pedido_por if p else '') if not det else ('' if det.pedido_por == '—' else det.pedido_por) }}">
+            <div class="field__label">Vencimiento <span class="field__opt">opcional</span></div>
+            {% with nombre="fecha_vencimiento", valor=(det.fecha_vencimiento_dma if det else ''), requerido=false, aviso_mes=false %}
+            {% include "tareas/_campo_fecha.html" %}
+            {% endwith %}
           </div>
+        </div>
+        <div class="field">
+          <div class="field__label">Pedido por</div>
+          <input type="text" name="pedido_por" value="{{ (p.pedido_por if p else '') if not det else ('' if det.pedido_por == '—' else det.pedido_por) }}">
         </div>
 
         <div class="field">

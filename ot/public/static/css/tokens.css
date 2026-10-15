@@ -29,6 +29,10 @@
   --warn-soft: rgba(201, 90, 58, 0.18);
   --warn-text: #e08f6d;
   --warn-line: rgba(201, 90, 58, 0.5);
+  --danger: #e5484d;
+  --danger-soft: rgba(229, 72, 77, 0.16);
+  --danger-text: #f2777b;
+  --danger-line: rgba(229, 72, 77, 0.55);
   --hover: rgba(232, 230, 225, 0.045);
   --sel: rgba(217, 154, 63, 0.1);
   --overlay: rgba(0, 0, 0, 0.55);
@@ -61,6 +65,10 @@
   --warn-soft: #f7e4dd;
   --warn-text: #8a3620;
   --warn-line: #ddb3a3;
+  --danger: #c4282d;
+  --danger-soft: #fbe3e3;
+  --danger-text: #a51d22;
+  --danger-line: #eba9ab;
   --hover: rgba(27, 29, 32, 0.04);
   --sel: #f9f1e2;
   --overlay: rgba(27, 29, 32, 0.35);

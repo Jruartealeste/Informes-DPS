@@ -1,0 +1,4 @@
+{# Vencimiento de la tarea: rojo si ya venció, ámbar si vence pronto
+   (viewmodels.estado_vencimiento; las cerradas no se marcan). #}
+<div class="cell-mono cell-vence{{ ' is-' ~ t.vencimiento if t.vencimiento }}"
+     {% if t.vencimiento == 'vencida' %}title="Vencida"{% elif t.vencimiento == 'por_vencer' %}title="Vence pronto"{% endif %}>{{ t.fecha_vencimiento }}</div>

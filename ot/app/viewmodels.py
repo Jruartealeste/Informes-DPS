@@ -1,4 +1,5 @@
 import hashlib
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
@@ -81,13 +82,38 @@ def responsables_con_mail(t: Tarea) -> list[dict]:
     ]
 
 
+_AR = timezone(timedelta(hours=-3))  # Argentina, UTC-3 fijo (sin horario de verano)
+# "Por vencer" = vence hoy o en los próximos DIAS_POR_VENCER días.
+DIAS_POR_VENCER = 3
+# Tareas cerradas: su vencimiento ya no se sigue.
+_ESTADOS_SIN_SEGUIMIENTO = {EstadoTarea.FINALIZADO, EstadoTarea.APROBADO, EstadoTarea.ANULADA}
+
+
+def hoy_ar() -> date:
+    """Hoy en Argentina (el server corre en UTC: después de las 21 h AR ya
+    sería mañana)."""
+    return datetime.now(_AR).date()
+
+
+def estado_vencimiento(t: Tarea, hoy: date | None = None) -> str | None:
+    """"vencida", "por_vencer" o None (sin vencimiento, lejos, o tarea cerrada)."""
+    if t.fecha_vencimiento is None or t.estado_tarea in _ESTADOS_SIN_SEGUIMIENTO:
+        return None
+    hoy = hoy or hoy_ar()
+    if t.fecha_vencimiento < hoy:
+        return "vencida"
+    if t.fecha_vencimiento <= hoy + timedelta(days=DIAS_POR_VENCER):
+        return "por_vencer"
+    return None
+
+
 def version_tarea(t: Tarea) -> str:
     """Huella del contenido editable de la tarea (campos + tipos + responsables).
     El drawer la manda al guardar: si cambió desde que se abrió, otra persona
     editó la tarea y guardar pisaría su trabajo (409). Se calcula por contenido
     y no con `actualizado_en`, que no cambia al editar solo tipos o responsables."""
     partes = (
-        t.ot_interna_id, t.detalle, t.fecha_pedido, t.pedido_por, t.link_drive, t.presupuestado,
+        t.ot_interna_id, t.detalle, t.fecha_pedido, t.fecha_vencimiento, t.pedido_por, t.link_drive, t.presupuestado,
         t.estado_tarea, t.estado_facturacion,
         sorted(tt.tipo_tarea_id for tt in t.tipos), sorted(r.responsable_id for r in t.responsables),
     )
@@ -110,6 +136,10 @@ def tarea_vm(t: Tarea) -> dict:
         "version": version_tarea(t),
         "fecha_pedido": t.fecha_pedido.strftime("%d/%m") if t.fecha_pedido else "—",
         "fecha_pedido_iso": t.fecha_pedido.isoformat() if t.fecha_pedido else "",
+        "fecha_pedido_dma": t.fecha_pedido.strftime("%d/%m/%Y") if t.fecha_pedido else "",
+        "fecha_vencimiento": t.fecha_vencimiento.strftime("%d/%m") if t.fecha_vencimiento else "—",
+        "fecha_vencimiento_dma": t.fecha_vencimiento.strftime("%d/%m/%Y") if t.fecha_vencimiento else "",
+        "vencimiento": estado_vencimiento(t),
         "tipos": tipos,
         "tipos_label": ", ".join(TIPO_TAREA_LABELS.get(n, n) for n in tipos) if tipos else "—",
         "pedido_por": t.pedido_por or "—",
