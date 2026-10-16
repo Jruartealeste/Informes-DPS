@@ -1020,6 +1020,126 @@ button {
 .cell-drive.is-linked {
   color: var(--accent-text);
 }
+a.cell-drive {
+  display: block;
+  text-decoration: none;
+  border-radius: 4px;
+}
+a.cell-drive:hover {
+  background: var(--hover);
+}
+a.cell-drive:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 1px;
+}
+.cell-drive--varios {
+  position: relative;
+}
+.cell-drive--varios > summary {
+  list-style: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.cell-drive--varios > summary::-webkit-details-marker {
+  display: none;
+}
+.cell-drive--varios > summary:hover {
+  background: var(--hover);
+}
+.cell-drive__n {
+  font-size: 10px;
+  vertical-align: super;
+  margin-left: 1px;
+}
+.cell-drive__menu {
+  /* fixed (top/left los pone base.html al abrir): la tabla scrollea y un
+     absolute quedaría recortado por su overflow */
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  max-width: 340px;
+  padding: 4px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+.cell-drive__menu a {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+.cell-drive__menu a:hover {
+  background: var(--hover);
+}
+.field-row:has(.links-campo) {
+  align-items: flex-start;
+}
+@media (max-width: 720px) {
+  .field-row:has(.links-campo) {
+    flex-wrap: wrap;
+  }
+  .field-row:has(.links-campo) > .field:not(.field--fixed) {
+    flex-basis: 100%;
+  }
+}
+.links-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.links-campo__fila {
+  display: flex;
+  gap: 6px;
+}
+.links-campo__fila > input {
+  flex: 1;
+  min-width: 0;
+}
+.links-campo__quitar {
+  flex: none;
+  width: 28px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--ghost);
+  font-size: 16px;
+  cursor: pointer;
+}
+.links-campo__quitar:hover {
+  background: var(--hover);
+}
+.links-campo__agregar {
+  align-self: flex-start;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  background: none;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.links-campo__agregar:hover {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+@media (max-width: 720px) {
+  .links-campo__agregar,
+  .links-campo__quitar {
+    width: 44px;
+    height: 44px;
+  }
+}
 .cell-presup {
   font-size: 12px;
   color: var(--ghost);
@@ -2842,6 +2962,64 @@ select.chip-fac {
   margin: 0;
 }
 
+/* ---- Pantalla Usuarios (solo ADMIN, 2026-10-14) ---- */
+.table-card--usuarios {
+  min-width: 940px;
+}
+.table-head--usuarios,
+.row-usuario {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(200px, 1.4fr) 190px 130px 110px 90px;
+  gap: 10px;
+  align-items: center;
+}
+.row-usuario {
+  font-size: 13px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.row-usuario:first-of-type {
+  border-top: none;
+}
+.row-usuario.is-inactivo .row-usuario__nombre,
+.row-usuario.is-inactivo .row-usuario__email {
+  color: var(--faint);
+}
+.row-usuario__nombre {
+  font-weight: 600;
+}
+.row-usuario__yo {
+  font-weight: 400;
+  color: var(--muted);
+}
+.row-usuario__email {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.row-usuario__rol-fijo {
+  font-size: 13px;
+  padding-left: 11px;
+}
+.form-rol {
+  margin: 0;
+}
+.form-rol select {
+  width: 100%;
+  font-size: 13px;
+  background-color: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.row-usuario__acciones {
+  display: flex;
+  justify-content: flex-end;
+}
+.row-usuario__acciones form {
+  margin: 0;
+}
+
 .form-anunciante {
   display: flex;
   flex-direction: column;
@@ -2909,6 +3087,11 @@ select.chip-fac {
   height: 32px;
   padding: 0;
 }
+/* en el pie del drawer, misma altura que Guardar/Anular */
+.drawer__footer .btn--solo-icono {
+  width: 39px;
+  height: 39px;
+}
 .solo-mobile {
   display: none;
 }
@@ -2925,6 +3108,7 @@ select.chip-fac {
     padding: 6px 12px;
   }
   .btn--solo-icono,
+  .drawer__footer .btn--solo-icono,
   .drawer__close {
     width: 44px;
     height: 44px;
@@ -2932,5 +3116,7 @@ select.chip-fac {
   .filters__btn,
   .filters__revision {
     min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
   }
 }

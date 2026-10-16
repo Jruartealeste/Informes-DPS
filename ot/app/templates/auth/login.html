@@ -95,6 +95,11 @@
       Esa cuenta no pertenece al dominio @aleste.ar — no se puede iniciar sesión con ella.
     </div>
     {% endif %}
+    {% if error_inactivo %}
+    <div class="login-card__error">
+      Tu usuario está desactivado. Pedile a un administrador de la app que lo reactive.
+    </div>
+    {% endif %}
     <a class="login-btn" href="/auth/login/google">Iniciar sesión con Google</a>
   </div>
   <script>

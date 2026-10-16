@@ -39,7 +39,7 @@
           <div class="cell-detalle">{{ t.detalle }}</div>
           <div class="cell-muted">{{ t.pedido_por }}</div>
           <div class="cell-muted">{{ t.responsables_label }}</div>
-          <div class="cell-drive {{ 'is-linked' if t.link_drive }}">↗</div>
+          {% include "tareas/_celda_drive.html" %}
           <div class="cell-presup {{ 'is-si' if t.presup_label == 'Si' }}">{{ t.presup_label }}</div>
           <div>{% include "tareas/_select_estado.html" %}</div>
           <div>{% include "tareas/_select_facturacion.html" %}</div>
@@ -63,7 +63,7 @@
       <div class="cell-detalle">{{ t.detalle }}</div>
       <div class="cell-muted">{{ t.pedido_por }}</div>
       <div class="cell-muted">{{ t.responsables_label }}</div>
-      <div class="cell-drive {{ 'is-linked' if t.link_drive }}">↗</div>
+      {% include "tareas/_celda_drive.html" %}
       <div class="cell-presup {{ 'is-si' if t.presup_label == 'Si' }}">{{ t.presup_label }}</div>
       <div>{% include "tareas/_select_estado.html" %}</div>
       <div>{% include "tareas/_select_facturacion.html" %}</div>

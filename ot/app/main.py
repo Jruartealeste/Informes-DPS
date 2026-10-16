@@ -18,6 +18,7 @@ from app.routers import (
     responsables,
     sync,
     tareas,
+    usuarios,
 )
 
 app = FastAPI(title="Órdenes de trabajo")
@@ -56,6 +57,7 @@ app.add_middleware(ServerTimingMiddleware)
 
 app.include_router(auth_routes.router)
 app.include_router(clientes.router)
+app.include_router(usuarios.router)
 app.include_router(tareas.router)
 app.include_router(ordenes_trabajo.router)
 app.include_router(ordenes_trabajo.router_paginas)

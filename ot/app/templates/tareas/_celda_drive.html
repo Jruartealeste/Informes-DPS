@@ -1,0 +1,20 @@
+{# Links de la tarea. Uno: hipervínculo directo en pestaña nueva. Varios: menú
+   con la lista. Ninguno (o ninguno usable): flecha gris sin link. Los clicks
+   no abren el drawer de la fila (stopPropagation). #}
+{% set hrefs = [] %}
+{% for l in t.links_drive %}{% set h = l | href_externo %}{% if h %}{% set _ = hrefs.append(h) %}{% endif %}{% endfor %}
+{% if hrefs | length == 1 %}
+<a class="cell-drive is-linked" href="{{ hrefs[0] }}" target="_blank" rel="noopener noreferrer"
+   title="Abrir link" aria-label="Abrir link" onclick="event.stopPropagation()">↗</a>
+{% elif hrefs %}
+<details class="cell-drive is-linked cell-drive--varios" onclick="event.stopPropagation()">
+  <summary title="{{ hrefs | length }} links" aria-label="{{ hrefs | length }} links">↗<span class="cell-drive__n">{{ hrefs | length }}</span></summary>
+  <div class="cell-drive__menu">
+    {% for h in hrefs %}
+    <a href="{{ h }}" target="_blank" rel="noopener noreferrer" title="{{ h }}">{{ h.split('://', 1)[-1] }}</a>
+    {% endfor %}
+  </div>
+</details>
+{% else %}
+<div class="cell-drive">↗</div>
+{% endif %}

@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from app.cliente_ctx import CLIENTE_DEFAULT, COOKIE_CLIENTE
 from app.db import get_db
 from app.models import Cliente, OtInterna, RolUsuario, Tarea, Usuario
+from app.viewmodels import links_de
 
 # public/ (no app/): en Vercel el CDN sirve public/** sin pasar por la función
 # Python. Ver vercel.json (headers de cache) y app/main.py (mount local).
@@ -49,7 +50,10 @@ def _contexto_clientes(request: Request) -> dict:
         # (solo lectura, desde la pantalla Anunciantes), aparece marcado.
         clientes_sidebar = [c for c in todos if c["activo"] or c["id"] == activo_id]
         actual = next((c for c in todos if c["id"] == activo_id), None)
-        rol = db.scalar(select(Usuario.rol).where(Usuario.id == (request.session.get("user_id") or 0)))
+        # AuthMiddleware ya leyó el rol de la base en este request.
+        rol = getattr(request.state, "rol_usuario", None)
+        if rol is None:
+            rol = db.scalar(select(Usuario.rol).where(Usuario.id == (request.session.get("user_id") or 0)))
         return {
             "clientes_sidebar": clientes_sidebar,
             "cliente_activo_id": activo_id,
@@ -81,3 +85,23 @@ def static_version(rel_path: str) -> str:
 
 
 templates.env.globals["static_version"] = static_version
+
+
+def href_externo(valor: str | None) -> str | None:
+    """URL apta para un <a href> a partir de un campo de texto libre (ej.
+    link_drive), o None si no hay link usable. Solo http/https: un esquema
+    raro (javascript:, data:) no se linkea. Sin esquema ("drive.google.com/…")
+    se asume https."""
+    v = (valor or "").strip()
+    if not v or any(c.isspace() for c in v):
+        return None
+    esquema, sep, _ = v.partition(":")
+    if sep and esquema.lower() in ("http", "https"):
+        return v
+    if sep and "/" not in esquema and "." not in esquema:
+        return None  # otro esquema (javascript:, mailto:, data:…)
+    return "https://" + v
+
+
+templates.env.filters["href_externo"] = href_externo
+templates.env.filters["links_de"] = links_de

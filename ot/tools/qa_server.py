@@ -91,6 +91,15 @@ if db_recien_creada:
 if not db.query(Usuario).filter_by(email="qa@aleste.ar").first():
     db.add(Usuario(email="qa@aleste.ar", nombre="QA Visual", rol=RolUsuario.ADMIN))
     db.commit()
+# Otros usuarios ficticios para la pantalla Usuarios (rol / desactivar).
+for email, nombre, rol, activo in [
+    ("fer.qa@aleste.ar", "Fer QA", RolUsuario.MIEMBRO, True),
+    ("juli.qa@aleste.ar", "Juli QA", RolUsuario.APROBADOR_FACTURACION, True),
+    ("ex.qa@aleste.ar", "Ex Empleado QA", RolUsuario.MIEMBRO, False),
+]:
+    if not db.query(Usuario).filter_by(email=email).first():
+        db.add(Usuario(email=email, nombre=nombre, rol=rol, activo=activo))
+db.commit()
 db.close()
 
 print("QA_DB_READY" + (" (recien sembrada)" if db_recien_creada else " (ya existia)"))
@@ -104,14 +113,16 @@ from app.main import app  # noqa: E402
 
 
 @app.get("/auth/qa-login")
-def qa_login(request: Request):
+def qa_login(request: Request, email: str = "qa@aleste.ar"):
     """Solo en este servidor descartable de QA — nunca existe en el
     codebase real (no se registra en app/main.py). Simula un login ya
     hecho, mismo patrón que tests/conftest.py::client, para navegar sin
     pasar por el OAuth real de Google."""
     db = _SessionLocal()
     try:
-        usuario = db.query(Usuario).filter_by(email="qa@aleste.ar").one()
+        # ?email= permite entrar como otro usuario ficticio (ej. probar que
+        # uno desactivado queda afuera). Inactivo: lo rechaza AuthMiddleware.
+        usuario = db.query(Usuario).filter_by(email=email).one()
         request.session["user_id"] = usuario.id
         request.session["email"] = usuario.email
         request.session["nombre"] = usuario.nombre

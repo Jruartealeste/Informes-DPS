@@ -96,7 +96,7 @@
         <div class="cell-detalle">{{ t.detalle }}</div>
         <div class="cell-muted">{{ t.pedido_por }}</div>
         <div class="cell-muted">{{ t.responsables_label }}</div>
-        <div class="cell-drive {{ 'is-linked' if t.link_drive }}">↗</div>
+        {% include "tareas/_celda_drive.html" %}
         <div class="cell-presup {{ 'is-si' if t.presup_label == 'Si' }}">{{ t.presup_label }}</div>
         <div><span class="chip-estado" data-valor="{{ t.estado_tarea }}">{{ t.estado_tarea_label }}</span></div>
         <div><span class="chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</span></div>

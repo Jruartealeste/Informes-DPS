@@ -91,6 +91,15 @@
             </svg>
             <span class="sidebar__item-label">Anunciantes</span>
           </a>
+          <a href="/usuarios" class="sidebar__item {{ 'is-active' if seccion_activa == 'usuarios' else '' }}" title="Usuarios (rol y acceso)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span class="sidebar__item-label">Usuarios</span>
+          </a>
           {% endif %}
           <button type="button" class="sidebar__item is-disabled" disabled title="Anunciante · todavía no construido">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -465,21 +474,24 @@
           var panel = tip.querySelector('.info-tip__panel');
           panel.style.left = '';
           panel.style.right = '';
+          // límites: el drawer/sheet que lo contiene (recorta lo que se sale), o la ventana
+          var caja = tip.closest('.drawer');
+          var lim = caja ? caja.getBoundingClientRect() : { left: 0, right: window.innerWidth };
           var rect = panel.getBoundingClientRect();
-          if (rect.right > window.innerWidth - 8) {
+          if (rect.right > lim.right - 8) {
             panel.style.right = '0';
             panel.style.left = 'auto';
             rect = panel.getBoundingClientRect();
           }
-          if (rect.left < 8) {
-            panel.style.left = (8 - tip.getBoundingClientRect().left) + 'px';
+          if (rect.left < lim.left + 8) {
+            panel.style.left = (lim.left + 8 - tip.getBoundingClientRect().left) + 'px';
             panel.style.right = 'auto';
           }
         }
         return;
       }
       if (!ev.target.closest || !ev.target.closest('.info-tip')) cerrarTips();
-    });
+    }, true);  // captura: el drawer corta la propagación de clicks
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape') cerrarTips();
     });
@@ -627,6 +639,47 @@
       t.value = v;
       avisarMesAnterior(t);
     });
+    // Celda Links con varios vínculos (<details>): el menú es position:fixed
+    // para no quedar recortado por el scroll de la tabla; se ubica al abrir y
+    // se cierra al hacer clic afuera, scrollear o abrir otro.
+    function cerrarMenusLinks(salvo) {
+      document.querySelectorAll('details.cell-drive--varios[open]').forEach(function (d) {
+        if (d !== salvo) d.open = false;
+      });
+    }
+    document.addEventListener('toggle', function (ev) {
+      var d = ev.target;
+      if (!d.classList || !d.classList.contains('cell-drive--varios') || !d.open) return;
+      cerrarMenusLinks(d);
+      var r = d.querySelector('summary').getBoundingClientRect();
+      var menu = d.querySelector('.cell-drive__menu');
+      var ancho = menu.offsetWidth;
+      menu.style.left = Math.max(8, Math.min(r.right - ancho, window.innerWidth - ancho - 8)) + 'px';
+      var abajo = r.bottom + 4;
+      menu.style.top = (abajo + menu.offsetHeight > window.innerHeight - 8 ? r.top - menu.offsetHeight - 4 : abajo) + 'px';
+    }, true);
+    document.addEventListener('click', function (ev) {
+      if (!ev.target.closest || !ev.target.closest('details.cell-drive--varios')) cerrarMenusLinks(null);
+    }, true);
+    document.addEventListener('scroll', function () { cerrarMenusLinks(null); }, true);
+    // Links de la tarea: "+ Agregar vínculo" suma un input; "×" lo quita
+    // (si es el único, solo lo vacía).
+    document.addEventListener('click', function (ev) {
+      var t = ev.target.closest && ev.target.closest('.links-campo__agregar, .links-campo__quitar');
+      if (!t) return;
+      var campo = t.closest('.links-campo');
+      var filas = campo.querySelectorAll('.links-campo__fila');
+      if (t.classList.contains('links-campo__agregar')) {
+        var nueva = filas[filas.length - 1].cloneNode(true);
+        nueva.querySelector('input').value = '';
+        campo.insertBefore(nueva, t);
+        nueva.querySelector('input').focus();
+      } else if (filas.length > 1) {
+        t.closest('.links-campo__fila').remove();
+      } else {
+        filas[0].querySelector('input').value = '';
+      }
+    }, true);  // captura: el drawer corta la propagación de clicks
     document.addEventListener('click', function (ev) {
       var btn = ev.target.closest && ev.target.closest('.field-fecha__btn');
       if (!btn) return;
@@ -635,7 +688,7 @@
       var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(campo.querySelector('input[type="text"]').value.trim());
       nativo.value = m ? m[3] + '-' + dos(m[2]) + '-' + dos(m[1]) : '';
       try { nativo.showPicker(); } catch (e) { nativo.focus(); nativo.click(); }
-    });
+    }, true);  // captura: el drawer corta la propagación de clicks
     document.addEventListener('change', function (ev) {
       var nativo = ev.target;
       if (!nativo.classList || !nativo.classList.contains('field-fecha__nativo') || !nativo.value) return;

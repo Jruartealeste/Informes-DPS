@@ -30,6 +30,7 @@ from app.viewmodels import (
     parsear_estado,
     puede_anular,
     tarea_vm,
+    unir_links,
     version_tarea,
 )
 
@@ -446,7 +447,7 @@ def crear_tarea(
     fecha_pedido: str = Form(""),
     fecha_vencimiento: str = Form(""),
     pedido_por: str = Form(""),
-    link_drive: str = Form(""),
+    link_drive: list[str] = Form([]),
     presupuestado: str = Form(""),
     estado_tarea: str = Form(""),
     estado_facturacion: str = Form(EstadoFacturacion.SIN_FACTURAR.name),
@@ -476,7 +477,7 @@ def crear_tarea(
         fecha_pedido=_parsear_fecha(fecha_pedido),
         fecha_vencimiento=_parsear_fecha(fecha_vencimiento, "Fecha de vencimiento"),
         pedido_por=pedido_por or None,
-        link_drive=link_drive or None,
+        link_drive=unir_links(link_drive),
         presupuestado={"si": True, "no": False}.get(presupuestado.lower()),
         estado_tarea=parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True),
         estado_facturacion=parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación"),
@@ -511,7 +512,7 @@ def editar_tarea(
     fecha_pedido: str = Form(""),
     fecha_vencimiento: str = Form(""),
     pedido_por: str = Form(""),
-    link_drive: str = Form(""),
+    link_drive: list[str] = Form([]),
     presupuestado: str = Form(""),
     estado_tarea: str = Form(""),
     estado_facturacion: str = Form(EstadoFacturacion.SIN_FACTURAR.name),
@@ -539,7 +540,7 @@ def editar_tarea(
     tarea.fecha_pedido = _parsear_fecha(fecha_pedido)
     tarea.fecha_vencimiento = _parsear_fecha(fecha_vencimiento, "Fecha de vencimiento")
     tarea.pedido_por = pedido_por or None
-    tarea.link_drive = link_drive or None
+    tarea.link_drive = unir_links(link_drive)
     tarea.presupuestado = {"si": True, "no": False}.get(presupuestado.lower())
     _asignar_estado_tarea(tarea, parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True))
     tarea.estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")

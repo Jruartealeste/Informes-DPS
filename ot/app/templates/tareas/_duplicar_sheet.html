@@ -12,8 +12,11 @@
 
     <div class="drawer__body">
       <div class="field">
-        <div class="field__label">¿Qué OT interna usa la tarea nueva?</div>
-        <div class="field-hint">Se abre el formulario con los datos copiados; no se guarda nada hasta que apretes Guardar.</div>
+        <div class="field__label">¿Qué OT interna usa la tarea nueva?
+          <span class="info-tip">
+            <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+            <span class="info-tip__panel" role="note">Se abre el formulario con los datos copiados; no se guarda nada hasta que apretes Guardar.</span>
+          </span></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         {% if det.ot_numero_form %}

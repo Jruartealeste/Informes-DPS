@@ -303,7 +303,8 @@ class Tarea(Base):
     fecha_vencimiento: Mapped[date | None] = mapped_column(Date)
     detalle: Mapped[str] = mapped_column(Text)
     pedido_por: Mapped[str | None] = mapped_column(String(80))
-    link_drive: Mapped[str | None] = mapped_column(String(300))
+    # Uno o más vínculos (Drive u otros), uno por línea — ver viewmodels.links_de.
+    link_drive: Mapped[str | None] = mapped_column(Text)
     presupuestado: Mapped[bool | None] = mapped_column()
     estado_tarea: Mapped[EstadoTarea | None] = mapped_column()
     estado_facturacion: Mapped[EstadoFacturacion] = mapped_column(

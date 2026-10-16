@@ -27,8 +27,11 @@ def _cuerpo_sugerido(det: dict) -> str:
         "",
         det["detalle"],
     ]
-    if det["link_drive"]:
-        lineas += ["", f"Link Drive: {det['link_drive']}"]
+    links = det["links_drive"]
+    if len(links) == 1:
+        lineas += ["", f"Link Drive: {links[0]}"]
+    elif links:
+        lineas += ["", "Links:"] + [f"- {x}" for x in links]
     lineas += ["", "Saludos,", settings.gmail_sender_nombre]
     return "\n".join(lineas)
 

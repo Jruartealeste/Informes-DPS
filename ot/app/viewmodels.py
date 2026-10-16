@@ -89,6 +89,22 @@ DIAS_POR_VENCER = 3
 _ESTADOS_SIN_SEGUIMIENTO = {EstadoTarea.FINALIZADO, EstadoTarea.APROBADO, EstadoTarea.ANULADA}
 
 
+def links_de(texto: str | None) -> list[str]:
+    """Vínculos de una tarea (tareas.link_drive guarda uno por línea)."""
+    return [x.strip() for x in (texto or "").splitlines() if x.strip()]
+
+
+def unir_links(valores: list[str]) -> str | None:
+    """Inverso de links_de para guardar lo que vino del form (varios inputs
+    link_drive); descarta vacíos y repetidos, respeta el orden."""
+    vistos: list[str] = []
+    for v in valores:
+        for x in links_de(v):
+            if x not in vistos:
+                vistos.append(x)
+    return "\n".join(vistos) or None
+
+
 def hoy_ar() -> date:
     """Hoy en Argentina (el server corre en UTC: después de las 21 h AR ya
     sería mañana)."""
@@ -147,6 +163,7 @@ def tarea_vm(t: Tarea) -> dict:
         "responsables_label": " / ".join(responsables) if responsables else "—",
         "responsable_ids": [r.responsable_id for r in t.responsables],
         "link_drive": t.link_drive,
+        "links_drive": links_de(t.link_drive),
         "presup_label": presup_label,
         "estado_tarea": t.estado_tarea.name if t.estado_tarea else "SIN_ESTADO",
         "estado_tarea_label": ESTADO_LABELS.get(t.estado_tarea, "SIN ESTADO"),

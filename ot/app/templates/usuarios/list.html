@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block titulo %}Usuarios · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <div class="page-header__kicker">{{ filas | selectattr('u.activo') | list | length }} activos · {{ filas | length }} en total</div>
+      <h1 class="page-header__title">
+        Usuarios
+        <span class="info-tip">
+          <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+          <span class="info-tip__panel" role="note">
+            Cualquier cuenta @aleste.ar puede entrar: el usuario se crea solo en su primer login y aparece acá.
+            Desactivar no borra nada: le cierra la sesión en el próximo click y no lo deja volver a entrar hasta
+            que lo reactives. Admin ve además las pantallas Anunciantes y Usuarios.
+          </span>
+        </span>
+      </h1>
+    </div>
+  </div>
+</div>
+
+<div class="table-scroll">
+  <div class="table-card table-card--usuarios">
+    <div class="table-head table-head--usuarios">
+      <div>Nombre</div><div>Email</div><div>Rol</div><div>Último login</div><div>Estado</div><div></div>
+    </div>
+    {% for f in filas %}
+    <div class="row-usuario{{ ' is-inactivo' if not f.u.activo }}">
+      <div class="row-usuario__nombre">{{ f.u.nombre }}{% if f.soy_yo %} <span class="row-usuario__yo">(vos)</span>{% endif %}</div>
+      <div class="row-usuario__email">{{ f.u.email }}</div>
+      <div>
+        {% if f.soy_yo %}
+        <span class="row-usuario__rol-fijo" title="No podés quitarte el rol de Admin a vos mismo">{{ roles[f.u.rol] }}</span>
+        {% else %}
+        <form method="post" action="/usuarios/{{ f.u.id }}/rol" class="form-rol">
+          <select name="rol" aria-label="Rol de {{ f.u.nombre }}" data-nombre="{{ f.u.nombre }}" data-autosubmit>
+            {% for valor, etiqueta in roles.items() %}
+            <option value="{{ valor.value }}"{% if f.u.rol == valor %} selected{% endif %}>{{ etiqueta }}</option>
+            {% endfor %}
+          </select>
+          <noscript><button type="submit" class="btn btn--small">Guardar</button></noscript>
+        </form>
+        {% endif %}
+      </div>
+      <div class="cell-mono">{{ f.ultimo_login or '—' }}</div>
+      <div><span class="badge {{ 'badge--ot-abierta' if f.u.activo else 'badge--ot-cerrada' }}">{{ 'ACTIVO' if f.u.activo else 'DESACTIVADO' }}</span></div>
+      <div class="row-usuario__acciones">
+        {% if f.soy_yo %}
+        {% elif f.u.activo %}
+        <form method="post" action="/usuarios/{{ f.u.id }}/desactivar" data-confirmar="¿Desactivar a {{ f.u.nombre }}? Se le cierra la sesión y no puede volver a entrar hasta que lo reactives (no se borra nada).">
+          <button type="submit" class="btn btn--small" aria-label="Desactivar a {{ f.u.nombre }}">Desactivar</button>
+        </form>
+        {% else %}
+        <form method="post" action="/usuarios/{{ f.u.id }}/reactivar">
+          <button type="submit" class="btn btn--small" aria-label="Reactivar a {{ f.u.nombre }}">Reactivar</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('form[data-confirmar]').forEach(function (f) {
+  f.addEventListener('submit', function (ev) {
+    if (!confirm(f.dataset.confirmar)) ev.preventDefault();
+  });
+});
+document.querySelectorAll('select[data-autosubmit]').forEach(function (s) {
+  var anterior = s.value;
+  s.addEventListener('change', function () {
+    var etiqueta = s.options[s.selectedIndex].text;
+    if (confirm('¿Cambiar el rol de ' + s.dataset.nombre + ' a ' + etiqueta + '?')) {
+      s.form.submit();
+    } else {
+      s.value = anterior;
+    }
+  });
+});
+</script>
+
+{% endblock %}

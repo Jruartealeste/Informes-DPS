@@ -81,10 +81,11 @@ app/
 ├── db.py                # engine/session de SQLAlchemy
 ├── models.py             # ORM: ver "Modelo de datos" abajo
 ├── schemas.py             # Pydantic
-├── auth.py                # OAuth Google + validación de dominio + dependencias require_user/require_role
+├── auth.py                # OAuth Google + dominio + AuthMiddleware (valida activo por request) + requiere_admin
 ├── routers/
 │   ├── tareas.py           # /, /tareas, /tareas/{id}, /tareas/partial
-│   ├── clientes.py          # /clientes/{cliente_id}
+│   ├── clientes.py          # /clientes/{cliente_id}, /anunciantes (ABM, solo ADMIN)
+│   ├── usuarios.py          # /usuarios (rol y activo, solo ADMIN)
 │   ├── facturacion.py        # /facturacion/listas (cola de "listas para facturar", semilla de Fase 2)
 │   ├── ordenes_trabajo.py     # /api/ordenes-trabajo/buscar (autocompletar OT)
 │   ├── sync.py                 # /api/sync/ordenes-trabajo, /api/sync/facturas
@@ -435,12 +436,12 @@ Tablas:
     `ultimo_login` en cada login. Primera vez que alguien de `@aleste.ar`
     entra, se crea solo con eso — no hay paso de invitación separado
     (el dominio restringido de Google Workspace ya es el gate).
-  - `rol_usuario` (`MIEMBRO`/`APROBADOR_FACTURACION`/`ADMIN`) está
-    modelado y se guarda en la sesión, pero **nada lo usa todavía para
-    gatear rutas** — no hay ninguna feature hoy que lo necesite. Un
-    cambio de rol o `activo=False` tarda hasta el próximo login en
-    reflejarse (se lee de la sesión, no de la DB en cada request) —
-    aceptado para un equipo de ~10 personas, revisar si llega a doler.
+  - ~~`rol_usuario` se guarda en la sesión pero nada lo usa para gatear
+    rutas; un cambio de rol o `activo=False` tarda hasta el próximo
+    login~~ — **reemplazado 2026-10-14**: el rol (ADMIN gatea Anunciantes y
+    Usuarios) y `activo` se leen de la base en cada request, ver "Pantalla
+    Usuarios y bloqueo de inactivos (2026-10-14)" al final.
+    `request.session["rol"]` sigue escribiéndose pero no se usa para nada.
   - **Credencial OAuth separada de la de Gmail**, a propósito:
     `AUTH_GOOGLE_CLIENT_ID`/`AUTH_GOOGLE_CLIENT_SECRET` (nuevos, en vez
     de reusar `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` de Gmail) porque
@@ -1134,8 +1135,8 @@ Decisiones de Javier (reemplazan la "secuencia global compartida" del 2026-09-24
   anunciante cambia a ese anunciante si es de uno solo (cookie + redirect); si
   el número se repite, 404 explicando en cuáles está.
 - **Pantalla Anunciantes** (`/anunciantes`, `app/routers/clientes.py`,
-  `templates/clientes/`), **solo ADMIN** (`requiere_admin`: el rol se lee de
-  la base en cada request, no de la sesión). Alta/edición: nombre (único sin
+  `templates/clientes/`), **solo ADMIN** (`app/auth.py::requiere_admin`: el
+  rol se lee de la base en cada request, no de la sesión). Alta/edición: nombre (único sin
   distinguir mayúsculas), número inicial de OT, y Anunciantes de Advertys
   relacionados (`cliente_anunciantes`) elegidos de la lista de lo
   sincronizado (catálogo de Productos + espejo de OT), con sugerencia al
@@ -1151,3 +1152,52 @@ Decisiones de Javier (reemplazan la "secuencia global compartida" del 2026-09-24
 - QA: el usuario de `tools/qa_server.py` se crea ADMIN para cubrir esta
   pantalla.
 
+
+## Pantalla Usuarios y bloqueo de inactivos (2026-10-14)
+
+Antes no había forma de controlar accesos sin SQL en Neon: el login acepta
+cualquier `@aleste.ar` y crea el usuario solo, y `activo` existía pero no se
+aplicaba. Ahora:
+- **Pantalla Usuarios** (`/usuarios`, `app/routers/usuarios.py`,
+  `templates/usuarios/list.html`), **solo ADMIN**, link en el sidebar debajo
+  de Anunciantes. Lista nombre, email, rol, último login (hora AR) y estado.
+  Cambiar rol (select por fila con confirm, `POST /usuarios/{id}/rol`) y
+  desactivar/reactivar (`POST /usuarios/{id}/desactivar|reactivar`). **No hay
+  alta manual**: el usuario aparece en su primer login. Baja = `activo=False`,
+  nunca borrar. `/usuarios` está en `_PREFIJOS_LIBRES` de
+  `SoloLecturaMiddleware` (no depende del anunciante del sidebar).
+- **Un ADMIN no puede quitarse el rol ni desactivarse a sí mismo** (409; la
+  fila propia no muestra los controles). Como quien cambia es siempre un
+  ADMIN activo, eso alcanza para que nunca se quede la app sin admins.
+- **`activo=False` bloquea de verdad y de inmediato:**
+  `procesar_login` levanta `UsuarioInactivo` (login → `/auth/login?error=
+  inactivo`, con aviso, sin tocar `ultimo_login`), y `AuthMiddleware` valida
+  en **cada request** contra la base que el `user_id` de la sesión exista y
+  esté activo; si no, borra la sesión y redirige a `/auth/login?error=
+  inactivo` (HTMX: 401 + `HX-Redirect`). El rol leído queda en
+  `request.state.rol_usuario` y `templating._contexto_clientes` lo reusa
+  (no repite la query para `es_admin`). Costo: una query liviana por PK por
+  request, también en los parciales HTMX.
+- `APROBADOR_FACTURACION` se puede asignar pero **todavía no gatea nada**
+  (sigue reservado para Fase 2); hoy solo ADMIN cambia algo.
+- QA: `tools/qa_server.py` siembra además `fer.qa` (MIEMBRO), `juli.qa`
+  (APROBADOR_FACTURACION) y `ex.qa` (desactivado); `/auth/qa-login?email=...`
+  entra como cualquiera de ellos.
+- Tests: `tests/test_usuarios.py`.
+
+
+## Links de la tarea: varios vínculos e hipervínculo en la tabla (2026-10-16)
+
+Pedido de Javier: la celda "Drive" de la tabla de Tareas (y del detalle de OT)
+abre el vínculo, y una tarea puede tener **más de un vínculo**.
+- `tareas.link_drive` pasó de `String(300)` a `Text` (migración
+  `e8b2f5c1a7d3`) y guarda **un vínculo por línea**. Sin tabla nueva a
+  propósito: no hay datos por vínculo (título, tipo), solo la URL.
+  `viewmodels.links_de` lo parte y `unir_links` lo arma desde los varios
+  inputs `link_drive` del drawer (descarta vacíos y repetidos).
+- Drawer: campo "Links" con un input por vínculo, "+ Agregar vínculo" y "×".
+- Celda (`tareas/_celda_drive.html`): un vínculo → `<a target="_blank">`;
+  varios → menú `<details>`; ninguno → flecha gris. Los clicks no abren el
+  drawer de la fila. Solo se linkea http/https (`templating.href_externo`;
+  sin esquema se asume https, `javascript:`/`data:` nunca).
+- El mail sugerido a responsables lista todos los vínculos.

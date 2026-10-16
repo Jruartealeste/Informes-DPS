@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.auth import DominioNoAutorizado, oauth, procesar_login
+from app.auth import DominioNoAutorizado, UsuarioInactivo, oauth, procesar_login
 from app.db import get_db
 from app.templating import templates
 
@@ -16,7 +16,12 @@ router = APIRouter(prefix="/auth")
 @router.get("/login")
 def login(request: Request):
     return templates.TemplateResponse(
-        request, "auth/login.html", {"error_dominio": request.query_params.get("error") == "dominio"}
+        request,
+        "auth/login.html",
+        {
+            "error_dominio": request.query_params.get("error") == "dominio",
+            "error_inactivo": request.query_params.get("error") == "inactivo",
+        },
     )
 
 
@@ -92,6 +97,8 @@ async def callback(request: Request, db: Session = Depends(get_db)):
         usuario = procesar_login(db, claims)
     except DominioNoAutorizado:
         return RedirectResponse("/auth/login?error=dominio")
+    except UsuarioInactivo:
+        return RedirectResponse("/auth/login?error=inactivo")
 
     request.session["user_id"] = usuario.id
     request.session["email"] = usuario.email

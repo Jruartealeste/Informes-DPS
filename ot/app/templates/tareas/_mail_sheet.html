@@ -55,8 +55,11 @@
                    data-asunto-cadena="{{ cadena.asunto }}" data-asunto-libre="{{ asunto_libre }}"
                    {{ "checked" if misma_cadena }}>
             <span class="combo__check-row__nombre">Enviar en la misma cadena que el mail anterior</span>
+            <span class="info-tip">
+            <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+            <span class="info-tip__panel" role="note">Se manda como respuesta, con el asunto de la cadena. Destildalo para mandar un mail nuevo con otro asunto.</span>
+          </span>
           </label>
-          <div class="field-hint">Se manda como respuesta, con el asunto de la cadena. Destildalo para mandar un mail nuevo con otro asunto.</div>
         </div>
         {% endif %}
 

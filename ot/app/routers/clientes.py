@@ -4,9 +4,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.anunciantes import corresponde
+from app.auth import requiere_admin
 from app.cliente_ctx import COOKIE_CLIENTE
 from app.db import get_db
-from app.models import Cliente, ClienteAnunciante, OrdenTrabajoEspejo, OtInterna, ProductoAdvertys, RolUsuario, Usuario
+from app.models import Cliente, ClienteAnunciante, OrdenTrabajoEspejo, OtInterna, ProductoAdvertys, Usuario
 from app.templating import templates
 
 router = APIRouter()
@@ -26,15 +27,6 @@ def activar_cliente(cliente_id: int, request: Request, db: Session = Depends(get
 # En la UI se llaman "anunciantes" (como el selector del sidebar); en el código
 # son `Cliente`, que se relaciona con uno o varios Anunciantes reales de
 # Advertys (`ClienteAnunciante`).
-
-
-def requiere_admin(request: Request, db: Session = Depends(get_db)) -> Usuario:
-    """El rol se lee de la base en cada request (no de la sesión), para que
-    dar o quitar ADMIN rija sin esperar al próximo login."""
-    usuario = db.get(Usuario, request.session.get("user_id") or 0)
-    if not usuario or usuario.rol != RolUsuario.ADMIN:
-        raise HTTPException(403, "Solo un ADMIN puede gestionar anunciantes.")
-    return usuario
 
 
 def _anunciantes_advertys(db: Session) -> list[str]:

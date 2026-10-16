@@ -24,8 +24,8 @@ def cliente_activo(request: Request, db: Session) -> Cliente | None:
 # ningún cambio (tareas, OT, estimados, mails...) mientras sea el del sidebar.
 _METODOS_ESCRITURA = {"POST", "PUT", "PATCH", "DELETE"}
 # /anunciantes y /clientes son la gestión de anunciantes (reactivar incluido);
-# /auth y /api/sync no dependen del anunciante elegido.
-_PREFIJOS_LIBRES = ("/auth", "/api/sync", "/anunciantes", "/clientes", "/static")
+# /auth, /api/sync y /usuarios no dependen del anunciante elegido.
+_PREFIJOS_LIBRES = ("/auth", "/api/sync", "/anunciantes", "/clientes", "/usuarios", "/static")
 
 
 class SoloLecturaMiddleware:

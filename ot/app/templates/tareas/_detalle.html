@@ -122,10 +122,20 @@
 
         <div class="field-row">
           <div class="field">
-            <div class="field__label">Link Drive</div>
-            <input type="text" name="link_drive" style="font-family:var(--mono)"
-                   value="{{ (p.link_drive if p else '') if not det else (det.link_drive or '') }}"
-                   placeholder="Sin link">
+            <div class="field__label">Links</div>
+            {# Uno o más vínculos (Drive u otros): un input por vínculo, todos con
+               name="link_drive"; se guardan uno por línea (viewmodels.unir_links). #}
+            {% set links = det.links_drive if det else ((p.link_drive if p else '') | links_de) %}
+            <div class="links-campo">
+              {% for l in (links or ['']) %}
+              <div class="links-campo__fila">
+                <input type="text" name="link_drive" value="{{ l }}" placeholder="Sin link"
+                       style="font-family:var(--mono)" aria-label="Vínculo">
+                <button type="button" class="links-campo__quitar" title="Quitar vínculo" aria-label="Quitar vínculo">×</button>
+              </div>
+              {% endfor %}
+              <button type="button" class="links-campo__agregar" aria-label="Agregar vínculo" title="Agregar vínculo">{{ icono("mas") }}</button>
+            </div>
           </div>
           <div class="field field--fixed">
             <div class="field__label">Presupuestado</div>
@@ -139,8 +149,11 @@
         </div>
 
         <div class="factura-block">
-          <div class="factura-block__label">Número de factura</div>
-          <div class="factura-block__nota">Se completa en Fase 2, cuando Advertys devuelve el CAE.</div>
+          <div class="factura-block__label">Número de factura
+          <span class="info-tip">
+            <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+            <span class="info-tip__panel" role="note">Se completa en Fase 2, cuando Advertys devuelve el CAE.</span>
+          </span></div>
         </div>
 
         {% if det and det.mails %}
@@ -174,11 +187,11 @@
         <div class="drawer__footer-spacer"></div>
         {% if det %}
         {% set hay_responsables = det.responsables_con_mail | length > 0 %}
-        <button type="button" class="btn btn--icono" aria-label="Enviar mail"
+        <button type="button" class="btn btn--icono btn--solo-icono" aria-label="Enviar mail"
                 title="{{ 'Enviar mail' if hay_responsables else 'Enviar mail: asigná un responsable primero' }}"
                 {% if not hay_responsables %}disabled{% endif %}
                 hx-get="/tareas/{{ det.id }}/mail" hx-target="#sheet-2-root" hx-swap="innerHTML">
-          {{ icono("mail") }}<span class="solo-escritorio">Enviar mail</span>
+          {{ icono("mail") }}
         </button>
         <button type="button" class="btn btn--peligro"
                 {% if not det.puede_anular %}disabled title="{{ det.motivo_no_anulable }}"{% endif %}
@@ -186,9 +199,9 @@
                 hx-confirm="{{ det.advertencia_anular }}">
           Anular
         </button>
-        <button type="button" class="btn btn--icono" aria-label="Duplicar tarea" title="Duplicar tarea"
+        <button type="button" class="btn btn--icono btn--solo-icono" aria-label="Duplicar tarea" title="Duplicar tarea"
                 hx-get="/tareas/{{ det.id }}/duplicar" hx-target="#sheet-2-root" hx-swap="innerHTML">
-          {{ icono("duplicar") }}<span class="solo-escritorio">Duplicar</span>
+          {{ icono("duplicar") }}
         </button>
         {% endif %}
       </div>
