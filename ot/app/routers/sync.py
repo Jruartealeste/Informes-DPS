@@ -11,11 +11,20 @@ from datetime import datetime as dt
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.db import get_db
-from app.models import OrdenTrabajoEspejo, ProductoAdvertys, SyncLog
+from app.models import (
+    EstadoSolicitudAltaOt,
+    OrdenTrabajoEspejo,
+    OtInterna,
+    ProductoAdvertys,
+    SolicitudAltaOt,
+    SyncLog,
+)
+from app.routers.ordenes_trabajo import resolver_solicitud
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
@@ -137,3 +146,69 @@ def sync_productos(registros: list[ProductoIn], db: Session = Depends(get_db)) -
         raise HTTPException(500, f"Error al sincronizar productos: {e}") from e
 
     return {"ok": True, "cantidad": len(unicos)}
+
+
+# --- Solicitudes de alta de OT (skill `procesar-solicitudes-ot`) ---
+# Informes/modules/ordenes_trabajo/procesar_solicitudes.py lee los pedidos
+# PENDIENTES, corre crear_ot.py con el OK de Javier y resuelve acá con el
+# número que devolvió Advertys. La app sigue sin correr nada ella misma.
+
+
+def _solicitud_api(s: SolicitudAltaOt) -> dict:
+    clientes = sorted({ot.cliente.nombre for ot in s.ots if ot.cliente})
+    return {
+        "id": s.id,
+        "anunciante": s.anunciante,
+        "resumen": s.resumen,
+        "producto": s.producto,
+        "centro_costo": s.centro_costo,
+        "equipo": s.equipo,
+        "estado": s.estado.name,
+        "numero_ot_advertys": s.numero_ot_advertys,
+        "cliente": ", ".join(clientes),
+        "creado_por": s.creado_por.nombre if s.creado_por else None,
+        "creado_en": s.creado_en.isoformat() if s.creado_en else None,
+        "ots": [{"numero_interno": ot.numero_interno, "titulo": ot.titulo} for ot in s.ots],
+    }
+
+
+@router.get("/solicitudes-alta-ot", dependencies=[Depends(_verificar_token)])
+def listar_solicitudes_alta_ot(estado: str = "PENDIENTE", db: Session = Depends(get_db)) -> list[dict]:
+    try:
+        estado_enum = EstadoSolicitudAltaOt[estado]
+    except KeyError:
+        raise HTTPException(422, f"Estado inválido: {estado}") from None
+    solicitudes = db.scalars(
+        select(SolicitudAltaOt)
+        .where(SolicitudAltaOt.estado == estado_enum)
+        .options(
+            selectinload(SolicitudAltaOt.ots).selectinload(OtInterna.cliente),
+            selectinload(SolicitudAltaOt.creado_por),
+        )
+        .order_by(SolicitudAltaOt.creado_en)
+    )
+    return [_solicitud_api(s) for s in solicitudes]
+
+
+class ResolverIn(BaseModel):
+    numero_ot_advertys: str = Field(min_length=1, max_length=20)
+
+
+@router.post("/solicitudes-alta-ot/{solicitud_id}/resolver", dependencies=[Depends(_verificar_token)])
+def resolver_solicitud_alta_ot(solicitud_id: int, body: ResolverIn, db: Session = Depends(get_db)) -> dict:
+    """Idempotente para el reintento del script: si ya está RESUELTA con el
+    mismo número responde 200 sin tocar nada; con otro número, 409 (alguien
+    la resolvió a mano con un número distinto y hay que mirarlo)."""
+    solicitud = db.get(SolicitudAltaOt, solicitud_id, options=[selectinload(SolicitudAltaOt.ots)])
+    if not solicitud:
+        raise HTTPException(404, "Solicitud no encontrada: puede que la hayan cancelado")
+    valor = body.numero_ot_advertys.strip()
+    if solicitud.estado == EstadoSolicitudAltaOt.RESUELTA:
+        if solicitud.numero_ot_advertys == valor:
+            return {"ok": True, "ya_estaba_resuelta": True, "id": solicitud.id}
+        raise HTTPException(
+            409, f"La solicitud ya está resuelta con la OT {solicitud.numero_ot_advertys}, no con {valor}."
+        )
+    resolver_solicitud(solicitud, valor)
+    db.commit()
+    return {"ok": True, "ya_estaba_resuelta": False, "id": solicitud.id}

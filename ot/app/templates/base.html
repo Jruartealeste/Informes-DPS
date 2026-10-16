@@ -30,6 +30,7 @@
         <button type="button" class="sidebar__menu" id="toggle-menu" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
           <svg class="sidebar__menu-abrir" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="7" y2="7"></line><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="17" y2="17"></line></svg>
           <svg class="sidebar__menu-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="18" y1="6" y2="18"></line><line x1="18" x2="6" y1="6" y2="18"></line></svg>
+          {% if n_altas_ot_pendientes %}<span class="sidebar__menu-alerta" aria-hidden="true"></span>{% endif %}
         </button>
       </div>
 
@@ -66,6 +67,7 @@
               <line x1="16" x2="14" y1="3" y2="21"></line>
             </svg>
             <span class="sidebar__item-label">OT internas</span>
+            {% if n_altas_ot_pendientes %}<span class="sidebar__alerta" role="status" aria-label="{{ n_altas_ot_pendientes }} pedido{{ 's' if n_altas_ot_pendientes > 1 }} de alta esperando Advertys" title="{{ n_altas_ot_pendientes }} pedido{{ 's' if n_altas_ot_pendientes > 1 }} de alta esperando Advertys">{{ n_altas_ot_pendientes }}</span>{% endif %}
             <span class="sidebar__badge">{{ total_ots | default(0) }}</span>
           </a>
           <a href="/estimados" class="sidebar__item {{ 'is-active' if seccion_activa == 'estimados' else '' }}" title="Estimados">

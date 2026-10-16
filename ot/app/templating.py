@@ -7,7 +7,15 @@ from sqlalchemy import func, select
 
 from app.cliente_ctx import CLIENTE_DEFAULT, COOKIE_CLIENTE
 from app.db import get_db
-from app.models import Cliente, OtInterna, RolUsuario, Tarea, Usuario
+from app.models import (
+    Cliente,
+    EstadoSolicitudAltaOt,
+    OtInterna,
+    RolUsuario,
+    SolicitudAltaOt,
+    Tarea,
+    Usuario,
+)
 from app.viewmodels import links_de
 
 # public/ (no app/): en Vercel el CDN sirve public/** sin pasar por la función
@@ -54,7 +62,16 @@ def _contexto_clientes(request: Request) -> dict:
         rol = getattr(request.state, "rol_usuario", None)
         if rol is None:
             rol = db.scalar(select(Usuario.rol).where(Usuario.id == (request.session.get("user_id") or 0)))
+        # Pedidos de alta de OT esperando crearse en Advertys (skill
+        # procesar-solicitudes-ot): marca de alerta en "OT internas" desde
+        # cualquier pantalla. Una query de conteo más por página.
+        n_altas_ot = db.scalar(
+            select(func.count())
+            .select_from(SolicitudAltaOt)
+            .where(SolicitudAltaOt.estado == EstadoSolicitudAltaOt.PENDIENTE)
+        ) or 0
         return {
+            "n_altas_ot_pendientes": n_altas_ot,
             "clientes_sidebar": clientes_sidebar,
             "cliente_activo_id": activo_id,
             "cliente_solo_lectura": bool(actual and not actual["activo"]),

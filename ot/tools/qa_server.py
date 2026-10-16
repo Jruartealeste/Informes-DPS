@@ -1,7 +1,7 @@
 """Servidor descartable de QA visual/funcional para las pantallas de `ot/`.
 
 Nunca toca el `.env` real ni la base de Neon. Por defecto usa un Postgres
-local descartable en Docker (contenedor `ot-qa-pg`, 127.0.0.1:54329, levantado
+local descartable en Docker (contenedor `ot-qa-pg`, 127.0.0.1:15433, levantado
 con `.claude/skills/qa-ot/scripts/levantar-entorno.sh`) con el schema creado
 por `alembic upgrade head` — así se prueban también las migraciones y las
 diferencias Postgres/sqlite. `--sqlite` usa el sqlite viejo en
@@ -37,7 +37,7 @@ DATA_DIR.mkdir(exist_ok=True)
 # en 8123; usa su propio sqlite para no pisarle los datos.
 PORT = next((int(a.split("=", 1)[1]) for a in sys.argv if a.startswith("--port=")), 8123)
 DB_PATH = DATA_DIR / ("qa_ot.db" if PORT == 8123 else f"qa_ot_{PORT}.db")
-PG_URL = "postgresql+psycopg://postgres:qa_local_only@127.0.0.1:54329/ot_qa"
+PG_URL = "postgresql+psycopg://postgres:qa_local_only@127.0.0.1:15433/ot_qa"
 
 USAR_SQLITE = "--sqlite" in sys.argv
 RESET = "--reset" in sys.argv

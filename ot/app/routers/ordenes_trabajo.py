@@ -126,19 +126,19 @@ def listado_ordenes_trabajo(request: Request, db: Session = Depends(get_db)):
         or 0
     )
     ots = list(db.scalars(stmt).unique())
-    n_solicitudes_pendientes = (
-        db.scalar(
-            select(func.count())
-            .select_from(SolicitudAltaOt)
-            .where(SolicitudAltaOt.estado == EstadoSolicitudAltaOt.PENDIENTE)
-        )
-        or 0
+    # Ids de pedidos de alta PENDIENTES: cuentan para el botón "Solicitudes de
+    # alta N" y marcan en la tabla las OT internas que esperan crearse en Advertys.
+    pendientes = set(
+        db.scalars(select(SolicitudAltaOt.id).where(SolicitudAltaOt.estado == EstadoSolicitudAltaOt.PENDIENTE))
     )
+    n_solicitudes_pendientes = len(pendientes)
     return templates.TemplateResponse(
         request,
         "ordenes_trabajo/list.html",
         {
-            "ots": [ot_interna_vm(ot) for ot in ots],
+            "ots": [
+                {**ot_interna_vm(ot), "alta_pendiente": ot.solicitud_alta_id in pendientes} for ot in ots
+            ],
             "total_ots": total_ots,
             "n_sin_dps": n_sin_dps,
             "n_solicitudes_pendientes": n_solicitudes_pendientes,
@@ -157,7 +157,7 @@ def listado_ordenes_trabajo(request: Request, db: Session = Depends(get_db)):
 
 
 @router_paginas.get("/ordenes-trabajo/solicitudes")
-def listado_solicitudes_alta(request: Request, db: Session = Depends(get_db)):
+def listado_solicitudes_alta(request: Request, db: Session = Depends(get_db), nueva: int | None = None):
     solicitudes = list(
         db.scalars(
             select(SolicitudAltaOt)
@@ -170,6 +170,8 @@ def listado_solicitudes_alta(request: Request, db: Session = Depends(get_db)):
         "ordenes_trabajo/solicitudes.html",
         {
             "solicitudes": [solicitud_alta_vm(s) for s in solicitudes],
+            "n_pendientes": sum(1 for s in solicitudes if s.estado == EstadoSolicitudAltaOt.PENDIENTE),
+            "nueva": nueva,
             "total_ots": db.scalar(select(func.count()).select_from(OtInterna)) or 0,
             "total_tareas": _total_tareas(db),
             "seccion_activa": "ordenes_trabajo",
@@ -409,7 +411,7 @@ def generar_ot(
     for ot in ots:
         ot.solicitud_alta_id = solicitud.id
     db.commit()
-    return RedirectResponse("/ordenes-trabajo/solicitudes", status_code=303)
+    return RedirectResponse(f"/ordenes-trabajo/solicitudes?nueva={solicitud.id}", status_code=303)
 
 
 @router_paginas.post("/ordenes-trabajo/solicitudes/{solicitud_id}/resolver")
@@ -423,6 +425,15 @@ def resolver_solicitud_alta(
         raise HTTPException(404, "Solicitud no encontrada")
     if solicitud.estado != EstadoSolicitudAltaOt.PENDIENTE:
         raise HTTPException(409, "Esta solicitud ya fue resuelta.")
+    resolver_solicitud(solicitud, numero_ot_advertys)
+    db.commit()
+    return RedirectResponse("/ordenes-trabajo/solicitudes", status_code=303)
+
+
+def resolver_solicitud(solicitud: SolicitudAltaOt, numero_ot_advertys: str) -> None:
+    """Marca una solicitud PENDIENTE como RESUELTA y propaga el número a
+    todas sus OT internas. Compartido por el botón de la pantalla
+    Solicitudes y por /api/sync (skill `procesar-solicitudes-ot`)."""
     valor = numero_ot_advertys.strip()
     if not valor:
         raise HTTPException(422, "Falta el número de OT resultante.")
@@ -431,8 +442,6 @@ def resolver_solicitud_alta(
     solicitud.resuelto_en = datetime.now(timezone.utc)
     for ot in solicitud.ots:
         ot.numero_ot_advertys = valor
-    db.commit()
-    return RedirectResponse("/ordenes-trabajo/solicitudes", status_code=303)
 
 
 @router_paginas.post("/ordenes-trabajo/solicitudes/{solicitud_id}/cancelar")

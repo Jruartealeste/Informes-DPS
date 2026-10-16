@@ -16,7 +16,7 @@ diagnosticar y proponer ideas, nunca corregir código.
 **Solo interactuás contra el servidor de QA** (`http://localhost:8123`,
 levantado con `preview_start({name: "ot-qa"})`, ver `.claude/launch.json`
 → corre `ot/tools/qa_server.py`, un Postgres
-local descartable en Docker, contenedor `ot-qa-pg` en `127.0.0.1:54329`, con
+local descartable en Docker, contenedor `ot-qa-pg` en `127.0.0.1:15433`, con
 datos ficticios de ALUAR; nunca el `.env` real ni la base Neon de producción). **Nunca navegues ni clickees contra
 `http://localhost:8000`** (el uvicorn real de desarrollo, si está
 corriendo) — no es tu servidor, y clickear ahí sí puede tocar datos reales

@@ -19,7 +19,6 @@
   </div>
 </div>
 
-
 <div class="filters" id="filtros-ot">
   <div class="filters__search">
     <svg class="filters__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -68,8 +67,8 @@
     </div>
   </div>
   <div class="filters__spacer"></div>
-  <div class="semaforo-leyenda" aria-label="Referencias del semáforo de facturación">
-    {% for valor, label in estados_facturacion %}<span class="semaforo-leyenda__item"><span class="semaforo__dot" data-valor="{{ valor }}" aria-hidden="true"></span>{{ label|capitalize|replace(' ok ', ' OK ') }}</span>{% endfor %}
+  <div class="semaforo-leyenda" role="group" aria-label="Filtrar por facturación de las tareas">
+    {% for valor, label in estados_facturacion %}<button type="button" class="semaforo-leyenda__item" data-fac="{{ valor }}" aria-pressed="false" title="Filtrar OT con tareas en «{{ label|lower }}»"><span class="semaforo__dot" data-valor="{{ valor }}" aria-hidden="true"></span>{{ label|capitalize|replace(' ok ', ' OK ') }}</button>{% endfor %}
   </div>
   <div class="filters__summary" id="filtros-resumen"></div>
   <button type="button" class="filters__clear" id="filtros-clear" hidden>Limpiar</button>
@@ -111,7 +110,7 @@
     </div>
     <div id="campo-ot-generar" style="display:none">
       <p class="form-nota" style="margin:0 0 10px">
-        No crea nada en Advertys todavía — arma un pedido para correr <code>crear_ot.py</code> a mano.
+        Arma un pedido: la OT se crea en Advertys después, corriendo el alta con Claude.
         <span class="info-tip">
           <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
           <span class="info-tip__panel" role="note">
@@ -170,7 +169,7 @@
         <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}" data-titulo="{{ ot.titulo or '' }}">
       </label>
       <a href="/ordenes-trabajo/{{ ot.n }}" class="row-ot__link">
-        <div class="row-ot__n">OT {{ ot.n }}</div>
+        <div class="row-ot__n">OT {{ ot.n }}{% if ot.alta_pendiente %} <span class="marca-alta-pendiente" role="img" aria-label="Pedido de alta esperando Advertys" title="Pedido de alta esperando Advertys">!</span>{% endif %}</div>
         <div class="row-ot__titulo{{ ' is-vacio' if not ot.titulo }}"{% if ot.titulo %} title="{{ ot.titulo }}"{% endif %}>{{ ot.titulo or 'Sin título' }}</div>
         <div><span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span></div>
         <div><span class="badge badge--dps {{ 'has-dps' if ot.dps else 'no-dps' }}">{{ ot.dps_label }}</span></div>
@@ -186,7 +185,9 @@
   {% if not ots %}
   <p class="empty-state">Todavía no hay ninguna OT interna{{ " de " ~ cliente.nombre if cliente }}.</p>
   {% endif %}
-  <p class="empty-state" id="sin-resultados" hidden>Ninguna OT interna coincide con los filtros.</p>
+  <p class="empty-state" id="sin-resultados" hidden>Ninguna OT interna coincide con los filtros.
+    <button type="button" class="btn btn--small" id="ver-otra-asignacion" hidden></button>
+  </p>
 
 </div>
 
@@ -295,6 +296,15 @@
     pintarAsignacion();
   }
   var fFac = document.getElementById('filtro-fac');
+  // Las referencias del semáforo filtran: mismo valor que el select de
+  // Facturación del panel (un click lo aplica, otro lo quita).
+  var leyendaFac = document.querySelectorAll('.semaforo-leyenda__item[data-fac]');
+  Array.prototype.forEach.call(leyendaFac, function (b) {
+    b.addEventListener('click', function () {
+      fFac.value = fFac.value === b.dataset.fac ? '' : b.dataset.fac;
+      aplicarFiltros();
+    });
+  });
 
   function abrirPanel(v) {
     panelFiltros.hidden = !v;
@@ -305,8 +315,13 @@
     var q = fq.value.trim().toLowerCase();
     var filas = document.querySelectorAll('.row-ot');
     var visibles = 0;
+    var enOtraVista = 0;
     Array.prototype.forEach.call(filas, function (r) {
       var d = r.dataset, total = +d.total, fact = +d.fact, ok = true;
+      // Lo que dejaría pasar todo menos el filtro rápido Sin/Con: si la búsqueda
+      // solo coincide en la otra vista (ej. un número de OT de sistema estando
+      // en "Sin"), se ofrece cambiar en vez de mostrar "ninguna coincide".
+      var otraVista = asignacion() === 'sin' ? d.dps !== '' : d.dps === '';
       if (q && r.textContent.toLowerCase().indexOf(q) === -1) ok = false;
       if (fEstado.value && d.estado !== fEstado.value) ok = false;
       if (asignacion() === 'sin' ? d.dps !== '' : d.dps === '') ok = false;
@@ -314,10 +329,15 @@
       if (fFac.value === 'pendiente' && !(total > fact)) ok = false;
       if (fFac.value === 'completa' && !(total > 0 && fact === total)) ok = false;
       if (/^[A-Z_]+$/.test(fFac.value) && (' ' + d.facs).indexOf(' ' + fFac.value + ' ') === -1) ok = false;
+      if (otraVista && q && r.textContent.toLowerCase().indexOf(q) !== -1 &&
+          !(fEstado.value && d.estado !== fEstado.value) && !(fDps.value && d.dps !== fDps.value)) enOtraVista++;
       r.hidden = !ok;
       // una fila oculta no puede quedar tildada: iría igual en el envío
       if (!ok) r.querySelector('.chk-ot').checked = false;
       if (ok) visibles++;
+    });
+    Array.prototype.forEach.call(leyendaFac, function (b) {
+      b.setAttribute('aria-pressed', b.dataset.fac === fFac.value ? 'true' : 'false');
     });
     var activos = [fEstado, fDps, fFac].filter(function (sel) { return sel.value; }).length;
     var cuenta = document.getElementById('filtros-count');
@@ -328,6 +348,9 @@
     document.getElementById('filtros-clear').hidden = !(activos > 0 || q);
     var vacio = document.getElementById('sin-resultados');
     if (vacio) vacio.hidden = visibles > 0 || filas.length === 0;
+    var btnOtra = document.getElementById('ver-otra-asignacion');
+    btnOtra.hidden = !(visibles === 0 && enOtraVista > 0);
+    btnOtra.textContent = 'Ver ' + enOtraVista + ' en «' + (asignacion() === 'sin' ? 'Con' : 'Sin') + ' OT de sistema»';
     actualizarContador();
   }
 
@@ -345,6 +368,10 @@
     if (e.key === 'Escape' && !panelFiltros.hidden) { abrirPanel(false); btnFiltros.focus(); }
   });
   fq.addEventListener('input', aplicarFiltros);
+  document.getElementById('ver-otra-asignacion').addEventListener('click', function () {
+    fijarAsignacion(asignacion() === 'sin' ? 'con' : 'sin');
+    aplicarFiltros();
+  });
   [fEstado, fFac].forEach(function (c) { c.addEventListener('change', aplicarFiltros); });
   // Elegir una OT de sistema puntual implica ver las asignadas.
   fDps.addEventListener('change', function () {

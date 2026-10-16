@@ -10,7 +10,7 @@ QA funcional + visual de las pantallas de `ot/`, interactuando de verdad
 (clicks, forms, drawers, filtros — no solo capturas estáticas) contra un
 servidor descartable con datos ficticios de ALUAR
 (`ot/tools/qa_server.py` sobre un **Postgres local en Docker**, contenedor
-`ot-qa-pg` en `127.0.0.1:54329`, nunca `.env` real ni Neon de producción) y,
+`ot-qa-pg` en `127.0.0.1:15433`, nunca `.env` real ni Neon de producción) y,
 a diferencia de una revisión solo visual, **cierra cada flujo consultando la
 base**: lo que importa es lo que se ve bien y está mal guardado. Usa el browser pane (`mcp__Claude_Browser__*`, Playwright por
 debajo) para navegar, y el skill `frontend-design` para fundamentar las

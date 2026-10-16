@@ -62,3 +62,14 @@ _(ninguno registrado todavía — se llena con el primer informe)_
 - Links de la tarea (2026-10-16): celda Drive de Tareas y del detalle de OT es hipervínculo (pestaña nueva, no abre el drawer); con varios vínculos es un menú (`details.cell-drive--varios`, position fixed para no quedar recortado por el scroll de la tabla, se cierra con clic afuera/scroll). Drawer: "+ Agregar vínculo" / "×" por fila; se guardan uno por línea en `tareas.link_drive` (Text), sin vacíos ni repetidos; el mail sugerido lista todos. Solo http/https (o sin esquema → https) se linkea. Verificado en sqlite a 1400 px y 375 px (sin scroll horizontal). **No probado:** la migración `e8b2f5c1a7d3` contra Postgres (Docker no disponible).
 - Botón de calendario de fechas dentro del drawer (2026-10-16, MEDIO, **corregido**): no hacía nada porque el drawer corta la propagación de clicks y el listener era de burbuja. Regresión: todo listener de `click` delegado en `document` que deba funcionar dentro del drawer va en fase de captura (`, true`).
 - Simplificación en Tareas (2026-10-16): Filtros, Enviar mail, Duplicar y "+ Agregar vínculo" pasan a ícono solo (aria-label + title); textos explicativos de Número de factura, Duplicar y "misma cadena" del mail pasan a "?". El `info-tip` ahora funciona dentro de drawers (listener en captura) y su panel se ajusta al drawer que lo contiene, no a la ventana. Regresión: abrir cada "?" de un drawer a 375 px y verificar que el panel queda dentro del drawer. "Necesitan revisión" y "Vencidas" pasaron a ícono + número con OK de Javier (por vencer como "+N"; detalle en title/aria-label); filtros a 44x44 en mobile. Propuesta abierta: hint de primera OT a "?".
+
+## Alta de OT con Claude (2026-10-16; informe `INFORME-QA-OT-2026-10-16-b.md`) — corregidos
+- Salida de `procesar_solicitudes.py` con ñ rota en consola Windows: **corregido** (UTF-8). Regresión: correr `listar` y mirar "Diseño de piezas".
+- `listar` no marcaba "YA CREADA" si la creación fue con `--simular` (dos logs): **corregido** (un solo log por URL).
+- Puerto de `ot-qa-pg` 54329 bloqueado por reserva dinámica de Windows: **movido a 15433**.
+
+## OT internas (2026-10-16; informe `INFORME-QA-OT-2026-10-16-c.md`)
+- Buscar un número de OT de sistema estando en "Sin OT de sistema" daba 0 sin pista: **corregido** (botón "Ver N en «Con OT de sistema»"). Regresión: buscar "258" en Sin.
+- Pedidos de alta pendientes: botón "Solicitudes de alta N" resaltado en rojo en OT internas (Javier: sin cartel aparte, "con el resaltado rojo basta") + marca en el ítem del sidebar (también contraído) + punto en el ☰ a ≤720 px. Regresión: sin pendientes no aparece nada.
+- Leyenda del semáforo = botones de filtro (sincronizada con Filtros › Facturación); a ≤720 px pastillas de 32 px.
+- **Abierto (bajo):** al bloquear "Generar" con campos vacíos el foco no va al primer campo vacío.

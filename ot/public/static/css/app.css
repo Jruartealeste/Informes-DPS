@@ -2006,6 +2006,23 @@ select.chip-fac {
   align-items: center;
   gap: 5px;
   white-space: nowrap;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 1px 7px 1px 5px;
+  margin-left: -6px;
+  cursor: pointer;
+}
+.semaforo-leyenda__item:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.semaforo-leyenda__item[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 .row-ot[hidden] {
   display: none;
@@ -2765,6 +2782,34 @@ select.chip-fac {
     width: 22px;
     height: 22px;
   }
+  /* Punto en el ☰: hay pedidos de alta de OT esperando Advertys (la marca
+     del item "OT internas" queda escondida dentro del menú). */
+  .sidebar__menu {
+    position: relative;
+  }
+  .sidebar__menu-alerta {
+    position: absolute;
+    top: 9px;
+    right: 8px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--warn-text);
+    box-shadow: 0 0 0 2px var(--surface);
+  }
+  [aria-expanded="true"] > .sidebar__menu-alerta {
+    display: none;
+  }
+  /* Las referencias del semáforo son botones de filtro: área táctil cómoda. */
+  .semaforo-leyenda {
+    gap: 6px 8px;
+  }
+  .semaforo-leyenda__item {
+    min-height: 32px;
+    padding: 0 10px 0 8px;
+    margin-left: 0;
+    border-color: var(--line);
+  }
   .sidebar__menu-cerrar,
   .sidebar.is-open .sidebar__menu-abrir {
     display: none;
@@ -2937,6 +2982,87 @@ select.chip-fac {
   background: var(--warn-soft);
   border: 1px solid var(--warn-line);
   color: var(--warn-text);
+}
+/* Solicitud de alta de OT pendiente: se crea en Advertys corriendo Claude. */
+.aviso-pendiente-claude {
+  max-width: 760px;
+  box-sizing: border-box;
+  margin: 4px 20px 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-line);
+  color: var(--warn-text);
+}
+/* Marca en el sidebar: pedidos de alta de OT esperando Advertys. */
+.sidebar__alerta {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  box-sizing: border-box;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  color: var(--warn-text);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-line);
+}
+/* Misma marca, en la fila de la OT interna que espera su alta en Advertys. */
+.marca-alta-pendiente {
+  display: inline-block;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  vertical-align: 1px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  color: var(--warn-text);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-line);
+}
+.sidebar__alerta + .sidebar__badge {
+  margin-left: 6px;
+}
+.sidebar__item {
+  position: relative;
+}
+[data-sidebar="collapsed"] .sidebar__alerta {
+  position: absolute;
+  top: 2px;
+  left: 22px;
+  min-width: 14px;
+  height: 14px;
+  line-height: 12px;
+  padding: 0 3px;
+  font-size: 9px;
+}
+.solicitud-falta-claude {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warn-text);
+}
+.card--solicitud.is-nueva {
+  border-color: var(--warn-line);
+}
+.solicitud-manual {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.solicitud-manual summary {
+  cursor: pointer;
+  color: var(--muted);
 }
 .aviso-solo-lectura a {
   color: inherit;

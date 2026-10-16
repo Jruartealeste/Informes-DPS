@@ -65,7 +65,7 @@ cree o edite algo ahí.
   `qa-ot` (`.claude/skills/qa-ot/SKILL.md`) + subagent `ot-qa`
   (`.claude/agents/ot-qa.md`). Corre contra `ot/tools/qa_server.py`, un
   server descartable propio en `:8123` con un **Postgres local en Docker**
-  (`ot-qa-pg`, `127.0.0.1:54329`, schema por `alembic upgrade head`) + datos
+  (`ot-qa-pg`, `127.0.0.1:15433`, schema por `alembic upgrade head`) + datos
   ficticios de `scripts/seed.py` y login simulado — nunca contra `.env` real
   ni Neon. Levantar con `.claude/skills/qa-ot/scripts/levantar-entorno.sh`;
   flujos en `references/flujos.md`, informes en `.claude/qa-informes/`.
@@ -1201,3 +1201,39 @@ abre el vínculo, y una tarea puede tener **más de un vínculo**.
   drawer de la fila. Solo se linkea http/https (`templating.href_externo`;
   sin esquema se asume https, `javascript:`/`data:` nunca).
 - El mail sugerido a responsables lista todos los vínculos.
+
+
+## Alta de OT en Advertys con Claude (2026-10-16)
+
+Pedido de Javier: que las solicitudes queden pendientes en la app y que un
+agente que él llama las cree en Advertys y las vincule solo. Sigue siendo
+"solicitud + corrida manual" (la app nunca corre `crear_ot.py` ni tiene las
+credenciales); lo que cambia es que la corrida y la vinculación las hace Claude.
+- **Skill `procesar-solicitudes-ot`** (`.claude/skills/`) + script
+  `informes/modules/ordenes_trabajo/procesar_solicitudes.py` (`listar`,
+  `procesar --ids`, `descartar`). Lista los pedidos PENDIENTES, Javier aprueba
+  por id en la conversación, corre `crear_ot` y resuelve en la app.
+- **API con el mismo `SYNC_TOKEN` del sync** (`app/routers/sync.py`):
+  `GET /api/sync/solicitudes-alta-ot?estado=PENDIENTE` y
+  `POST /api/sync/solicitudes-alta-ot/{id}/resolver` (JSON
+  `numero_ot_advertys`). Resolver es idempotente: mismo número sobre una ya
+  RESUELTA = 200 sin cambios; otro número = 409; pedido cancelado = 404. Reusa
+  `ordenes_trabajo.resolver_solicitud` (misma lógica que el botón).
+- **Sin OT duplicadas:** el script anota el número en
+  `informes/salida/solicitudes_alta_ot.jsonl` (gitignored) apenas Advertys lo
+  devuelve y antes de resolver; si el resolver falla, la próxima corrida solo
+  vincula. Una OT creada cuyo pedido ya no existe se reporta como huérfana
+  hasta que Javier decide y se corre `descartar`.
+- **Aviso en la app:** al crear un pedido, `generar-ot` redirige a
+  `/ordenes-trabajo/solicitudes?nueva=<id>`, que muestra "todavía no está en
+  Advertys — correr el alta con Claude" (con la frase a pedirle) mientras haya
+  pendientes; cada card pendiente lo repite. El comando manual queda como
+  alternativa plegada.
+  En OT internas no hay cartel (Javier: "con el resaltado rojo basta"): el
+  botón "Solicitudes de alta N" se resalta, cada OT de la tabla que espera
+  su alta lleva una marca "!" junto al número, y el ítem "OT internas" del
+  sidebar muestra el contador desde cualquier pantalla (punto en el ☰ a
+  ≤720 px).
+- Tests: `tests/test_solicitudes_api.py` y
+  `tests/test_procesar_solicitudes_e2e.py` (el script real contra la app en
+  proceso; `crear_ot` simulado, nunca toca Advertys).

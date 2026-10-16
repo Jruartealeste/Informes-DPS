@@ -12,8 +12,9 @@
           <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
           <span class="info-tip__panel" role="note">
             Esta app no crea la OT en Advertys ella misma — cada fila es un pedido con los datos ya
-            confirmados, listo para correr <code>crear_ot.py</code> a mano desde <code>informes/</code>.
-            Cuando tengas el número resultante, pegalo acá abajo para propagarlo a las OT internas del pedido.
+            confirmados. La OT se crea corriendo Claude Code (skill <code>procesar-solicitudes-ot</code>),
+            que carga solo el número resultante en las OT internas del pedido. También se puede correr
+            <code>crear_ot.py</code> a mano y pegar el número acá abajo.
           </span>
         </span>
       </h1>
@@ -22,8 +23,17 @@
 </div>
 
 <div>
+  {% if n_pendientes %}
+  <div class="aviso-pendiente-claude" role="status">
+    {% if nueva %}<strong>Pedido creado, pero todavía no está en Advertys.</strong>{% else %}<strong>{{ n_pendientes }} pedido{{ 's' if n_pendientes > 1 }} todavía no {{ 'están' if n_pendientes > 1 else 'está' }} en Advertys.</strong>{% endif %}
+    Para crear la OT hay que correr el alta con Claude: en Claude Code, dentro del proyecto
+    <em>Aleste General</em>, pedí <code>procesá las solicitudes de OT pendientes</code>.
+    Claude muestra los datos, pide confirmación y carga acá el número de OT que devuelve Advertys.
+  </div>
+  {% endif %}
+
     {% for s in solicitudes %}
-    <div class="card card--solicitud">
+    <div class="card card--solicitud{{ ' is-nueva' if nueva == s.id }}">
       <div class="card--solicitud__head">
         <div class="card--solicitud__ref">
           <span class="solicitud-ots">
@@ -44,6 +54,9 @@
       </p>
 
       {% if s.es_pendiente %}
+      <p class="solicitud-falta-claude">Falta crearla en Advertys — correr el alta con Claude.</p>
+      <details class="solicitud-manual">
+      <summary>Alternativa manual: comando para <code>informes/</code></summary>
       <div class="cmd-box">
         <code class="cmd-box__cmd">{{ s.comando }}</code>
         <button type="button" class="btn btn--small cmd-box__copiar" data-cmd="{{ s.comando }}" aria-label="Copiar comando" title="Copiar comando">
@@ -56,6 +69,7 @@
           </svg>
         </button>
       </div>
+      </details>
       <div class="form-acciones" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <form method="post" action="/ordenes-trabajo/solicitudes/{{ s.id }}/resolver" class="form-resolver-solicitud" style="display:flex;gap:8px">
           <input type="text" name="numero_ot_advertys" placeholder="Número de OT" required class="input-full" style="width:200px">

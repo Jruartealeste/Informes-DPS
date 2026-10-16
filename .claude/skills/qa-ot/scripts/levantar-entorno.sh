@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Levanta (o reutiliza) el Postgres local descartable para el QA de ot/.
-# Contenedor propio "ot-qa-pg" en 127.0.0.1:54329, volumen propio. No toca
+# Contenedor propio "ot-qa-pg" en 127.0.0.1:15433, volumen propio. No toca
 # Neon ni el stack de Supabase de otros proyectos. Idempotente.
 # Reusa la imagen de Postgres 17 que ya esta en el disco (no descarga nada).
 # Uso: bash levantar-entorno.sh [--reset]   (--reset borra el volumen y la base)
 set -euo pipefail
 
-NAME="ot-qa-pg"; VOL="ot-qa-pgdata"; PORT=54329; DBNAME="ot_qa"; PW="qa_local_only"
+# Puerto fuera del rango dinamico de Windows (49152+): Hyper-V/WSL reservan
+# bloques ahi al arrancar y el 54329 original quedo bloqueado (2026-10-16).
+NAME="ot-qa-pg"; VOL="ot-qa-pgdata"; PORT=15433; DBNAME="ot_qa"; PW="qa_local_only"
 IMAGE="$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '/postgres:17|^postgres:17' | head -1 || true)"
 
 command -v docker >/dev/null || { echo "Falta Docker"; exit 1; }
@@ -17,6 +19,11 @@ if [ "${1:-}" = "--reset" ]; then
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   docker volume rm "$VOL" >/dev/null 2>&1 || true
   echo "Reset: contenedor y volumen borrados"
+fi
+
+# Contenedor creado con otro puerto (ej. el 54329 viejo): se recrea, el volumen queda.
+if docker ps -a --format '{{.Names}}' | grep -qx "$NAME" &&    ! docker inspect -f '{{json .HostConfig.PortBindings}}' "$NAME" | grep -q "\"$PORT\""; then
+  docker rm -f "$NAME" >/dev/null; echo "Contenedor recreado en el puerto $PORT (volumen intacto)"
 fi
 
 if ! docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; then

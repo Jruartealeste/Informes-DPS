@@ -8,3 +8,5 @@ __pycache__/
 *.pyc
 informe_*.html
 informes/salida/*.xlsx
+# log local de procesar_solicitudes.py (estado por maquina, no se versiona)
+informes/salida/solicitudes_alta_ot*.jsonl
