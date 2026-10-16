@@ -9,7 +9,7 @@ from app import cache
 from app.anunciantes import productos_del_cliente
 from app.cliente_ctx import COOKIE_CLIENTE, cliente_activo
 from app.db import get_db
-from app.labels import CENTRO_COSTO_OPCIONES, EQUIPO_OPCIONES
+from app.labels import CENTRO_COSTO_OPCIONES, EQUIPO_OPCIONES, FACTURACION_LABELS
 from app.models import (
     TITULO_OT_MAX,
     Cliente,
@@ -146,6 +146,7 @@ def listado_ordenes_trabajo(request: Request, db: Session = Depends(get_db)):
             "dps_existentes": _dps_existentes(db, cliente.id if cliente else None),
             "centro_costo_opciones": CENTRO_COSTO_OPCIONES,
             "equipo_opciones": EQUIPO_OPCIONES,
+            "estados_facturacion": [(f.name, label) for f, label in FACTURACION_LABELS.items()],
             "cliente": cliente,
             "productos_cliente": productos_del_cliente(db, cliente),
             "seccion_activa": "ordenes_trabajo",

@@ -1968,7 +1968,44 @@ select.chip-fac {
 }
 .table-head--ot-list,
 .row-ot {
-  grid-template-columns: 34px 90px minmax(200px, 2fr) 100px minmax(150px, 1fr) 70px 90px;
+  grid-template-columns: 34px 90px minmax(200px, 2fr) 100px minmax(150px, 1fr) 110px 90px;
+}
+/* Semáforo de facturación: un punto por estado que tenga alguna tarea de la
+   OT (el estado es de las tareas, la OT no tiene uno propio). Mismos
+   colores que los chips de facturación de Tareas. */
+.row-ot__tareas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.semaforo {
+  display: inline-flex;
+  gap: 3px;
+}
+.semaforo__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  border: 1px solid transparent;
+}
+.semaforo__dot[data-valor="SIN_FACTURAR"] { border-color: var(--line-strong); }
+.semaforo__dot[data-valor="PARA_FACTURAR"] { background: var(--accent); }
+.semaforo__dot[data-valor="FALTA_OK_CLIENTE"] { background: var(--warn); }
+.semaforo__dot[data-valor="FACTURADO"] { background: var(--ok); }
+.semaforo__dot[data-valor="NO_CORRESPONDE"] { background: var(--ghost); }
+.semaforo-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.semaforo-leyenda__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
 }
 .row-ot[hidden] {
   display: none;

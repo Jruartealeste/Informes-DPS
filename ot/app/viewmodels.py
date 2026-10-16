@@ -214,6 +214,9 @@ def grupo_vm(key: str, tareas_orm: list[Tarea]) -> dict:
         "facturadas": facturadas,
         "pct": round((facturadas / total) * 100) if total else 0,
         "progreso": f"{facturadas}/{total}",
+        # Semáforo del listado de OT internas: qué estados de facturación
+        # tienen sus tareas (el estado es de cada tarea, no de la OT).
+        "semaforo_fac": desglose_facturacion_vm(tareas_orm),
     }
 
 
@@ -242,6 +245,7 @@ def ot_interna_vm(ot: OtInterna) -> dict:
             "facturadas": 0,
             "pct": 0,
             "progreso": "0/0",
+            "semaforo_fac": [],
         }
     return grupo_vm(ot.numero_interno, ot.tareas)
 

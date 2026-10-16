@@ -57,6 +57,9 @@
           <option value="">Toda la facturación</option>
           <option value="pendiente">Con tareas por facturar</option>
           <option value="completa">Todo facturado</option>
+          <optgroup label="Con tareas en">
+            {% for valor, label in estados_facturacion %}<option value="{{ valor }}">{{ label|capitalize|replace(' ok ', ' OK ') }}</option>{% endfor %}
+          </optgroup>
         </select>
       </label>
       <div class="filtros__foot">
@@ -65,6 +68,9 @@
     </div>
   </div>
   <div class="filters__spacer"></div>
+  <div class="semaforo-leyenda" aria-label="Referencias del semáforo de facturación">
+    {% for valor, label in estados_facturacion %}<span class="semaforo-leyenda__item"><span class="semaforo__dot" data-valor="{{ valor }}" aria-hidden="true"></span>{{ label|capitalize|replace(' ok ', ' OK ') }}</span>{% endfor %}
+  </div>
   <div class="filters__summary" id="filtros-resumen"></div>
   <button type="button" class="filters__clear" id="filtros-clear" hidden>Limpiar</button>
 </div>
@@ -159,7 +165,7 @@
       <div class="row-ot__select"><input type="checkbox" id="chk-todas" aria-label="Tildar todas las OT internas"></div><div>OT interna</div><div>Título</div><div>Estado</div><div>OT de sistema</div><div>Tareas</div><div>Facturación</div>
     </div>
     {% for ot in ots %}
-    <div class="row-ot" data-estado="{{ ot.ot_estado }}" data-dps="{{ ot.dps or '' }}" data-total="{{ ot.total }}" data-fact="{{ ot.facturadas }}">
+    <div class="row-ot" data-estado="{{ ot.ot_estado }}" data-dps="{{ ot.dps or '' }}" data-total="{{ ot.total }}" data-fact="{{ ot.facturadas }}" data-facs="{% for d in ot.semaforo_fac %}{{ d.valor }} {% endfor %}">
       <label class="row-ot__select">
         <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}" data-titulo="{{ ot.titulo or '' }}">
       </label>
@@ -168,7 +174,10 @@
         <div class="row-ot__titulo{{ ' is-vacio' if not ot.titulo }}"{% if ot.titulo %} title="{{ ot.titulo }}"{% endif %}>{{ ot.titulo or 'Sin título' }}</div>
         <div><span class="badge {{ 'badge--ot-abierta' if ot.ot_estado == 'ABIERTA' else 'badge--ot-cerrada' }}">{{ ot.ot_estado }}</span></div>
         <div><span class="badge badge--dps {{ 'has-dps' if ot.dps else 'no-dps' }}">{{ ot.dps_label }}</span></div>
-        <div class="cell-mono">{{ ot.total }}</div>
+        <div class="row-ot__tareas">
+          <span class="cell-mono">{{ ot.total }}</span>
+          {% if ot.semaforo_fac %}<span class="semaforo" role="img" aria-label="{% for d in ot.semaforo_fac %}{{ d.n }} {{ d.label|lower }}{{ ', ' if not loop.last }}{% endfor %}">{% for d in ot.semaforo_fac %}<span class="semaforo__dot" data-valor="{{ d.valor }}" title="{{ d.n }} {{ 'tarea' if d.n == 1 else 'tareas' }} {{ d.label|lower }}"></span>{% endfor %}</span>{% endif %}
+        </div>
         <div class="cell-mono">{{ ot.progreso }}</div>
       </a>
     </div>
@@ -304,6 +313,7 @@
       if (fDps.value && d.dps !== fDps.value) ok = false;
       if (fFac.value === 'pendiente' && !(total > fact)) ok = false;
       if (fFac.value === 'completa' && !(total > 0 && fact === total)) ok = false;
+      if (/^[A-Z_]+$/.test(fFac.value) && (' ' + d.facs).indexOf(' ' + fFac.value + ' ') === -1) ok = false;
       r.hidden = !ok;
       // una fila oculta no puede quedar tildada: iría igual en el envío
       if (!ok) r.querySelector('.chk-ot').checked = false;

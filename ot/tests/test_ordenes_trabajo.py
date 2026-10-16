@@ -230,3 +230,23 @@ def test_listado_tiene_filtro_rapido_sin_y_con_ot_de_sistema(client, db_session)
     assert 'value="sin" checked>Sin OT de sistema <strong>1</strong>' in html
     assert 'value="con">Con OT de sistema <strong>1</strong>' in html
     assert 'id="btn-tildar-todas"' not in html and 'id="btn-limpiar-seleccion"' not in html
+
+
+def test_listado_semaforo_de_facturacion_de_las_tareas(client, db_session):
+    cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
+    ot = OtInterna(numero_interno="710", cliente_id=cliente.id)
+    db_session.add(ot)
+    db_session.flush()
+    db_session.add_all([
+        Tarea(ot_interna_id=ot.id, detalle="a", estado_facturacion=EstadoFacturacion.PARA_FACTURAR),
+        Tarea(ot_interna_id=ot.id, detalle="b", estado_facturacion=EstadoFacturacion.PARA_FACTURAR),
+        Tarea(ot_interna_id=ot.id, detalle="c", estado_facturacion=EstadoFacturacion.FACTURADO),
+    ])
+    db_session.commit()
+
+    html = client.get("/ordenes-trabajo").text
+    # Un punto por estado presente, sin columna de estado propio de la OT.
+    assert 'data-facs="PARA_FACTURAR FACTURADO "' in html
+    assert 'title="2 tareas para facturar"' in html
+    assert 'title="1 tarea facturado"' in html
+    assert '<option value="FALTA_OK_CLIENTE">' in html  # filtro por estado
