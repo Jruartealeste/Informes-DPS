@@ -240,7 +240,7 @@
       var dl = document.getElementById('ot-catalogo');
       // label = título de la OT (puede faltar en OT viejas); se busca por los dos.
       return dl ? Array.prototype.map.call(dl.options, function (o) {
-        return { valor: o.value, titulo: o.getAttribute('label') || '' };
+        return { valor: o.value, titulo: o.getAttribute('label') || '', dps: o.getAttribute('data-dps') || '' };
       }) : [];
     }
 
@@ -291,6 +291,7 @@
       var campo = input.closest('.field-ot');
       if (!campo) return;
       avisarNumeroRepetido(campo, input.value.trim());
+      mostrarOtSistema(campo, input.value.trim());
       var titulo = campo.querySelector('.field-ot__titulo-input');
       if (!titulo) return;
       var valor = input.value.trim();
@@ -298,6 +299,15 @@
         (titulo.hasAttribute('data-ot-primera') && /^[0-9]+$/.test(valor));
       titulo.hidden = !esNueva;
       titulo.disabled = !esNueva;
+    }
+
+    // La tarea hereda la OT de sistema de la OT interna elegida.
+    function mostrarOtSistema(campo, numero) {
+      var hint = campo.querySelector('.field-ot__dps-hint');
+      if (!hint) return;
+      var ot = opcionesCatalogo().filter(function (o) { return o.valor === numero; })[0];
+      hint.hidden = !(ot && ot.dps);
+      if (ot && ot.dps) hint.textContent = 'OT sistema ' + ot.dps;
     }
 
     // Cada anunciante numera por su cuenta: si el número no es una OT de este

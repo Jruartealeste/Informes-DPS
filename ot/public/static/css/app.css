@@ -1570,6 +1570,17 @@ select.chip-fac {
   font-size: 12px;
   color: var(--faint);
 }
+/* OT de sistema heredada de la OT interna: dato chico, a la derecha. */
+.field-ot__dps {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.field-ot__dps-hint[hidden] {
+  display: none;
+}
 /* Título corto de la OT interna (2026-10-14): en la caja de solo lectura y,
    al crear una con "+ Nueva", un input propio debajo del número. */
 .field-ot {

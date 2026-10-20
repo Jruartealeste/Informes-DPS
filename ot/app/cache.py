@@ -19,8 +19,8 @@ _ot_numeros: list[tuple[str, str | None, int, str]] | None = None
 _responsables_activos: list[SimpleNamespace] | None = None
 
 
-def ot_numeros(db: Session) -> list[tuple[str, str | None, int, str]]:
-    """(numero_interno, titulo, cliente_id, cliente) de todas las OT internas,
+def ot_numeros(db: Session) -> list[tuple[str, str | None, int, str, str | None]]:
+    """(numero_interno, titulo, cliente_id, cliente, numero_ot_advertys) de todas las OT internas,
     para el buscador de OT de la sheet de tarea (filtrado por cliente en
     tareas.ot_catalogo_ctx: el número se repite entre anunciantes)."""
     global _ot_numeros
@@ -28,7 +28,10 @@ def ot_numeros(db: Session) -> list[tuple[str, str | None, int, str]]:
         with _lock:
             if _ot_numeros is None:
                 stmt = (
-                    select(OtInterna.numero_interno, OtInterna.titulo, Cliente.id, Cliente.nombre)
+                    select(
+                        OtInterna.numero_interno, OtInterna.titulo, Cliente.id, Cliente.nombre,
+                        OtInterna.numero_ot_advertys,
+                    )
                     .join(Cliente, OtInterna.cliente_id == Cliente.id)
                     .order_by(cast(OtInterna.numero_interno, Integer).desc())
                 )

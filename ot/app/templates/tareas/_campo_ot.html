@@ -4,6 +4,7 @@
     <span class="field-ot__n">OT {{ ot_numero }}</span>
     {% if ot_titulo %}<span class="field-ot__titulo">{{ ot_titulo }}</span>{% endif %}
     <span class="field-ot__cliente">{{ ot_cliente }}</span>
+    {% if ot_dps %}<span class="field-ot__dps">OT sistema {{ ot_dps }}</span>{% endif %}
   </div>
 </div>
 {% else %}
@@ -23,6 +24,11 @@
           hx-get="/api/ordenes-trabajo/nuevo-numero" hx-target="closest .field-ot" hx-swap="outerHTML">
     + Nueva
   </button>
+  {# La tarea hereda la OT de sistema de su OT interna: se muestra al elegirla
+     (base.html la actualiza al tipear; de entrada, si viene precargada). #}
+  {% set ns_dps = namespace(v='') %}
+  {% for n, _t, d in todos_ot_numeros | default([]) %}{% if n == ot_numero and d %}{% set ns_dps.v = d %}{% endif %}{% endfor %}
+  <div class="field-hint field-ot__dps-hint"{% if not ns_dps.v %} hidden{% endif %}>OT sistema {{ ns_dps.v }}</div>
   {# Aviso (no bloquea): el número ya existe en otro anunciante. Cada uno numera
      por su cuenta, así que es otra OT. base.html lo actualiza al tipear. #}
   <div class="field-warn field-ot__aviso"{% if not ot_repetido_en %} hidden{% endif %}>

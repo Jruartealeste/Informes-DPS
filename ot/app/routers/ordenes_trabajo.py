@@ -262,6 +262,7 @@ def _asignar_ot_sistema(ot: OtInterna, valor: str | None) -> None:
     if solicitud and solicitud.estado == EstadoSolicitudAltaOt.RESUELTA and solicitud.numero_ot_advertys != valor:
         ot.solicitud_alta_id = None
     ot.numero_ot_advertys = valor
+    cache.invalidar_ot_numeros()  # el buscador de la sheet de tarea muestra la OT de sistema
 
 
 @router_paginas.post("/ordenes-trabajo/asignar-lote")
@@ -442,6 +443,7 @@ def resolver_solicitud(solicitud: SolicitudAltaOt, numero_ot_advertys: str) -> N
     solicitud.resuelto_en = datetime.now(timezone.utc)
     for ot in solicitud.ots:
         ot.numero_ot_advertys = valor
+    cache.invalidar_ot_numeros()
 
 
 @router_paginas.post("/ordenes-trabajo/solicitudes/{solicitud_id}/cancelar")

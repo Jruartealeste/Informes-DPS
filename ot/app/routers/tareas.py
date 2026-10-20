@@ -217,9 +217,9 @@ def ot_catalogo_ctx(db: Session, cliente_id: int | None) -> dict:
     otros anunciantes existe cada número. `cliente_id` None = todas (tareas
     legado sin OT)."""
     propias, otros = [], {}
-    for numero, titulo, cid, cliente in cache.ot_numeros(db):
+    for numero, titulo, cid, cliente, dps in cache.ot_numeros(db):
         if cliente_id is None or cid == cliente_id:
-            propias.append((numero, titulo))
+            propias.append((numero, titulo, dps))
         else:
             otros.setdefault(numero, []).append(cliente)
     return {"todos_ot_numeros": propias, "ot_numeros_otros": otros}
