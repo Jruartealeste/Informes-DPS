@@ -169,6 +169,7 @@
                 </span>
               </summary>
               <div class="mail-historial__cuerpo">
+                {% if m.remitente %}<div class="field-hint">De: {{ m.remitente }}</div>{% endif %}
                 <div class="field-hint">Para: {{ m.destinatarios }}</div>
                 {% if m.error_detalle %}<div class="field-hint">{{ m.error_detalle }}</div>{% endif %}
                 <pre>{{ m.cuerpo }}</pre>

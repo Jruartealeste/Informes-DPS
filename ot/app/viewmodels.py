@@ -64,6 +64,7 @@ def mail_vm(m) -> dict:
     return {
         "id": m.id,
         "destinatarios": m.destinatarios,
+        "remitente": m.remitente,
         "asunto": m.asunto,
         "cuerpo": m.cuerpo,
         "estado": m.estado.name,

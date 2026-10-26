@@ -375,48 +375,39 @@ Tablas:
     borrador guardado se precarga ESE texto (no se regenera el template
     genérico) — así, apenas alguien carga el mail del responsable, el
     texto ya está listo para mandar tal cual quedó redactado.
-  - Mecanismo: **Gmail API con OAuth** (no SMTP), remitente único = vos.
-    `app/gmail_client.py` refresca el access token a partir de un refresh
-    token fijo (`GMAIL_REFRESH_TOKEN` en el `.env` del server, obtenido
-    una vez corriendo `python -m scripts.gmail_authorize` a mano — pide
-    `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` de una credencial OAuth tipo
-    Desktop app en un proyecto de Google Cloud con la Gmail API
-    habilitada y consent screen tipo Interno) y postea directo contra
-    `users.messages.send` de la API REST (sin sumar
-    `google-api-python-client`, alcanza con `google-auth` + `httpx`).
-    Settings opcionales en `app/config.py` — si faltan, el envío falla
-    con mensaje claro ("Falta configurar…") en vez de romper el arranque
-    de la app; probado así en dev (sin credenciales todavía) y el error
-    queda igual guardado en el historial.
+  - Mecanismo: **Gmail API con OAuth** (no SMTP) desde la cuenta del
+    **usuario logueado** (2026-10-26; antes salía todo de un remitente fijo
+    del `.env`, y eso hacía que un mail de Emiliana saliera como Javier).
+    Cada usuario conecta su Gmail una vez desde el composer ("Conectar
+    Gmail" → `/auth/gmail/conectar`): scope `gmail.send`,
+    `access_type=offline` + `prompt=consent` (sin eso Google no repite el
+    refresh token), `login_hint` con su mail. Reusa el OAuth client del
+    login (`AUTH_GOOGLE_*`) y **la misma redirect URI `/auth/callback`**,
+    que distingue el flujo por `gmail_next` en la sesión — así no hubo que
+    registrar otra URI en Google Cloud. El callback rechaza si eligió otra
+    cuenta que la logueada (`?gmail=otra_cuenta`) o si destildó el permiso
+    (`?gmail=sin_permiso`); `base.html` muestra el aviso según `?gmail=`.
+    El refresh token queda cifrado (Fernet, `MAIL_TOKEN_ENC_KEY`) en
+    `usuarios.gmail_refresh_token_enc` (migración `f6a2d8c4e1b9`). Sin
+    conexión, "Enviar mail" queda deshabilitado (borrador sí se puede). Si
+    Google rechaza el token (revocado) o la clave cambió, se borra la
+    conexión y el composer vuelve a ofrecer conectar. "Desconectar" en el
+    composer revoca en Google y borra. `tarea_mails.remitente` guarda desde
+    qué cuenta salió cada mail (los anteriores se completaron con
+    javier@aleste.ar). La firma sugerida es el nombre del usuario.
+    `scripts/gmail_authorize.py` y `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/
+    `GMAIL_*` del `.env` quedaron obsoletos y se sacaron.
   - **Misma cadena (2026-10-02):** si la tarea ya tiene un mail ENVIADO con
     hilo, el composer muestra un checkbox tildado por defecto "Enviar en la
     misma cadena" (destildar = mail nuevo con asunto libre). Al enviar encadenado
-    se manda `threadId` + `In-Reply-To`/`References` y el asunto se fuerza a
-    `Re: <asunto original>` (Gmail solo agrupa si coincide). `tarea_mails`
+    se manda `In-Reply-To`/`References` y el asunto se fuerza a
+    `Re: <asunto original>` (Gmail solo agrupa si coincide); el `threadId`
+    solo se manda si el anterior salió de la misma cuenta (es un id de la
+    casilla del remitente). `tarea_mails`
     guarda `gmail_thread_id` y `rfc_message_id` (Message-ID que generamos
     nosotros; migración `a1d4c7e9b2f6`). Los mails enviados antes de esto no
     tienen hilo y no sirven de ancla. Ojo: la cadena solo se ve completa en la
     cuenta remitente; cada destinatario ve lo que le llegó a él.
-  - **Pendiente, no empezar sin decisión explícita:** que cada usuario de
-    la app conecte su propia cuenta Gmail y mande en su nombre (en vez de
-    todo saliendo como vos). No se puede construir todavía porque depende
-    de que exista login (roadmap ítem 4 abajo, sin implementar) — sin
-    usuarios de la app no hay a quién atarle un refresh token propio.
-    `app/gmail_client.py` ya expone `enviar_mail(destinatarios, asunto,
-    cuerpo)` como función de nivel de módulo (no una clase atada a "el
-    remitente"), para que agregar el parámetro de remitente después sea
-    un cambio chico. Diseño pensado para cuando se retome: botón
-    self-service "Conectar Gmail" (flujo OAuth por navegador, scope
-    `gmail.send` incremental sobre la cuenta `@aleste.ar` de quien está
-    logueado), refresh token por usuario cifrado en la base
-    (`MAIL_TOKEN_ENC_KEY`), botón "Enviar mail" deshabilitado si el
-    usuario todavía no conectó su cuenta.
-  - **Falta para que funcione en la práctica (a hacer vos):** crear el
-    proyecto de Google Cloud + credencial OAuth y correr `python -m
-    scripts.gmail_authorize` una vez para obtener el refresh token — sin
-    eso el botón manda pero guarda el intento como error (probado en
-    dev). Ver también migración `c07737c98c23_agrega_tarea_mails.py`
-    (aplicada ya en la base de dev de Neon).
 
 ## Decisiones confirmadas con Javier (2026-08-21)
 
@@ -442,7 +433,8 @@ Tablas:
     Usuarios) y `activo` se leen de la base en cada request, ver "Pantalla
     Usuarios y bloqueo de inactivos (2026-10-14)" al final.
     `request.session["rol"]` sigue escribiéndose pero no se usa para nada.
-  - **Credencial OAuth separada de la de Gmail**, a propósito:
+  - **Credencial OAuth separada de la de Gmail** (histórico: desde
+    2026-10-26 el envío de mail usa esta misma credencial web), a propósito:
     `AUTH_GOOGLE_CLIENT_ID`/`AUTH_GOOGLE_CLIENT_SECRET` (nuevos, en vez
     de reusar `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` de Gmail) porque
     un login por navegador necesita una credencial tipo **"Web

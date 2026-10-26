@@ -1,13 +1,17 @@
 import time
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Request, Response
+from authlib.integrations.starlette_client import OAuthError
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.auth import DominioNoAutorizado, UsuarioInactivo, oauth, procesar_login
+from app.config import settings
 from app.db import get_db
+from app.gmail_client import GMAIL_SCOPE, cifrar_token
+from app.models import Usuario
 from app.templating import templates
 
 router = APIRouter(prefix="/auth")
@@ -84,12 +88,17 @@ def mantener(db: Session = Depends(get_db)):
 @router.get("/login/google")
 async def login_google(request: Request, next: str = "/tareas"):
     request.session["next"] = next
+    # un "Conectar Gmail" abandonado a mitad no tiene que desviar este login
+    request.session.pop("gmail_next", None)
     redirect_uri = request.url_for("auth_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @router.get("/callback", name="auth_callback")
 async def callback(request: Request, db: Session = Depends(get_db)):
+    if "gmail_next" in request.session:
+        return await _callback_gmail(request, db)
+
     token = await oauth.google.authorize_access_token(request)
     claims = token["userinfo"]
 
@@ -106,6 +115,67 @@ async def callback(request: Request, db: Session = Depends(get_db)):
     request.session["rol"] = usuario.rol.value
     destino = request.session.pop("next", "/tareas")
     return RedirectResponse(destino)
+
+
+def _destino_local(next: str) -> str:
+    # solo rutas de la propia app (evita usar esto de open redirect)
+    return next if next.startswith("/") and not next.startswith("//") else "/tareas"
+
+
+def _con_aviso(destino: str, valor: str) -> str:
+    return f"{destino}{'&' if '?' in destino else '?'}gmail={valor}"
+
+
+@router.get("/gmail/conectar")
+async def gmail_conectar(request: Request, next: str = "/tareas", db: Session = Depends(get_db)):
+    """Conectar Gmail: pide a Google el permiso gmail.send sobre la
+    cuenta del usuario logueado, con acceso offline para guardar el refresh
+    token. Reusa el OAuth client y el redirect URI del login (/auth/callback,
+    que distingue este flujo por `gmail_next` en la sesión) para no tener que
+    registrar otra URI en Google Cloud."""
+    usuario = db.get(Usuario, request.session.get("user_id") or 0)
+    if not usuario or not usuario.activo:
+        return RedirectResponse("/auth/login")
+    if not settings.mail_token_enc_key:
+        raise HTTPException(503, "Falta configurar MAIL_TOKEN_ENC_KEY en el server para poder conectar Gmail.")
+    request.session["gmail_next"] = _destino_local(next)
+    return await oauth.google.authorize_redirect(
+        request,
+        request.url_for("auth_callback"),
+        scope=f"openid email {GMAIL_SCOPE}",
+        access_type="offline",
+        # sin prompt=consent Google no vuelve a mandar refresh token si el
+        # usuario ya había autorizado antes
+        prompt="consent",
+        include_granted_scopes="true",
+        login_hint=usuario.email,
+    )
+
+
+async def _callback_gmail(request: Request, db: Session) -> RedirectResponse:
+    destino = request.session.pop("gmail_next")
+    usuario = db.get(Usuario, request.session.get("user_id") or 0)
+    if not usuario:
+        return RedirectResponse("/auth/login")
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError:
+        # canceló en la pantalla de Google (error=access_denied) o el state no cerró
+        return RedirectResponse(_con_aviso(destino, "cancelado"))
+
+    email = (token.get("userinfo") or {}).get("email", "")
+    if email.lower() != usuario.email.lower():
+        # eligió otra cuenta en el selector de Google: los mails tienen que
+        # salir de la cuenta con la que está logueado en la app
+        return RedirectResponse(_con_aviso(destino, "otra_cuenta"))
+    if GMAIL_SCOPE not in token.get("scope", "").split() or not token.get("refresh_token"):
+        # destildó el permiso de enviar mail en la pantalla de consentimiento
+        return RedirectResponse(_con_aviso(destino, "sin_permiso"))
+
+    usuario.gmail_refresh_token_enc = cifrar_token(token["refresh_token"])
+    usuario.gmail_conectado_en = datetime.now(timezone.utc)
+    db.commit()
+    return RedirectResponse(_con_aviso(destino, "conectado"))
 
 
 @router.get("/logout")

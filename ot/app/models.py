@@ -68,6 +68,11 @@ class Usuario(Base):
     rol: Mapped[RolUsuario] = mapped_column(default=RolUsuario.MIEMBRO)
     activo: Mapped[bool] = mapped_column(default=True)
     ultimo_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # "Conectar Gmail" (ver gmail_client.py): refresh token con scope
+    # gmail.send de la propia cuenta, cifrado con MAIL_TOKEN_ENC_KEY. None =
+    # todavía no conectó (o se revocó) y no puede mandar mails de tareas.
+    gmail_refresh_token_enc: Mapped[str | None] = mapped_column(Text)
+    gmail_conectado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Cliente(Base):
@@ -371,6 +376,9 @@ class TareaMail(Base):
     # el Message-ID RFC 5322 (encabezado) que generamos nosotros al enviar.
     gmail_thread_id: Mapped[str | None] = mapped_column(String(100))
     rfc_message_id: Mapped[str | None] = mapped_column(String(255))
+    # cuenta desde la que salió (el usuario logueado). El threadId de Gmail
+    # es de la casilla del remitente: solo sirve para encadenar desde la misma.
+    remitente: Mapped[str | None] = mapped_column(String(200))
     enviado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tarea: Mapped["Tarea"] = relationship(back_populates="mails")

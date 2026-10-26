@@ -162,6 +162,17 @@
         {% if es_admin %}<a href="/anunciantes">Reactivarlo en Anunciantes</a>{% endif %}
       </div>
       {% endif %}
+      {# vuelta de "Conectar Gmail" (auth_routes._callback_gmail) #}
+      {% set gmail_aviso = request.query_params.get('gmail') %}
+      {% if gmail_aviso == 'conectado' %}
+      <div class="aviso-solo-lectura aviso-solo-lectura--ok" role="status">Listo: los mails de tareas ahora salen desde <strong>{{ request.session.get('email', '') }}</strong>.</div>
+      {% elif gmail_aviso == 'otra_cuenta' %}
+      <div class="aviso-solo-lectura" role="status">No se conectó Gmail: elegiste otra cuenta. Tiene que ser {{ request.session.get('email', '') }}, la misma con la que entraste a la app.</div>
+      {% elif gmail_aviso == 'sin_permiso' %}
+      <div class="aviso-solo-lectura" role="status">No se conectó Gmail: hace falta tildar el permiso de enviar correo en la pantalla de Google.</div>
+      {% elif gmail_aviso == 'cancelado' %}
+      <div class="aviso-solo-lectura" role="status">No se conectó Gmail (se canceló en la pantalla de Google).</div>
+      {% endif %}
       {% block content %}{% endblock %}
       <div id="drawer-root"></div>
       <div id="sheet-2-root"></div>

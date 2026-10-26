@@ -20,6 +20,30 @@
         {% endif %}
 
         <div class="field">
+          <div class="field__label">De</div>
+          {% if gmail_conectado %}
+          <div class="field-hint">
+            {{ remitente }}
+            <button type="button" class="btn-link" hx-post="/tareas/{{ det.id }}/mail/desconectar-gmail"
+                    hx-target="#sheet-2-root" hx-swap="innerHTML"
+                    hx-confirm="¿Desconectar tu Gmail? No vas a poder mandar mails desde la app hasta volver a conectarlo.">Desconectar</button>
+          </div>
+          {% else %}
+          <div class="field-warn">
+            <span>⚠</span>
+            <div>
+              Para mandar mails desde tu cuenta ({{ remitente }}), primero conectá tu Gmail. Se hace una sola vez.
+              Lo que ya escribiste acá se pierde al salir: si querés conservarlo, antes tocá «Guardar borrador».
+              <div style="margin-top:8px">
+                <a class="btn btn--primary" href="/auth/gmail/conectar"
+                   onclick="this.href='/auth/gmail/conectar?next='+encodeURIComponent(location.pathname+location.search)">Conectar Gmail</a>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="field">
           <div class="field__label">Destinatarios</div>
           {% if con_mail or sin_mail %}
           <div class="combo__lista" style="position:static;border:1px solid var(--line);border-radius:7px;max-height:none">
@@ -76,7 +100,8 @@
       </div>
 
       <div class="drawer__footer">
-        <button type="submit" name="accion" value="enviar" class="btn btn--primary">Enviar mail</button>
+        <button type="submit" name="accion" value="enviar" class="btn btn--primary"
+                {% if not gmail_conectado %}disabled title="Conectá tu Gmail primero"{% endif %}>Enviar mail</button>
         <button type="submit" name="accion" value="borrador" class="btn">Guardar borrador</button>
         <button type="button" class="btn" onclick="cerrarSheet2(event)">Cancelar</button>
       </div>

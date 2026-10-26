@@ -3079,6 +3079,25 @@ select.chip-fac {
   color: inherit;
   margin-left: 6px;
 }
+/* acción secundaria en línea con un texto (p. ej. "Desconectar" Gmail en el composer) */
+.btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: 8px;
+  font: inherit;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-link:hover {
+  color: inherit;
+}
+.aviso-solo-lectura--ok {
+  background: var(--ok-soft);
+  border-color: var(--ok);
+  color: var(--ok-text);
+}
 .card--asignar-lote[hidden] {
   display: none;
 }

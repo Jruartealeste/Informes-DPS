@@ -30,15 +30,12 @@ class Settings(BaseSettings):
     # que /api/sync/* no arranque a que acepte cualquier POST sin token.
     sync_token: str
 
-    # Envío de mail a responsables (Gmail API, remitente único — ver
-    # "Mail a responsables" en CLAUDE.md). Quedan opcionales para que el
-    # resto de la app funcione sin configurar esto: el envío falla con un
-    # error claro si faltan, en vez de romper el arranque.
-    google_client_id: str | None = None
-    google_client_secret: str | None = None
-    gmail_refresh_token: str | None = None
-    gmail_sender_email: str | None = None
-    gmail_sender_nombre: str = "Aleste"
+    # Envío de mail a responsables (Gmail API desde la cuenta de cada
+    # usuario, ver "Mail a responsables" en CLAUDE.md). Clave Fernet con la
+    # que se cifran los refresh tokens en `usuarios`; el OAuth client es el
+    # mismo del login. Opcional para que el resto de la app funcione sin
+    # esto: "Conectar Gmail" y el envío fallan con un error claro si falta.
+    mail_token_enc_key: str | None = None
 
 
 settings = Settings()

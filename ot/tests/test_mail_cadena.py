@@ -1,9 +1,9 @@
 from app import gmail_client
-from app.models import Cliente, EstadoMail, OtInterna, Responsable, Tarea, TareaMail, TareaResponsable
+from app.models import Cliente, EstadoMail, OtInterna, Responsable, Tarea, TareaMail, TareaResponsable, Usuario
 from app.routers import mail as mail_router
 
 
-def _tarea_con_mail_enviado(db_session, con_hilo=True):
+def _tarea_con_mail_enviado(db_session, con_hilo=True, remitente="test@aleste.ar"):
     cliente = db_session.query(Cliente).first()
     ot = OtInterna(numero_interno="5000", cliente_id=cliente.id)
     db_session.add(ot)
@@ -19,6 +19,7 @@ def _tarea_con_mail_enviado(db_session, con_hilo=True):
         estado=EstadoMail.ENVIADO, gmail_message_id="m1",
         gmail_thread_id="t1" if con_hilo else None,
         rfc_message_id="<a@aleste.ar>" if con_hilo else None,
+        remitente=remitente,
     ))
     db_session.commit()
     return tarea, fer
@@ -42,7 +43,7 @@ def test_envio_en_cadena_pasa_thread_y_asunto(client, db_session, monkeypatch):
     tarea, fer = _tarea_con_mail_enviado(db_session)
     llamadas = []
 
-    def falso(dest, asunto, cuerpo, en_cadena=None):
+    def falso(usuario, dest, asunto, cuerpo, en_cadena=None):
         llamadas.append((asunto, en_cadena))
         return gmail_client.MailEnviado("m2", "t1", "<b@aleste.ar>")
 
@@ -59,7 +60,7 @@ def test_envio_destildado_es_mail_nuevo(client, db_session, monkeypatch):
     tarea, fer = _tarea_con_mail_enviado(db_session)
     llamadas = []
 
-    def falso(dest, asunto, cuerpo, en_cadena=None):
+    def falso(usuario, dest, asunto, cuerpo, en_cadena=None):
         llamadas.append((asunto, en_cadena))
         return gmail_client.MailEnviado("m3", "t9", "<c@aleste.ar>")
 
@@ -68,3 +69,21 @@ def test_envio_destildado_es_mail_nuevo(client, db_session, monkeypatch):
         "asunto": "Asunto propio", "cuerpo": "x", "destinatario_ids": [str(fer.id)],
     })
     assert llamadas == [("Asunto propio", None)]
+
+
+def test_cadena_de_otro_remitente_va_sin_thread_id(client, db_session, monkeypatch):
+    # el threadId es de la casilla de quien mandó el anterior: desde otra
+    # cuenta se encadena solo por In-Reply-To/References
+    tarea, fer = _tarea_con_mail_enviado(db_session, remitente="javier@aleste.ar")
+    llamadas = []
+
+    def falso(usuario, dest, asunto, cuerpo, en_cadena=None):
+        llamadas.append((usuario.email, en_cadena))
+        return gmail_client.MailEnviado("m4", "t7", "<d@aleste.ar>")
+
+    monkeypatch.setattr(mail_router, "enviar_mail", falso)
+    client.post(f"/tareas/{tarea.id}/mail", data={
+        "asunto": "x", "cuerpo": "x", "destinatario_ids": [str(fer.id)], "misma_cadena": "1",
+    })
+    assert llamadas == [("test@aleste.ar", (None, "<a@aleste.ar>"))]
+    assert db_session.query(TareaMail).filter_by(gmail_message_id="m4").one().remitente == "test@aleste.ar"
