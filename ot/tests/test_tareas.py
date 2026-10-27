@@ -420,6 +420,27 @@ def test_anular_por_patch_o_estado_respeta_la_regla_de_anular(client, db_session
     assert db_session.get(Tarea, libre).estado_tarea == EstadoTarea.ANULADA
 
 
+def test_recuperar_numero_anterior_no_corre_la_secuencia(client, db_session):
+    """Un número viejo (usado antes de la app) se puede tipear para crear esa
+    OT; "+ Nueva" sigue proponiendo el mayor + 1 (2026-10-27)."""
+    from app.routers.ordenes_trabajo import siguiente_numero_interno
+
+    base = {"detalle": "Tarea", "fecha_pedido": "2026-10-27", "tipos": "diseño", "ot_titulo": "OT",
+            "responsable_ids": str(db_session.query(Responsable).filter_by(nombre="fer").one().id)}
+    assert client.post("/tareas", data={**base, "ot_numero": "4700"}).status_code == 200
+    assert client.post("/tareas", data={**base, "ot_numero": "3987", "ot_titulo": "Recuperada"}).status_code == 200
+    ot = db_session.query(OtInterna).filter_by(numero_interno="3987").one()
+    assert ot.titulo == "Recuperada"
+    assert siguiente_numero_interno(db_session, ot.cliente) == "4701"
+    # con ceros a la izquierda es la misma OT, no otra
+    assert client.post("/tareas", data={**base, "ot_numero": "03987", "detalle": "Otra"}).status_code == 200
+    assert db_session.query(OtInterna).filter(OtInterna.numero_interno.like("%3987")).count() == 1
+    # una OT nueva tiene que ser un número mayor que 0
+    for malo in ("abc", "12a", "0", "00"):
+        r = client.post("/tareas", data={**base, "ot_numero": malo})
+        assert r.status_code == 422 and "tiene que ser un número" in r.text
+
+
 def test_ot_interna_nueva_exige_titulo_corto(client, db_session):
     from app.models import OtInterna
 

@@ -39,7 +39,11 @@
   {# OT nueva: el título es obligatorio (TITULO_OT_MAX en models.py). Si se
      cambia el número por uno existente, base.html lo oculta y lo desactiva. #}
   {% if ot_primera %}
-  <div class="field-hint">Primera OT de este anunciante: podés cambiar el número y la numeración sigue desde ahí.</div>
+  <div class="field-hint field-ot__titulo-hint">Primera OT de este anunciante: podés cambiar el número y la numeración sigue desde ahí.</div>
+  {% else %}
+  <div class="field-hint field-ot__titulo-hint">¿Recuperás una OT anterior? Cambiá el número por el que corresponda.</div>
+  {# base.html lo muestra si se tipea un número nuevo distinto del sugerido. #}
+  <div class="field-hint field-ot__recuperada" hidden></div>
   {% endif %}
   <input type="text" name="ot_titulo" class="field-ot__titulo-input" data-ot-generada="{{ ot_generada }}"{% if ot_primera %} data-ot-primera{% endif %}
          required maxlength="60" autocomplete="off" value="{{ ot_titulo or '' }}"

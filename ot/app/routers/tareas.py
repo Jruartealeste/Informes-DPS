@@ -313,6 +313,8 @@ def _resolver_ot_interna(
     numero = (numero or "").strip()
     if not numero:
         return None, None
+    if numero.isdigit():
+        numero = str(int(numero))  # "0413" es la 413, no otra OT
     existente = db.scalar(
         select(OtInterna).where(OtInterna.numero_interno == numero, OtInterna.cliente_id == cliente_id)
     )
@@ -320,6 +322,8 @@ def _resolver_ot_interna(
         return existente.id, None
     if "/" in numero or " " in numero or "-" in numero:
         return None, numero
+    if not numero.isdigit() or numero == "0":
+        raise HTTPException(422, f"La OT interna tiene que ser un número (recibido: {numero}).")
     titulo = " ".join(titulo.split())
     if not titulo:
         raise HTTPException(422, f"La OT interna {numero} es nueva: falta el título.")

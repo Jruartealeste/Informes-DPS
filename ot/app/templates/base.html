@@ -292,22 +292,41 @@
       }
     });
 
-    // El título solo se pide para la OT nueva de "+ Nueva": si se cambia el
-    // número por otro (una OT existente), se oculta y no viaja ni bloquea.
-    // Excepción: en la primera OT del anunciante (data-ot-primera) cualquier
-    // número entero es una OT nueva, porque ahí se elige el de partida.
+    // El título solo se pide para una OT nueva de "+ Nueva": si se cambia el
+    // número por una OT existente del anunciante, se oculta y no viaja ni
+    // bloquea. Cualquier otro número entero también es una OT nueva — así se
+    // recuperan números anteriores que se venían usando fuera de la app
+    // (2026-10-27), y en la primera OT se elige el de partida.
     function sincronizarTituloOt(input) {
       var campo = input.closest('.field-ot');
       if (!campo) return;
-      avisarNumeroRepetido(campo, input.value.trim());
-      mostrarOtSistema(campo, input.value.trim());
+      // "0413" es la 413 (el servidor normaliza igual).
+      var valor = input.value.trim();
+      if (/^[0-9]+$/.test(valor)) valor = String(parseInt(valor, 10));
+      avisarNumeroRepetido(campo, valor);
+      mostrarOtSistema(campo, valor);
       var titulo = campo.querySelector('.field-ot__titulo-input');
       if (!titulo) return;
-      var valor = input.value.trim();
+      var propias = opcionesCatalogo().map(function (o) { return o.valor; });
       var esNueva = valor === titulo.getAttribute('data-ot-generada') ||
-        (titulo.hasAttribute('data-ot-primera') && /^[0-9]+$/.test(valor));
+        (/^[0-9]+$/.test(valor) && valor !== '0' && propias.indexOf(valor) === -1);
       titulo.hidden = !esNueva;
       titulo.disabled = !esNueva;
+      campo.querySelectorAll('.field-ot__titulo-hint').forEach(function (h) { h.hidden = !esNueva; });
+      // Número nuevo distinto del sugerido: se avisa que es una OT recuperada
+      // (o, si es mayor, que la numeración va a seguir desde ahí).
+      var recuperada = campo.querySelector('.field-ot__recuperada');
+      if (recuperada) {
+        var generada = parseInt(titulo.getAttribute('data-ot-generada'), 10);
+        var distinto = esNueva && valor !== String(generada);
+        recuperada.hidden = !distinto;
+        if (distinto) {
+          campo.querySelectorAll('.field-ot__titulo-hint').forEach(function (h) { h.hidden = true; });
+          recuperada.textContent = parseInt(valor, 10) < generada
+            ? '↺ OT anterior recuperada: se crea la ' + valor + '. La numeración sigue en ' + generada + '.'
+            : 'Número mayor al sugerido: la numeración va a seguir desde ' + (parseInt(valor, 10) + 1) + '.';
+        }
+      }
     }
 
     // La tarea hereda la OT de sistema de la OT interna elegida.
