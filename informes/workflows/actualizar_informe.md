@@ -12,6 +12,17 @@ pesado (~22.700 filas vs. cientos en el resto) y se pide actualizar con
 menos frecuencia, así que se dispara aparte, a demanda (ver "Caso especial
 — IIBB" más abajo).
 
+**Regla (Javier, 2026-10-27): todo refresh baja los exports nuevos que
+necesita.** Pedir "actualizá X" nunca significa solo regenerar el HTML con
+lo que ya hay en `advertys.db`: siempre se descargan de Advertys los
+exports frescos de los que depende ese informe (los scripts
+`tools/actualizar_*` ya lo hacen solos). Solo se saltea una descarga si
+ese mismo export se bajó recién en la misma sesión.
+
+**Facturación ALUAR** no tiene refresh propio: se actualiza con
+`python -m tools.actualizar_iibb` (que baja facturas/OC/OP + Imputaciones
+y al final corre el crawl, ingest e informe de ALUAR).
+
 **Objetivo:** cargar un export nuevo de Advertys en un módulo ya armado y
 dejar el informe HTML actualizado con los datos más recientes.
 
@@ -38,9 +49,10 @@ OC/OP de cada factura → facturas de compra de cada orden) se refresca con
 2026-10-13 es **incremental** (solo visita lo nuevo o cambiado, regla de
 cierre de mes día 20; ver README, "Refresh incremental"): normalmente unos
 minutos en vez de ~70. Flags: `--completo` (ignora caché), `--legacy`
-(corrida vieja, ~70 min), `--workers N`. Necesita `facturas`,
-`ordenes_compra` y `ordenes_publicidad` al día (`tools.actualizar_todo`).
-Skill operativa: `refresh-cobranza`.
+(corrida vieja, ~70 min), `--workers N`. Desde 2026-10-27 baja él mismo
+`facturas`, `ordenes_compra` y `ordenes_publicidad` antes de recibos;
+`--sin-previos` lo saltea solo si se acaban de bajar en la misma sesión
+(ej. justo después de `tools.actualizar_iibb`). Skill operativa: `refresh-cobranza`.
 
 **Caso especial — IIBB (`modules/iibb/`):** el informe de IIBB no depende
 solo del export de Imputaciones — también necesita `facturas`,

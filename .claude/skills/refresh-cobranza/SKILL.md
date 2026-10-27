@@ -9,6 +9,11 @@ argument-hint: (sin argumentos, o un modo: incremental | completo | legacy)
 `tools/actualizar_cobranza.py` encadena, en este orden (cada paso lee lo que
 dejó el anterior):
 
+0. `facturas`, `ordenes_compra`, `ordenes_publicidad` — export + ingest
+   (desde 2026-10-27, siempre: **todo refresh baja los exports nuevos que
+   necesita**, pedido de Javier). `--sin-previos` lo saltea, solo si esos
+   tres se bajaron recién en la misma sesión (ej. se corrió antes
+   `tools.actualizar_iibb` para refrescar también Facturación ALUAR).
 1. `recibos` — export + ingest de la cabecera.
 2. `modules.recibos.crawl_referencias_canceladas` — qué facturas cancela
    cada recibo de la ventana de 2 meses.
@@ -19,9 +24,12 @@ dejó el anterior):
 5. Regenera `salida/informe_cobranza_proveedores.html` y el dashboard.
 
 Los pasos 2–4 navegan Advertys con Playwright (solo lectura) y son los que
-cuestan el tiempo. Necesita `facturas`, `ordenes_compra` y
-`ordenes_publicidad` al día: si pasó tiempo, correr antes
-`python -m tools.actualizar_todo` (skill `refresh-dashboard`).
+cuestan el tiempo.
+
+Si Javier pide cobranza **y** Facturación ALUAR juntas: correr primero
+`python -m tools.actualizar_iibb` (baja facturas/OC/OP + Imputaciones y
+refresca ALUAR) y después `python -m tools.actualizar_cobranza --sin-previos`,
+para no descargar dos veces los mismos exports.
 
 ## Modos (implementados el 2026-10-13)
 

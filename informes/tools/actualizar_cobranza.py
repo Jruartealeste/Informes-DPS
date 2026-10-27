@@ -13,20 +13,22 @@ cambiado). Modos, que se propagan a los 3 crawls:
     --workers N    N navegadores en paralelo (default 1)
 
 Pasos, en orden (cada uno lee lo que dejo el anterior):
+    0. facturas, ordenes_compra, ordenes_publicidad (export + ingest) --
+       desde 2026-10-27 siempre (pedido de Javier: todo refresh baja los
+       exports frescos que necesita). `--sin-previos` lo saltea, solo si
+       se acaban de bajar en la misma sesion (ej. recien corrio
+       tools/actualizar_iibb o tools/actualizar_todo).
     1. recibos             (export + ingest)
     2. referencias canceladas de cada recibo de la ventana
     3. OC/OP de cada factura cobrada
     4. facturas de compra de cada OC/OP
     5. regenera el informe de Cobranza x Proveedores y el dashboard
 
-Requiere facturas, ordenes_compra y ordenes_publicidad al dia: correr
-antes `python -m tools.actualizar_todo` si hace falta.
-
 Si un paso falla se saltean los siguientes (dependen de su salida) pero el
 informe se regenera igual con lo que haya en advertys.db.
 
 Uso (desde informes/):
-    python -m tools.actualizar_cobranza
+    python -m tools.actualizar_cobranza [--sin-previos] [--completo|--legacy] [--workers N]
 """
 import subprocess
 import sys
@@ -34,6 +36,8 @@ import time
 
 from tools import crawl_comun as cc
 from tools.actualizar_todo import _correr, exportar_e_ingerir
+
+MODULOS_PREVIOS = ["facturas", "ordenes_compra", "ordenes_publicidad"]
 
 CRAWLS = [
     ("modules.recibos.crawl_referencias_canceladas", "facturas que cancela cada recibo"),
@@ -43,6 +47,10 @@ CRAWLS = [
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    sin_previos = "--sin-previos" in argv
+    if sin_previos:
+        argv.remove("--sin-previos")
     args = cc.parsear_args("Refresh de Cobranza x Proveedores.", argv)
     flags = (["--completo"] if args.completo else []) + (["--legacy"] if args.legacy else []) + ["--workers", str(args.workers)]
     modo = "legacy" if args.legacy else ("completo" if args.completo else "incremental")
@@ -50,6 +58,13 @@ def main(argv=None):
     t_inicio = time.time()
     tiempos = {}
     ok, errores = {}, {}
+
+    if not sin_previos:
+        for modulo in MODULOS_PREVIOS:
+            t = time.time()
+            exito, detalle = exportar_e_ingerir(modulo)
+            tiempos[modulo] = time.time() - t
+            (ok if exito else errores)[modulo] = detalle
 
     t = time.time()
     exito, detalle = exportar_e_ingerir("recibos")
