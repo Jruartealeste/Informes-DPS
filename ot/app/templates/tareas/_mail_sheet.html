@@ -1,7 +1,7 @@
 {% from "_iconos.html" import icono %}
 <div class="drawer-overlay" onclick="cerrarSheet2(event)">
   <div class="drawer" onclick="event.stopPropagation()">
-    <form hx-post="/tareas/{{ det.id }}/mail" hx-target="#sheet-2-root" hx-swap="innerHTML">
+    <form hx-post="/tareas/{{ det.id }}/mail" hx-encoding="multipart/form-data" hx-target="#sheet-2-root" hx-swap="innerHTML">
       <div class="drawer__header">
         <div style="min-width:0">
           <div class="drawer__kicker">Mail a responsables</div>
@@ -96,6 +96,18 @@
         <div class="field">
           <div class="field__label">Detalle a enviar</div>
           <textarea name="cuerpo" rows="12" required>{{ cuerpo }}</textarea>
+        </div>
+
+        <div class="field">
+          <div class="field__label">Adjuntos</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button type="button" class="btn btn--solo-icono" title="Adjuntar archivos" aria-label="Adjuntar archivos"
+                    onclick="this.parentNode.querySelector('input[type=file]').click()">{{ icono("adjuntar") }}</button>
+            <input type="file" name="archivos" multiple hidden
+                   onchange="this.parentNode.querySelector('.adjuntos-nombres').textContent=Array.from(this.files).map(f=>f.name).join(', ')">
+            <span class="adjuntos-nombres field-hint" style="margin:0"></span>
+          </div>
+          <div class="field-hint">Hasta 4 MB en total. Se mandan con el mail y no se guardan en la app (tampoco en borradores); para archivos grandes, usá un link de Drive.</div>
         </div>
       </div>
 

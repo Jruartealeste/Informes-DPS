@@ -7,6 +7,9 @@ emitió el token y por lo tanto el único que lo puede renovar.
 """
 
 import base64
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr, make_msgid
 from typing import NamedTuple
@@ -111,6 +114,7 @@ def enviar_mail(
     asunto: str,
     cuerpo: str,
     en_cadena: tuple[str | None, str] | None = None,
+    adjuntos: list[tuple[str, str, bytes]] | None = None,
 ) -> MailEnviado:
     """Manda el mail desde la cuenta de `usuario`. `en_cadena` = (threadId
     de Gmail o None, Message-ID RFC del mail anterior) para colgarlo de la
@@ -124,7 +128,18 @@ def enviar_mail(
     creds = _credenciales(usuario)
 
     rfc_id = make_msgid(domain=usuario.email.split("@")[-1])
-    msg = MIMEText(cuerpo)
+    if adjuntos:
+        msg = MIMEMultipart()
+        msg.attach(MIMEText(cuerpo))
+        for nombre, tipo, datos in adjuntos:
+            principal, _, sub = tipo.partition("/")
+            parte = MIMEBase(principal or "application", sub or "octet-stream")
+            parte.set_payload(datos)
+            encoders.encode_base64(parte)
+            parte.add_header("Content-Disposition", "attachment", filename=("utf-8", "", nombre))
+            msg.attach(parte)
+    else:
+        msg = MIMEText(cuerpo)
     msg["To"] = ", ".join(destinatarios)
     msg["From"] = formataddr((usuario.nombre, usuario.email))
     msg["Subject"] = asunto

@@ -87,3 +87,32 @@ def test_cadena_de_otro_remitente_va_sin_thread_id(client, db_session, monkeypat
     })
     assert llamadas == [("test@aleste.ar", (None, "<a@aleste.ar>"))]
     assert db_session.query(TareaMail).filter_by(gmail_message_id="m4").one().remitente == "test@aleste.ar"
+
+
+def test_asunto_sugerido_con_titulo_y_detalle_recortado():
+    det = {"otN": "4163", "ot_titulo": "Catálogo en inglés",
+           "detalle": "Armar las piezas del catálogo para la feria internacional de Dubai con nuevos precios"}
+    asunto = mail_router._asunto_sugerido(det)
+    assert asunto.startswith("4163 · Catálogo en inglés · Armar las piezas")
+    assert asunto.endswith("…") and len(asunto) < 90
+    assert mail_router._asunto_sugerido({"otN": "1", "ot_titulo": None, "detalle": "Flyer"}) == "1 · Flyer"
+
+
+def test_envio_con_adjunto_pasa_archivos(client, db_session, monkeypatch):
+    tarea, fer = _tarea_con_mail_enviado(db_session)
+    llamadas = []
+
+    def falso(usuario, dest, asunto, cuerpo, en_cadena=None, adjuntos=None):
+        llamadas.append(adjuntos)
+        return gmail_client.MailEnviado("m2", "t1", "<b@aleste.ar>")
+
+    monkeypatch.setattr(mail_router, "enviar_mail", falso)
+    usuario = db_session.query(Usuario).first()
+    usuario.gmail_refresh_token_enc = "x"
+    db_session.commit()
+    client.post(
+        f"/tareas/{tarea.id}/mail",
+        data={"asunto": "a", "cuerpo": "b", "destinatario_ids": [str(fer.id)]},
+        files={"archivos": ("brief.pdf", b"%PDF-1", "application/pdf")},
+    )
+    assert llamadas == [[("brief.pdf", "application/pdf", b"%PDF-1")]]

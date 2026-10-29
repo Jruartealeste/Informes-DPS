@@ -1,6 +1,6 @@
 import re
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -15,9 +15,18 @@ from app.viewmodels import tarea_vm
 router = APIRouter()
 
 
+ASUNTO_DETALLE_MAX = 50
+# Vercel corta los requests a ~4,5 MB y el adjunto viaja en base64 hacia Gmail
+ADJUNTOS_MAX_BYTES = 4 * 1024 * 1024
+
+
 def _asunto_sugerido(det: dict) -> str:
-    partes = [p for p in [det["otN"], det["ot_cliente"], det["tipos_label"] if det["tipos"] else None] if p]
-    return " · ".join(partes) if partes else det["detalle"][:80]
+    """'<N° OT> · <título de la OT> · <primeras palabras del detalle>'."""
+    detalle = " ".join((det["detalle"] or "").split())
+    if len(detalle) > ASUNTO_DETALLE_MAX:
+        detalle = detalle[:ASUNTO_DETALLE_MAX].rsplit(" ", 1)[0].rstrip(" ,.;:-") + "…"
+    partes = [p for p in [det["otN"], det.get("ot_titulo"), detalle] if p]
+    return " · ".join(partes)
 
 
 def _usuario(request: Request, db: Session) -> Usuario:
@@ -154,9 +163,19 @@ def enviar_mail_tarea(
     destinatario_ids: list[str] = Form([]),
     accion: str = Form("enviar"),
     misma_cadena: str = Form(""),
+    archivos: list[UploadFile] = File([]),
 ):
     usuario = _usuario(request, db)
     tarea = cargar_tarea_con_relaciones(db, tarea_id)
+    adjuntos = [
+        (a.filename, a.content_type or "application/octet-stream", a.file.read())
+        for a in archivos if a.filename
+    ]
+    adjuntos_error = (
+        f"Los adjuntos pesan más de {ADJUNTOS_MAX_BYTES // (1024 * 1024)} MB en total — "
+        "subí menos archivos o más livianos (por ejemplo, un link de Drive)."
+        if sum(len(d) for _, _, d in adjuntos) > ADJUNTOS_MAX_BYTES else None
+    )
     ids_sel = {int(x) for x in destinatario_ids if x.isdigit()}
     mails, etiqueta = _destinatarios(tarea, ids_sel)
     anterior = _mail_de_cadena(tarea)
@@ -181,13 +200,25 @@ def enviar_mail_tarea(
         )
         return templates.TemplateResponse(request, "tareas/_mail_sheet.html", ctx)
 
+    if adjuntos_error:
+        ctx = _sheet_ctx(
+            db, usuario, tarea_id, asunto=asunto, cuerpo=cuerpo, seleccionados=ids_sel,
+            misma_cadena=en_cadena, error=adjuntos_error,
+        )
+        return templates.TemplateResponse(request, "tareas/_mail_sheet.html", ctx)
+
+    nombres = ", ".join(n for n, _, _ in adjuntos)
     registro = TareaMail(
-        tarea_id=tarea_id, destinatarios=", ".join(mails), asunto=asunto, cuerpo=cuerpo, remitente=usuario.email
+        tarea_id=tarea_id, destinatarios=", ".join(mails), asunto=asunto,
+        cuerpo=f"{cuerpo}\n\n[Adjuntos: {nombres}]" if adjuntos else cuerpo,
+        remitente=usuario.email,
     )
     try:
+        extra = {"adjuntos": adjuntos} if adjuntos else {}
         enviado = enviar_mail(
             usuario, mails, asunto, cuerpo,
             en_cadena=_ancla_cadena(anterior, usuario) if en_cadena else None,
+            **extra,
         )
         registro.gmail_message_id = enviado.gmail_message_id
         registro.gmail_thread_id = enviado.gmail_thread_id
