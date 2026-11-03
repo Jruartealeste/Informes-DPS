@@ -57,3 +57,13 @@ def test_api_lista_solo_estimados_con_sheet_y_numero(client, client_anonimo, db_
     assert item["numero_estimado"] == "599" and item["numero_ot_advertys"] == "260"
     assert item["sheet_url"] == SHEET
     assert item["sheet_pestana"] == "Presentación" and item["sheet_fila_inicio"] == 15 and item["items_modo"] == "cantidad"
+
+
+def test_listado_muestra_link_del_presupuesto(client, db_session):
+    est_id = _crear(client, _armar(db_session))
+    html = client.get("/estimados").text
+    assert "Sin sheet de presupuesto" in html and "Abrir el presupuesto" not in html
+    client.post(f"/estimados/{est_id}/sheet", data={"sheet_url": SHEET})
+    html = client.get("/estimados").text
+    assert 'title="Abrir el presupuesto (Google Sheet)"' in html
+    assert "Sin sheet de presupuesto" not in html

@@ -26,11 +26,11 @@
 <div class="table-scroll">
   <div class="table-card table-card--estimados-list">
     <div class="table-head table-head--estimados-list">
-      <div>Título</div><div>OT sistema</div><div>Estado</div><div>Tareas</div><div>Creado</div>
+      <div>Título</div><div>OT sistema</div><div>Estado</div><div>Tareas</div><div>Creado</div><div title="Google Sheet del presupuesto">Presup.</div>
     </div>
     {% for e in estimados %}
-    <a href="/estimados/{{ e.id }}" class="row-estimado">
-      <div class="cell-detalle">{{ e.titulo }}</div>
+    <div class="row-estimado" onclick="location.href='/estimados/{{ e.id }}'">
+      <div class="cell-detalle"><a href="/estimados/{{ e.id }}" class="row-estimado__titulo">{{ e.titulo }}</a></div>
       <div class="cell-mono">{{ e.numero_ot_advertys }}</div>
       <div>
         <span class="badge {{ 'badge--estimado-generado' if e.estado == 'GENERADO' else 'badge--estimado-borrador' }}">
@@ -39,7 +39,14 @@
       </div>
       <div class="cell-mono">{{ e.tareas | length }}</div>
       <div class="cell-muted">{{ e.creado_en }}</div>
-    </a>
+      {% set href = e.sheet_url | href_externo if e.sheet_url else none %}
+      {% if href %}
+      <a class="cell-drive is-linked" href="{{ href }}" target="_blank" rel="noopener noreferrer"
+         title="Abrir el presupuesto (Google Sheet)" aria-label="Abrir el presupuesto" onclick="event.stopPropagation()">↗</a>
+      {% else %}
+      <div class="cell-drive" title="Sin sheet de presupuesto">↗</div>
+      {% endif %}
+    </div>
     {% endfor %}
   </div>
   {% if not estimados %}

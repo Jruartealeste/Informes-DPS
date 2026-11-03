@@ -2666,12 +2666,12 @@ select.chip-fac {
 }
 
 .table-card--estimados-list {
-  min-width: 720px;
-  max-width: 900px;
+  min-width: 780px;
+  max-width: 960px;
 }
 .table-head--estimados-list,
 .row-estimado {
-  grid-template-columns: minmax(220px, 1fr) 120px 130px 80px 100px;
+  grid-template-columns: minmax(220px, 1fr) 120px 130px 80px 100px 60px;
 }
 .row-estimado {
   display: grid;
@@ -2680,6 +2680,11 @@ select.chip-fac {
   font-size: 13px;
   padding: 11px 14px;
   border-top: 1px solid var(--line-soft);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.row-estimado__titulo {
   color: inherit;
   text-decoration: none;
 }
