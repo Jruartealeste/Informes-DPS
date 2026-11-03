@@ -77,6 +77,7 @@ def _cargar_ot(db: Session, numero_interno: str, cliente_id: int | None) -> OtIn
         .options(
             joinedload(OtInterna.cliente),
             selectinload(OtInterna.tareas).joinedload(Tarea.ot_interna),
+            selectinload(OtInterna.tareas).joinedload(Tarea.estimado),
             selectinload(OtInterna.tareas)
             .selectinload(Tarea.tipos)
             .joinedload(TareaTipoTarea.tipo_tarea),
