@@ -28,6 +28,25 @@
     </p>
   </div>
 
+  <div class="card card--estimado-resumen">
+    <div class="card__eyebrow">Google Sheet con los items</div>
+    <p class="form-nota">
+      Link del sheet de este Estimado (siempre el mismo diseño). Esta app no lo lee: se lo pedís a Claude
+      ("cargá los items del Estimado {{ est.numero_estimado or est.id }}"), que lo lee y los carga en Advertys.
+    </p>
+    <form method="post" action="/estimados/{{ est.id }}/sheet" class="ot-sistema__form form-alta-estimado">
+      <input type="url" name="sheet_url" value="{{ est.sheet_url or '' }}" placeholder="https://docs.google.com/spreadsheets/d/..." maxlength="500" style="min-width:260px">
+      <input type="text" name="sheet_pestana" value="{{ est.sheet_pestana }}" placeholder="Pestaña" maxlength="80" aria-label="Pestaña">
+      <input type="number" name="sheet_fila_inicio" value="{{ est.sheet_fila_inicio }}" min="1" max="10000" placeholder="Fila inicial" aria-label="Fila inicial" style="width:110px">
+      <select name="items_modo" aria-label="Modo de precio">
+        <option value="cantidad" {{ 'selected' if est.items_modo == 'cantidad' }}>Cantidad × unitario</option>
+        <option value="total" {{ 'selected' if est.items_modo == 'total' }}>Precio final directo</option>
+      </select>
+      <button type="submit" class="btn btn--small">Guardar</button>
+    </form>
+    {% if est.sheet_url %}<p class="form-nota" style="margin-top:4px"><a href="{{ est.sheet_url }}" target="_blank" rel="noopener">Abrir el sheet ↗</a> · dejar el link vacío y guardar lo quita.</p>{% endif %}
+  </div>
+
   {% if est.es_borrador %}
   <div class="card card--estimado-resumen">
     <div class="card__eyebrow">Alta en Advertys</div>

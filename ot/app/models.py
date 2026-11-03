@@ -194,6 +194,13 @@ class Estimado(Base):
     numero_estimado: Mapped[str | None] = mapped_column(String(20))
     estado: Mapped[EstadoEstimado] = mapped_column(default=EstadoEstimado.BORRADOR)
     solicitud_alta_id: Mapped[int | None] = mapped_column(ForeignKey("solicitudes_alta_estimado.id"))
+    # Google Sheet con los items (siempre el mismo diseño): la app solo guarda
+    # dónde está; lo lee Claude con el conector de Drive y los carga en Advertys
+    # con `cargar_items_estimado.py` (skill `cargar-items-estimado`).
+    sheet_url: Mapped[str | None] = mapped_column(String(500))
+    sheet_pestana: Mapped[str | None] = mapped_column(String(80))
+    sheet_fila_inicio: Mapped[int | None] = mapped_column()
+    items_modo: Mapped[str | None] = mapped_column(String(10))  # "cantidad" | "total"
     creado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     actualizado_en: Mapped[datetime] = mapped_column(

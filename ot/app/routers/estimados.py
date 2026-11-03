@@ -24,6 +24,10 @@ from app.viewmodels import solicitud_alta_estimado_vm
 router = APIRouter()
 
 _FECHA_RE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
+_SHEET_RE = re.compile(r"https://docs\.google\.com/spreadsheets/d/[\w-]+\S*")
+
+SHEET_PESTANA_DEFAULT = "Presentación"
+SHEET_FILA_INICIO_DEFAULT = 15
 
 
 def _parsear_ids(tarea_ids: str) -> list[int]:
@@ -127,6 +131,10 @@ def _estimado_vm(e: Estimado) -> dict:
         )),
         "editable": e.estado == EstadoEstimado.BORRADOR and not pendiente,
         "creado_en": e.creado_en.strftime("%d/%m/%Y"),
+        "sheet_url": e.sheet_url,
+        "sheet_pestana": e.sheet_pestana or SHEET_PESTANA_DEFAULT,
+        "sheet_fila_inicio": e.sheet_fila_inicio or SHEET_FILA_INICIO_DEFAULT,
+        "items_modo": e.items_modo or "cantidad",
         "tareas": [_tarea_resumen_vm(t) for t in e.tareas],
     }
 
@@ -281,6 +289,37 @@ def quitar_tarea(estimado_id: int, tarea_id: int, db: Session = Depends(get_db))
     if tarea and tarea.estimado_id == estimado_id:
         tarea.estimado_id = None
         db.commit()
+    return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
+
+
+@router.post("/estimados/{estimado_id}/sheet")
+def guardar_sheet_estimado(
+    estimado_id: int,
+    db: Session = Depends(get_db),
+    sheet_url: str = Form(""),
+    sheet_pestana: str = Form(""),
+    sheet_fila_inicio: str = Form(""),
+    items_modo: str = Form("cantidad"),
+):
+    """Guarda dónde está el Google Sheet con los items de este Estimado. Vacío
+    = quitar el vínculo. No toca Advertys ni lee el sheet: lo lee Claude."""
+    estimado = _cargar_estimado(db, estimado_id)
+    url = sheet_url.strip()
+    if url and (len(url) > 500 or not _SHEET_RE.fullmatch(url)):
+        raise HTTPException(422, "El link tiene que ser de un Google Sheet (https://docs.google.com/spreadsheets/d/...).")
+    if items_modo not in ("cantidad", "total"):
+        raise HTTPException(422, "Modo de precio inválido.")
+    fila = sheet_fila_inicio.strip()
+    if fila and not (fila.isdigit() and 1 <= int(fila) <= 10000):
+        raise HTTPException(422, "La fila inicial tiene que ser un número entre 1 y 10000.")
+    pestana = sheet_pestana.strip()
+    if len(pestana) > 80:
+        raise HTTPException(422, "El nombre de la pestaña no puede pasar de 80 caracteres.")
+    estimado.sheet_url = url or None
+    estimado.sheet_pestana = (pestana or None) if url else None
+    estimado.sheet_fila_inicio = int(fila) if (fila and url) else None
+    estimado.items_modo = items_modo if url else None
+    db.commit()
     return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
 
 

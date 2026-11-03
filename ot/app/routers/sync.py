@@ -281,3 +281,32 @@ def resolver_solicitud_alta_estimado(
     aplicar_resolucion_estimado(solicitud, valor)
     db.commit()
     return {"ok": True, "ya_estaba_resuelta": False, "id": solicitud.id}
+
+
+# --- Sheet de items del Estimado (skill `cargar-items-estimado`) ---------------
+
+
+@router.get("/estimados-con-sheet", dependencies=[Depends(_verificar_token)])
+def listar_estimados_con_sheet(db: Session = Depends(get_db)) -> list[dict]:
+    """Estimados que ya tienen número en Advertys y un Google Sheet cargado: lo
+    que necesita Claude para leer el sheet y cargar los items."""
+    from app.routers.estimados import SHEET_FILA_INICIO_DEFAULT, SHEET_PESTANA_DEFAULT
+
+    estimados = db.scalars(
+        select(Estimado)
+        .where(Estimado.sheet_url.is_not(None), Estimado.numero_estimado.is_not(None))
+        .order_by(Estimado.id)
+    )
+    return [
+        {
+            "id": e.id,
+            "titulo": e.titulo,
+            "numero_ot_advertys": e.numero_ot_advertys,
+            "numero_estimado": e.numero_estimado,
+            "sheet_url": e.sheet_url,
+            "sheet_pestana": e.sheet_pestana or SHEET_PESTANA_DEFAULT,
+            "sheet_fila_inicio": e.sheet_fila_inicio or SHEET_FILA_INICIO_DEFAULT,
+            "items_modo": e.items_modo or "cantidad",
+        }
+        for e in estimados
+    ]

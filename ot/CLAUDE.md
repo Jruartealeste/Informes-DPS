@@ -1242,3 +1242,23 @@ y `POST /api/sync/solicitudes-alta-estimado/{id}/resolver` (JSON
 404). Reusa `estimados.aplicar_resolucion_estimado` (misma lógica que el botón).
 Tests: `tests/test_solicitudes_estimado_api.py`. Hay que desplegar a prod para
 que el endpoint exista allá (no tiene migración).
+
+
+## Google Sheet de items del Estimado (2026-11-03)
+
+Pedido de Javier: cargar los items de un Estimado en Advertys desde un Google
+Sheet (siempre el mismo diseño). En el detalle del Estimado hay una card "Google
+Sheet con los items" (`POST /estimados/{id}/sheet`): link (solo
+`docs.google.com/spreadsheets`), pestaña (default "Presentación"), fila inicial
+(default 15) y modo de precio (`cantidad` = cantidad × unitario, `total` =
+precio final directo). Columnas nuevas en `estimados` (migración
+`a9d4e7b2c5f1`): `sheet_url`, `sheet_pestana`, `sheet_fila_inicio`,
+`items_modo`. La app no lee el sheet ni toca Advertys: `GET
+/api/sync/estimados-con-sheet` (SYNC_TOKEN) lista los que tienen sheet y número
+de Estimado, y el skill `cargar-items-estimado` lee el sheet con el conector de
+Drive y corre `informes/modules/estimados_costos/cargar_items_estimado.py`
+(relevado y probado en vivo con el Estimado 599). Diseño del sheet: B título,
+C artículo, D cantidad, E total de la línea. **Deploy con migración: migrar prod
+(`alembic upgrade head` con el `DATABASE_URL` de `.env.prod`) antes del push.**
+Tests: `tests/test_estimados_sheet.py`.
+
