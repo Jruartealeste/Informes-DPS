@@ -18,6 +18,8 @@ reintenta el resolver -- nunca crea un segundo Estimado para el mismo pedido.
 Uso (parado en informes/):
     python -m modules.estimados_costos.procesar_solicitudes listar --prod
     python -m modules.estimados_costos.procesar_solicitudes procesar --prod --ids 12,13
+    # Estimado ya creado en Advertys por otro lado (no toca Advertys, solo carga el numero en ot/):
+    python -m modules.estimados_costos.procesar_solicitudes vincular --prod --ids 1 --numero 589
     # Estimado creado cuyo pedido ya no existe en ot/, despues de que Javier decidio que hacer:
     python -m modules.estimados_costos.procesar_solicitudes descartar --prod --ids 12
     # QA local (no toca Advertys, numero ficticio SIM-<id>; solo localhost):
@@ -176,6 +178,21 @@ def cmd_descartar(url_base: str, ids: list[int], log_path: Path) -> int:
     return 0
 
 
+def cmd_vincular(url_base: str, ids: list[int], numero: str, log_path: Path) -> int:
+    """Carga en ot/ el numero de un Estimado que YA existe en Advertys (creado a
+    mano o por una corrida que no llego a vincular). No toca Advertys."""
+    if len(ids) != 1:
+        raise ProcesarError("vincular --numero se usa con un solo id por vez.")
+    sid = ids[0]
+    if sid not in {s["id"] for s in listar_api(url_base)}:
+        raise ProcesarError(f"La solicitud #{sid} no esta pendiente en ot/ (ya resuelta, cancelada o id incorrecto).")
+    r = resolver_api(url_base, sid, numero)
+    anotar(log_path, {"evento": "resuelta", "url": url_base.rstrip("/"), "id": sid, "numero": numero, "manual": True})
+    extra = " (ya estaba vinculado)" if r.get("ya_estaba_resuelta") else ""
+    print(f"#{sid}: Estimado {numero} vinculado en ot/{extra}.")
+    return 0
+
+
 def _crear(s: dict, simular: bool) -> str:
     if simular:
         return f"SIM-{s['id']}"
@@ -243,7 +260,7 @@ def main():
             flujo.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Procesa solicitudes de alta de Estimado de la app ot/")
     sub = parser.add_subparsers(dest="comando", required=True)
-    for nombre in ("listar", "procesar", "descartar"):
+    for nombre in ("listar", "procesar", "descartar", "vincular"):
         p = sub.add_parser(nombre)
         destino = p.add_mutually_exclusive_group()
         destino.add_argument("--prod", action="store_true", help=f"Apunta a produccion ({PROD_URL})")
@@ -251,7 +268,9 @@ def main():
         if nombre == "procesar":
             p.add_argument("--simular", action="store_true",
                            help="No toca Advertys: numero ficticio SIM-<id>. Solo contra localhost.")
-        if nombre in ("procesar", "descartar"):
+        if nombre == "vincular":
+            p.add_argument("--numero", required=True, help="Numero del Estimado que ya existe en Advertys")
+        if nombre in ("procesar", "descartar", "vincular"):
             p.add_argument("--ids", required=True,
                            help="Ids de solicitud confirmados por Javier, separados por coma (ej. 12,13)")
     args = parser.parse_args()
@@ -279,6 +298,8 @@ def main():
                 sys.exit(2)
             if args.comando == "procesar":
                 codigo = cmd_procesar(url_base, ids, args.simular, log_path)
+            elif args.comando == "vincular":
+                codigo = cmd_vincular(url_base, ids, args.numero.strip(), log_path)
             else:
                 codigo = cmd_descartar(url_base, ids, log_path)
     except ProcesarError as e:

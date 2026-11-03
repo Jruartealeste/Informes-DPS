@@ -188,11 +188,15 @@ def leer_numeros_estimado(page) -> set[str]:
     numeros = set()
     for i in range(filas_loc.count()):
         celdas = filas_loc.nth(i).locator("td")
-        if celdas.count() == 0:
-            continue
-        texto = celdas.nth(0).inner_text().strip()
-        if texto:
-            numeros.add(texto)
+        # Las primeras columnas son el checkbox y el icono de Editar (celdas
+        # vacias): el N° es la primera celda con solo digitos. Leer la celda 0
+        # a ciegas dejaba el set vacio (OT 303 / Estimado 589, 2026-10-30:
+        # el alta salio bien pero el script informo error).
+        for j in range(min(celdas.count(), 5)):
+            texto = celdas.nth(j).inner_text().strip()
+            if texto.isdigit():
+                numeros.add(texto)
+                break
     return numeros
 
 
@@ -320,6 +324,12 @@ def main():
         default=None,
         help="D/M/AAAA -- default: hoy (el que precarga Advertys); es el periodo AAAAMM del pipeline de lectura",
     )
+    parser.add_argument(
+        "--solicitud",
+        type=int,
+        default=None,
+        help="Id de la solicitud de alta en ot/ (prod): si el alta sale bien, carga el numero en la app solo",
+    )
     args = parser.parse_args()
 
     try:
@@ -329,6 +339,20 @@ def main():
         sys.exit(1)
 
     print(f"Numero de Estimado: {numero_estimado}")
+
+    if args.solicitud is not None:
+        from modules.estimados_costos.procesar_solicitudes import PROD_URL, ProcesarError, resolver_api
+
+        try:
+            resolver_api(PROD_URL, args.solicitud, numero_estimado)
+            print(f"Solicitud #{args.solicitud} vinculada en ot/ con el Estimado {numero_estimado}.")
+        except ProcesarError as e:
+            print(
+                f"ATENCION: el Estimado {numero_estimado} SI se creo en Advertys pero no se pudo vincular: {e}\n"
+                f"Vincularlo con: python -m modules.estimados_costos.procesar_solicitudes vincular --prod "
+                f"--ids {args.solicitud} --numero {numero_estimado}"
+            )
+            sys.exit(1)
 
 
 if __name__ == "__main__":
