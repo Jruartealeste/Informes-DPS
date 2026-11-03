@@ -336,6 +336,16 @@ def generar_estimado_en_advertys(
     return RedirectResponse("/estimados/solicitudes", status_code=303)
 
 
+def aplicar_resolucion_estimado(solicitud: SolicitudAltaEstimado, numero_estimado: str) -> None:
+    """Marca la solicitud RESUELTA y pasa su Estimado a GENERADO con el número
+    que devolvió Advertys. Lo usan el botón de la UI y la API de sync."""
+    solicitud.estado = EstadoSolicitudAltaEstimado.RESUELTA
+    solicitud.resuelto_en = datetime.now(timezone.utc)
+    for estimado in solicitud.estimados:
+        estimado.numero_estimado = numero_estimado
+        estimado.estado = EstadoEstimado.GENERADO
+
+
 @router.post("/estimados/solicitudes/{solicitud_id}/resolver")
 def resolver_solicitud_estimado(
     solicitud_id: int, db: Session = Depends(get_db), numero_estimado: str = Form("")
@@ -350,11 +360,7 @@ def resolver_solicitud_estimado(
     valor = numero_estimado.strip()
     if not valor:
         raise HTTPException(422, "Falta el número de Estimado resultante.")
-    solicitud.estado = EstadoSolicitudAltaEstimado.RESUELTA
-    solicitud.resuelto_en = datetime.now(timezone.utc)
-    for estimado in solicitud.estimados:
-        estimado.numero_estimado = valor
-        estimado.estado = EstadoEstimado.GENERADO
+    aplicar_resolucion_estimado(solicitud, valor)
     db.commit()
     return RedirectResponse("/estimados/solicitudes", status_code=303)
 

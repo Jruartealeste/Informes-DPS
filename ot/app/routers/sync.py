@@ -17,13 +17,17 @@ from sqlalchemy.orm import Session, selectinload
 from app.config import settings
 from app.db import get_db
 from app.models import (
+    EstadoSolicitudAltaEstimado,
     EstadoSolicitudAltaOt,
+    Estimado,
     OrdenTrabajoEspejo,
     OtInterna,
     ProductoAdvertys,
+    SolicitudAltaEstimado,
     SolicitudAltaOt,
     SyncLog,
 )
+from app.routers.estimados import aplicar_resolucion_estimado
 from app.routers.ordenes_trabajo import resolver_solicitud
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
@@ -210,5 +214,70 @@ def resolver_solicitud_alta_ot(solicitud_id: int, body: ResolverIn, db: Session 
             409, f"La solicitud ya está resuelta con la OT {solicitud.numero_ot_advertys}, no con {valor}."
         )
     resolver_solicitud(solicitud, valor)
+    db.commit()
+    return {"ok": True, "ya_estaba_resuelta": False, "id": solicitud.id}
+
+
+# --- Solicitudes de alta de Estimado (skill `procesar-solicitudes-estimado`) ---
+# Mismo patrón que las de OT: Informes/modules/estimados_costos/
+# procesar_solicitudes.py lee los pedidos PENDIENTES, corre crear_estimado.py
+# con el OK de Javier y resuelve acá con el número que devolvió Advertys.
+
+
+def _solicitud_estimado_api(s: SolicitudAltaEstimado) -> dict:
+    estimado = s.estimados[0] if s.estimados else None
+    return {
+        "id": s.id,
+        "estado": s.estado.name,
+        "estimado_id": estimado.id if estimado else None,
+        "titulo": estimado.titulo if estimado else None,
+        "numero_ot_advertys": estimado.numero_ot_advertys if estimado else None,
+        "numero_estimado": estimado.numero_estimado if estimado else None,
+        "fecha_solicitada": s.fecha_solicitada,
+        "fecha_analisis": s.fecha_analisis,
+        "creado_por": s.creado_por.nombre if s.creado_por else None,
+        "creado_en": s.creado_en.isoformat() if s.creado_en else None,
+        "tareas": [t.detalle for t in estimado.tareas] if estimado else [],
+    }
+
+
+@router.get("/solicitudes-alta-estimado", dependencies=[Depends(_verificar_token)])
+def listar_solicitudes_alta_estimado(estado: str = "PENDIENTE", db: Session = Depends(get_db)) -> list[dict]:
+    try:
+        estado_enum = EstadoSolicitudAltaEstimado[estado]
+    except KeyError:
+        raise HTTPException(422, f"Estado inválido: {estado}") from None
+    solicitudes = db.scalars(
+        select(SolicitudAltaEstimado)
+        .where(SolicitudAltaEstimado.estado == estado_enum)
+        .options(
+            selectinload(SolicitudAltaEstimado.estimados).selectinload(Estimado.tareas),
+            selectinload(SolicitudAltaEstimado.creado_por),
+        )
+        .order_by(SolicitudAltaEstimado.creado_en)
+    )
+    return [_solicitud_estimado_api(s) for s in solicitudes]
+
+
+class ResolverEstimadoIn(BaseModel):
+    numero_estimado: str = Field(min_length=1, max_length=20)
+
+
+@router.post("/solicitudes-alta-estimado/{solicitud_id}/resolver", dependencies=[Depends(_verificar_token)])
+def resolver_solicitud_alta_estimado(
+    solicitud_id: int, body: ResolverEstimadoIn, db: Session = Depends(get_db)
+) -> dict:
+    """Idempotente para el reintento del script: ya RESUELTA con el mismo
+    número = 200 sin tocar nada; con otro número, 409; cancelada, 404."""
+    solicitud = db.get(SolicitudAltaEstimado, solicitud_id, options=[selectinload(SolicitudAltaEstimado.estimados)])
+    if not solicitud:
+        raise HTTPException(404, "Solicitud no encontrada: puede que la hayan cancelado")
+    valor = body.numero_estimado.strip()
+    if solicitud.estado == EstadoSolicitudAltaEstimado.RESUELTA:
+        actual = solicitud.estimados[0].numero_estimado if solicitud.estimados else None
+        if actual == valor:
+            return {"ok": True, "ya_estaba_resuelta": True, "id": solicitud.id}
+        raise HTTPException(409, f"La solicitud ya está resuelta con el Estimado {actual}, no con {valor}.")
+    aplicar_resolucion_estimado(solicitud, valor)
     db.commit()
     return {"ok": True, "ya_estaba_resuelta": False, "id": solicitud.id}

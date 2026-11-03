@@ -1229,3 +1229,16 @@ credenciales); lo que cambia es que la corrida y la vinculación las hace Claude
 - Tests: `tests/test_solicitudes_api.py` y
   `tests/test_procesar_solicitudes_e2e.py` (el script real contra la app en
   proceso; `crear_ot` simulado, nunca toca Advertys).
+
+
+## Alta de Estimado en Advertys con Claude (2026-11-03)
+
+Mismo esquema que el alta de OT con Claude, para Estimados. Skill
+`procesar-solicitudes-estimado` + `informes/modules/estimados_costos/
+procesar_solicitudes.py` (`listar`, `procesar --ids`, `descartar`), con el
+`SYNC_TOKEN` del sync: `GET /api/sync/solicitudes-alta-estimado?estado=PENDIENTE`
+y `POST /api/sync/solicitudes-alta-estimado/{id}/resolver` (JSON
+`numero_estimado`; idempotente: mismo número = 200, otro = 409, cancelado =
+404). Reusa `estimados.aplicar_resolucion_estimado` (misma lógica que el botón).
+Tests: `tests/test_solicitudes_estimado_api.py`. Hay que desplegar a prod para
+que el endpoint exista allá (no tiene migración).
