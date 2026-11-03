@@ -175,6 +175,7 @@ def tarea_vm(t: Tarea) -> dict:
         "detalle": t.detalle,
         "otN": grupo_key(t),
         "ot_dps": t.ot_interna.numero_ot_advertys if t.ot_interna else None,
+        "estimado_numero": t.estimado.numero_estimado if t.estimado else None,
         "ot_numero_form": t.ot_interna.numero_interno if t.ot_interna else (t.ot_ambigua or ""),
         "ot_cliente": t.ot_interna.cliente.nombre if t.ot_interna else "ALUAR",
         "ot_titulo": t.ot_interna.titulo if t.ot_interna else None,

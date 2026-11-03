@@ -44,6 +44,7 @@ def _cargar_tareas(db: Session, cliente_id: int) -> list[Tarea]:
         .where(OtInterna.cliente_id == cliente_id)
         .options(
             joinedload(Tarea.ot_interna).joinedload(OtInterna.cliente),
+            joinedload(Tarea.estimado),
             selectinload(Tarea.tipos).joinedload(TareaTipoTarea.tipo_tarea),
             selectinload(Tarea.responsables).joinedload(TareaResponsable.responsable),
             selectinload(Tarea.mails),

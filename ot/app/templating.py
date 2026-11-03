@@ -9,9 +9,11 @@ from app.cliente_ctx import CLIENTE_DEFAULT, COOKIE_CLIENTE
 from app.db import get_db
 from app.models import (
     Cliente,
+    EstadoSolicitudAltaEstimado,
     EstadoSolicitudAltaOt,
     OtInterna,
     RolUsuario,
+    SolicitudAltaEstimado,
     SolicitudAltaOt,
     Tarea,
     Usuario,
@@ -70,8 +72,15 @@ def _contexto_clientes(request: Request) -> dict:
             .select_from(SolicitudAltaOt)
             .where(SolicitudAltaOt.estado == EstadoSolicitudAltaOt.PENDIENTE)
         ) or 0
+        # Idem para pedidos de alta de Estimado (skill procesar-solicitudes-estimado).
+        n_altas_estimado = db.scalar(
+            select(func.count())
+            .select_from(SolicitudAltaEstimado)
+            .where(SolicitudAltaEstimado.estado == EstadoSolicitudAltaEstimado.PENDIENTE)
+        ) or 0
         return {
             "n_altas_ot_pendientes": n_altas_ot,
+            "n_altas_estimado_pendientes": n_altas_estimado,
             "clientes_sidebar": clientes_sidebar,
             "cliente_activo_id": activo_id,
             "cliente_solo_lectura": bool(actual and not actual["activo"]),

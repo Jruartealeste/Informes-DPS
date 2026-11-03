@@ -3,7 +3,7 @@
 
     {% if agrupado %}
     <div class="table-head table-head--agrupada">
-      <div></div><div>Pedido</div><div>Vence</div><div>Tipo</div><div>Detalle</div><div>Pidió</div>
+      <div></div><div>Pedido</div><div>Vence</div><div>Estim.</div><div>Tipo</div><div>Detalle</div><div>Pidió</div>
       <div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
     </div>
     {% for g in grupos %}
@@ -35,6 +35,7 @@
           <div class="cell-glifo">↳</div>
           <div class="cell-mono">{{ t.fecha_pedido }}</div>
           {% include "tareas/_celda_vence.html" %}
+          <div class="cell-dps">{{ t.estimado_numero or "—" }}</div>
           <div class="cell-muted">{{ t.tipos_label }}</div>
           <div class="cell-detalle">{{ t.detalle }}</div>
           <div class="cell-muted">{{ t.pedido_por }}</div>
@@ -50,7 +51,7 @@
     {% endfor %}
     {% else %}
     <div class="table-head table-head--plana">
-      <div>Pedido</div><div>Vence</div><div>OT</div><div>OT DPS</div><div>Tipo</div><div>Detalle</div><div>Pidió</div>
+      <div>Pedido</div><div>Vence</div><div>OT</div><div>OT DPS</div><div>Estim.</div><div>Tipo</div><div>Detalle</div><div>Pidió</div>
       <div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
     </div>
     {% for t in filas %}
@@ -59,6 +60,7 @@
       {% include "tareas/_celda_vence.html" %}
       <div class="cell-ot">{{ t.otN }}{% if t.necesita_revision and t.ot_ambigua %}<span class="cell-ot__warn" title="OT ambigua — revisar">⚠</span>{% endif %}</div>
       <div class="cell-dps">{{ t.ot_dps or "—" }}</div>
+      <div class="cell-dps">{{ t.estimado_numero or "—" }}</div>
       <div class="cell-muted">{{ t.tipos_label }}</div>
       <div class="cell-detalle">{{ t.detalle }}</div>
       <div class="cell-muted">{{ t.pedido_por }}</div>
