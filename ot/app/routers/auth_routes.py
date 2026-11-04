@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth import DominioNoAutorizado, UsuarioInactivo, oauth, procesar_login
 from app.config import settings
 from app.db import get_db
-from app.gmail_client import GMAIL_SCOPE, cifrar_token
+from app.gmail_client import DRIVE_SCOPE, GMAIL_SCOPE, cifrar_token
 from app.models import Usuario
 from app.templating import templates
 
@@ -142,7 +142,7 @@ async def gmail_conectar(request: Request, next: str = "/tareas", db: Session = 
     return await oauth.google.authorize_redirect(
         request,
         request.url_for("auth_callback"),
-        scope=f"openid email {GMAIL_SCOPE}",
+        scope=f"openid email {GMAIL_SCOPE} {DRIVE_SCOPE}",
         access_type="offline",
         # sin prompt=consent Google no vuelve a mandar refresh token si el
         # usuario ya había autorizado antes

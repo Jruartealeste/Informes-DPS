@@ -104,12 +104,74 @@
             <button type="button" class="btn btn--solo-icono" title="Adjuntar archivos" aria-label="Adjuntar archivos"
                     onclick="this.parentNode.querySelector('input[type=file]').click()">{{ icono("adjuntar") }}</button>
             <input type="file" name="archivos" multiple hidden
-                   onchange="this.parentNode.querySelector('.adjuntos-nombres').textContent=Array.from(this.files).map(f=>f.name).join(', ')">
+                   onchange="adjuntosCambio(this, {{ det.id }})">
             <span class="adjuntos-nombres field-hint" style="margin:0"></span>
           </div>
-          <div class="field-hint">Hasta 4 MB en total. Se mandan con el mail y no se guardan en la app (tampoco en borradores); para archivos grandes, usá un link de Drive.</div>
+          <div class="field-hint">Hasta 4 MB en total se mandan adjuntos (no se guardan en la app, tampoco en borradores). Si pesan más, se suben a tu Drive (carpeta «OT - Adjuntos») y se agrega el link al mail, visible para cualquiera que lo tenga.</div>
         </div>
       </div>
+      <script>
+      (function () {
+        var MAX = 4 * 1024 * 1024;
+        function post(url, datos) {
+          return fetch(url, { method: 'POST', body: new URLSearchParams(datos) }).then(function (r) {
+            return r.json().then(function (j) {
+              if (!r.ok) throw new Error(j.error || 'Error ' + r.status);
+              return j;
+            });
+          });
+        }
+        function subir(url, f, estado) {
+          return new Promise(function (ok, fail) {
+            var x = new XMLHttpRequest();
+            x.open('PUT', url);
+            x.upload.onprogress = function (e) {
+              if (e.lengthComputable) estado.textContent = 'Subiendo ' + f.name + '… ' + Math.round(100 * e.loaded / e.total) + '%';
+            };
+            x.onload = function () {
+              if (x.status >= 200 && x.status < 300) {
+                try { ok(JSON.parse(x.responseText).id); } catch (e) { fail(new Error('Respuesta inesperada de Drive')); }
+              } else fail(new Error('Drive rechazó la subida (' + x.status + ')'));
+            };
+            x.onerror = function () { fail(new Error('Falló la subida a Drive')); };
+            x.send(f);
+          });
+        }
+        window.adjuntosCambio = function (input, tareaId) {
+          var estado = input.parentNode.querySelector('.adjuntos-nombres');
+          var archivos = Array.from(input.files);
+          var total = archivos.reduce(function (s, f) { return s + f.size; }, 0);
+          if (total <= MAX) { estado.textContent = archivos.map(function (f) { return f.name; }).join(', '); return; }
+          if (!confirm('Los archivos pesan ' + (total / 1048576).toFixed(1) + ' MB (más de 4 MB). ¿Subirlos a tu Drive y agregar los links al mail? Va a poder abrirlos cualquiera que tenga el link.')) {
+            input.value = ''; estado.textContent = ''; return;
+          }
+          var cuerpo = input.form.querySelector('textarea[name=cuerpo]');
+          var botones = input.form.querySelectorAll('button[type=submit]');
+          var ya = Array.from(botones).filter(function (b) { return b.disabled; });
+          botones.forEach(function (b) { b.disabled = true; });
+          var lineas = [];
+          archivos.reduce(function (p, f) {
+            return p.then(function () {
+              estado.textContent = 'Preparando ' + f.name + '…';
+              return post('/tareas/' + tareaId + '/mail/drive/iniciar', { nombre: f.name, tipo: f.type, tamano: f.size })
+                .then(function (j) { return subir(j.url, f, estado); })
+                .then(function (id) { return post('/tareas/' + tareaId + '/mail/drive/compartir', { file_id: id }); })
+                .then(function (j) { lineas.push('- ' + f.name + ': ' + j.link); });
+            });
+          }, Promise.resolve()).then(function () {
+            cuerpo.value = cuerpo.value.replace(/\s+$/, '') + '\n\nArchivos:\n' + lineas.join('\n') + '\n';
+            estado.textContent = 'Subidos a Drive: ' + archivos.map(function (f) { return f.name; }).join(', ');
+          }).catch(function (e) {
+            if (lineas.length) cuerpo.value = cuerpo.value.replace(/\s+$/, '') + '\n\nArchivos:\n' + lineas.join('\n') + '\n';
+            estado.textContent = '';
+            alert('No se pudo subir a Drive: ' + e.message);
+          }).then(function () {
+            input.value = '';
+            botones.forEach(function (b) { b.disabled = ya.indexOf(b) >= 0; });
+          });
+        };
+      })();
+      </script>
 
       <div class="drawer__footer">
         <button type="submit" name="accion" value="enviar" class="btn btn--primary"

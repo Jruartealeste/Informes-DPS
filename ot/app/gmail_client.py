@@ -7,6 +7,7 @@ emitió el token y por lo tanto el único que lo puede renovar.
 """
 
 import base64
+import re
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -25,6 +26,8 @@ from app.models import Usuario
 
 GMAIL_SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.send"
+# solo los archivos que crea la propia app (no el resto del Drive del usuario)
+DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 
 
 class GmailNoConfigurado(Exception):
@@ -38,6 +41,11 @@ class GmailNoConectado(Exception):
 class GmailError(Exception):
     """El envío se intentó pero Google lo rechazó (destinatario inválido,
     cuota, etc.)."""
+
+
+class DriveSinPermiso(GmailError):
+    """La conexión guardada es anterior al permiso de Drive: hay que
+    reconectar, pero el acceso a Gmail sigue sirviendo."""
 
 
 class GmailTokenRevocado(GmailError):
@@ -82,7 +90,7 @@ def desconectar(usuario: Usuario) -> None:
     usuario.gmail_conectado_en = None
 
 
-def _credenciales(usuario: Usuario) -> Credentials:
+def _credenciales(usuario: Usuario, scope: str = GMAIL_SCOPE) -> Credentials:
     if not usuario.gmail_refresh_token_enc:
         raise GmailNoConectado("Conectá tu cuenta de Gmail para poder mandar mails.")
     refresh_token = _descifrar_token(usuario.gmail_refresh_token_enc)
@@ -93,13 +101,102 @@ def _credenciales(usuario: Usuario) -> Credentials:
         client_id=settings.auth_google_client_id,
         client_secret=settings.auth_google_client_secret,
         token_uri="https://oauth2.googleapis.com/token",
-        scopes=[GMAIL_SCOPE],
+        scopes=[scope],
     )
     try:
         creds.refresh(Request())
     except RefreshError as e:
+        if scope == DRIVE_SCOPE and "invalid_scope" in str(e):
+            # conexión anterior a que se pidiera Drive: no es un token roto
+            raise DriveSinPermiso(
+                "Tu conexión con Google no incluye Drive. Reconectá tu Gmail (Desconectar y Conectar) para habilitarlo."
+            ) from e
         raise GmailTokenRevocado(f"Se perdió el acceso a tu Gmail, volvé a conectarlo ({e}).") from e
     return creds
+
+
+DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files"
+DRIVE_UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable"
+DRIVE_CARPETA = "OT - Adjuntos"
+
+
+def _drive_headers(usuario: Usuario) -> dict:
+    return {"Authorization": f"Bearer {_credenciales(usuario, DRIVE_SCOPE).token}"}
+
+
+def _drive_check(resp: httpx.Response) -> None:
+    if resp.status_code >= 400:
+        raise GmailError(f"Drive devolvió {resp.status_code}: {resp.text}")
+
+
+def _carpeta_adjuntos(usuario: Usuario, headers: dict) -> str:
+    """Id de la carpeta "OT - Adjuntos" del usuario (la crea si no está). Con
+    el scope drive.file solo se ven las carpetas que creó la propia app."""
+    resp = httpx.get(
+        DRIVE_FILES_URL,
+        headers=headers,
+        params={
+            "q": f"name = '{DRIVE_CARPETA}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+            "fields": "files(id)",
+            "pageSize": 1,
+        },
+        timeout=15,
+    )
+    _drive_check(resp)
+    existentes = resp.json().get("files", [])
+    if existentes:
+        return existentes[0]["id"]
+    resp = httpx.post(
+        DRIVE_FILES_URL,
+        headers=headers,
+        json={"name": DRIVE_CARPETA, "mimeType": "application/vnd.google-apps.folder"},
+        timeout=15,
+    )
+    _drive_check(resp)
+    return resp.json()["id"]
+
+
+def drive_iniciar_subida(usuario: Usuario, nombre: str, tipo: str, tamano: int, origen: str) -> str:
+    """Abre una sesión de subida reanudable y devuelve su URL. El navegador
+    sube el archivo directo a esa URL (no pasa por Vercel, que corta a
+    ~4,5 MB); `origen` tiene que ser el Origin de la página para que Google
+    habilite CORS en la subida."""
+    headers = _drive_headers(usuario)
+    carpeta = _carpeta_adjuntos(usuario, headers)
+    resp = httpx.post(
+        DRIVE_UPLOAD_URL,
+        headers={
+            **headers,
+            "X-Upload-Content-Type": tipo or "application/octet-stream",
+            "X-Upload-Content-Length": str(tamano),
+            "Origin": origen,
+        },
+        json={"name": nombre, "parents": [carpeta]},
+        timeout=15,
+    )
+    _drive_check(resp)
+    url = resp.headers.get("Location")
+    if not url:
+        raise GmailError("Drive no devolvió la URL de subida.")
+    return url
+
+
+def drive_compartir(usuario: Usuario, file_id: str) -> str:
+    """Deja el archivo legible para cualquiera que tenga el link y devuelve
+    el link."""
+    if not re.fullmatch(r"[\w-]{10,100}", file_id):
+        raise GmailError("Identificador de archivo inválido.")
+    headers = _drive_headers(usuario)
+    resp = httpx.post(
+        f"{DRIVE_FILES_URL}/{file_id}/permissions",
+        headers=headers,
+        json={"type": "anyone", "role": "reader"},
+        timeout=15,
+    )
+    _drive_check(resp)
+    resp = httpx.get(f"{DRIVE_FILES_URL}/{file_id}", headers=headers, params={"fields": "webViewLink"}, timeout=15)
+    _drive_check(resp)
+    return resp.json()["webViewLink"]
 
 
 class MailEnviado(NamedTuple):

@@ -1,7 +1,7 @@
 import re
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from app import gmail_client
@@ -248,6 +248,45 @@ def enviar_mail_tarea(
     # abajo para que se vea el mail nuevo en el historial.
     drawer_html = templates.env.get_template("tareas/_detalle.html").render(contexto_detalle(db, tarea_id))
     return HTMLResponse(f'<div id="drawer-root" hx-swap-oob="true">{drawer_html}</div>')
+
+
+def _drive_json(fn, *args):
+    try:
+        return JSONResponse(fn(*args))
+    except GmailNoConectado as e:
+        return JSONResponse({"error": str(e)}, status_code=409)
+    except (GmailNoConfigurado, GmailError) as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
+
+
+@router.post("/tareas/{tarea_id}/mail/drive/iniciar")
+def drive_iniciar(
+    tarea_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    nombre: str = Form(...),
+    tipo: str = Form(""),
+    tamano: int = Form(...),
+):
+    """Paso 1 de "adjuntar como link de Drive": devuelve la URL a la que el
+    navegador sube el archivo directo (ver gmail_client.drive_iniciar_subida)."""
+    usuario = _usuario(request, db)
+    origen = request.headers.get("origin") or f"{request.url.scheme}://{request.url.netloc}"
+    return _drive_json(
+        lambda: {"url": gmail_client.drive_iniciar_subida(usuario, nombre, tipo, tamano, origen)}
+    )
+
+
+@router.post("/tareas/{tarea_id}/mail/drive/compartir")
+def drive_compartir(
+    tarea_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    file_id: str = Form(...),
+):
+    """Paso 2: ya subido el archivo, lo deja visible para quien tenga el link."""
+    usuario = _usuario(request, db)
+    return _drive_json(lambda: {"link": gmail_client.drive_compartir(usuario, file_id)})
 
 
 @router.post("/tareas/{tarea_id}/mail/desconectar-gmail")
