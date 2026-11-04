@@ -222,6 +222,50 @@
     document.getElementById('sheet-2-root').innerHTML = '';
   }
 
+  // Auto-refresh: para quien deja la app abierta, cada 60 s se vuelve a
+  // pedir la tabla de Tareas (con los filtros que tenga puestos) y los bloques
+  // marcados con data-auto-refresh. Solo si la pestaña se ve y la persona no
+  // está haciendo nada (sin panel/sheet abierto, sin campo en foco, sin
+  // pedido en curso), para no pisar lo que esté editando.
+  (function () {
+    var CADA_MS = 60000, ultimo = Date.now();
+    function ocupado() {
+      if (document.visibilityState !== 'visible') return true;
+      if (document.getElementById('drawer-root').children.length) return true;
+      if (document.getElementById('sheet-2-root').children.length) return true;
+      if (document.querySelector('.htmx-request')) return true;
+      var a = document.activeElement;
+      if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return true;
+      if (document.querySelector('.combo__menu.is-abierto, details[open]')) return true;
+      return false;
+    }
+    function refrescar() {
+      ultimo = Date.now();
+      if (ocupado()) return;
+      var form = document.getElementById('filtros-form');
+      if (form && document.getElementById('tabla-tareas')) {
+        htmx.ajax('GET', '/tareas/partial', { source: form, target: '#tabla-tareas', swap: 'outerHTML' });
+      }
+      var bloques = document.querySelectorAll('[data-auto-refresh]');
+      if (!bloques.length) return;
+      fetch(location.href, { headers: { 'Accept': 'text/html' }, credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (html) {
+          if (!html || ocupado()) return;
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          bloques.forEach(function (viejo) {
+            var nuevo = doc.getElementById(viejo.id);
+            if (nuevo) { viejo.replaceWith(nuevo); htmx.process(nuevo); }
+          });
+        })
+        .catch(function () {});
+    }
+    setInterval(refrescar, CADA_MS);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && Date.now() - ultimo > CADA_MS) refrescar();
+    });
+  })();
+
   // Escape cierra la capa de arriba (sheet apilada, si no el panel), salvo
   // que esté abierto un menú o un "?": esos tienen su propio Escape.
   document.addEventListener('keydown', function (ev) {
