@@ -147,8 +147,13 @@
           }
           var cuerpo = input.form.querySelector('textarea[name=cuerpo]');
           var botones = input.form.querySelectorAll('button[type=submit]');
-          var ya = Array.from(botones).filter(function (b) { return b.disabled; });
-          botones.forEach(function (b) { b.disabled = true; });
+          var form = input.form;
+          // mientras sube solo se bloquea "Guardar borrador"; "Enviar mail" queda
+          // disponible y manda el mail apenas termina la subida
+          var borrador = Array.from(botones).filter(function (b) { return b.value === 'borrador'; });
+          borrador.forEach(function (b) { b.disabled = true; });
+          form._subiendo = true;
+          window._subidasEnCurso = (window._subidasEnCurso || 0) + 1;
           var lineas = [];
           archivos.reduce(function (p, f) {
             return p.then(function () {
@@ -161,15 +166,73 @@
           }, Promise.resolve()).then(function () {
             cuerpo.value = cuerpo.value.replace(/\s+$/, '') + '\n\nArchivos:\n' + lineas.join('\n') + '\n';
             estado.textContent = 'Subidos a Drive: ' + archivos.map(function (f) { return f.name; }).join(', ');
-          }).catch(function (e) {
+          }).then(function () {
+            return null;
+          }, function (e) {
             if (lineas.length) cuerpo.value = cuerpo.value.replace(/\s+$/, '') + '\n\nArchivos:\n' + lineas.join('\n') + '\n';
             estado.textContent = '';
-            alert('No se pudo subir a Drive: ' + e.message);
-          }).then(function () {
+            return e;
+          }).then(function (error) {
             input.value = '';
-            botones.forEach(function (b) { b.disabled = ya.indexOf(b) >= 0; });
+            form._subiendo = false;
+            window._subidasEnCurso -= 1;
+            borrador.forEach(function (b) { b.disabled = false; });
+            if (form._enviarAlTerminar) {
+              var accion = error ? 'borrador' : 'enviar';
+              form._enviarAlTerminar = false;
+              enviarEnSegundoPlano(form, accion, error);
+            } else if (error) {
+              alert('No se pudo subir a Drive: ' + error.message);
+            }
           });
         };
+
+        function aviso(texto, error) {
+          var d = document.createElement('div');
+          d.textContent = texto;
+          d.setAttribute('role', 'status');
+          d.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;max-width:90vw;padding:10px 16px;border-radius:8px;color:#fff;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.25);background:' + (error ? '#b3261e' : '#2e5e3a');
+          document.body.appendChild(d);
+          setTimeout(function () { d.remove(); }, error ? 9000 : 5000);
+        }
+
+        // el form ya no está en pantalla (se cerró la sheet) pero conserva sus valores
+        function enviarEnSegundoPlano(form, accion, errorSubida) {
+          var fd = new FormData(form);
+          fd.delete('archivos');
+          fd.set('accion', accion);
+          fetch(form.getAttribute('hx-post'), { method: 'POST', body: fd, headers: { 'HX-Request': 'true' } })
+            .then(function (r) {
+              if (!r.ok) throw new Error('Error ' + r.status);
+              return r.text();
+            })
+            .then(function (html) {
+              var fallo = html.indexOf('field-warn') >= 0;
+              if (errorSubida) aviso('No se pudo subir a Drive (' + errorSubida.message + '): el mail NO se envió, quedó guardado como borrador.', true);
+              else if (fallo) aviso('El mail no se pudo enviar. Abrí la tarea y revisá el aviso del composer.', true);
+              else aviso('Mail enviado.', false);
+            })
+            .catch(function (e) { aviso('No se pudo enviar el mail: ' + e.message, true); });
+        }
+
+        if (!window._mailBg) {
+          window._mailBg = true;
+          // "Enviar mail" con una subida en curso: cerrar la sheet y mandar al terminar
+          document.addEventListener('submit', function (ev) {
+            var form = ev.target;
+            if (!form || !form._subiendo) return;
+            var btn = ev.submitter;
+            if (btn && btn.value === 'borrador') return;
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
+            form._enviarAlTerminar = true;
+            document.getElementById('sheet-2-root').innerHTML = '';
+            aviso('Subiendo los archivos a Drive: el mail se enviará apenas termine. No cierres esta pestaña.', false);
+          }, true);
+          window.addEventListener('beforeunload', function (ev) {
+            if (window._subidasEnCurso > 0) { ev.preventDefault(); ev.returnValue = ''; }
+          });
+        }
       })();
       </script>
 
