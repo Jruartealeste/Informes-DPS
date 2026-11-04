@@ -207,9 +207,13 @@
               return r.text();
             })
             .then(function (html) {
-              var fallo = html.indexOf('field-warn') >= 0;
+              // éxito = la respuesta refresca el drawer (OOB); fallo = devuelve el composer con el aviso
+              var fallo = html.indexOf('drawer-overlay') >= 0;
               if (errorSubida) aviso('No se pudo subir a Drive (' + errorSubida.message + '): el mail NO se envió, quedó guardado como borrador.', true);
-              else if (fallo) aviso('El mail no se pudo enviar. Abrí la tarea y revisá el aviso del composer.', true);
+              else if (fallo) {
+                var m = new DOMParser().parseFromString(html, 'text/html').querySelector('.field-warn div');
+                aviso('El mail no se pudo enviar: ' + (m ? m.textContent.trim() : 'abrí la tarea y revisá el composer.'), true);
+              }
               else aviso('Mail enviado.', false);
             })
             .catch(function (e) { aviso('No se pudo enviar el mail: ' + e.message, true); });
