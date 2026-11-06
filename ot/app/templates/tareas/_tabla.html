@@ -51,8 +51,9 @@
     {% endfor %}
     {% else %}
     <div class="table-head table-head--plana">
-      <div>Pedido</div><div>Vence</div><div>OT</div><div>OT DPS</div><div>Estim.</div><div>Tipo</div><div>Detalle</div><div>Pidió</div>
-      <div>Resp.</div><div>Drive</div><div>Presup</div><div>Estado</div><div>Facturación</div>
+      {% macro th(clave, texto) %}<div class="th-orden{{ ' is-orden' if orden == clave }}" role="button" tabindex="0" data-orden="{{ clave }}" aria-sort="{{ ('ascending' if dir == 'asc' else 'descending') if orden == clave else 'none' }}" title="Ordenar por {{ texto }}">{{ texto }}<span class="th-orden__flecha">{{ ('▲' if dir == 'asc' else '▼') if orden == clave }}</span></div>{% endmacro %}
+      {{ th("pedido", "Pedido") }}{{ th("vence", "Vence") }}{{ th("ot", "OT") }}{{ th("dps", "OT DPS") }}{{ th("estim", "Estim.") }}{{ th("tipo", "Tipo") }}{{ th("detalle", "Detalle") }}{{ th("pidio", "Pidió") }}
+      {{ th("resp", "Resp.") }}<div>Drive</div>{{ th("presup", "Presup") }}{{ th("estado", "Estado") }}{{ th("fac", "Facturación") }}
     </div>
     {% for t in filas %}
     <div class="row-tarea row-tarea--plana" hx-get="/tareas/{{ t.id }}" hx-target="#drawer-root" hx-swap="innerHTML">

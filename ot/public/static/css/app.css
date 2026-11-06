@@ -821,6 +821,19 @@ button {
   top: 0;
   z-index: 2;
 }
+.th-orden {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.th-orden:hover,
+.th-orden.is-orden {
+  color: var(--text);
+}
+.th-orden__flecha {
+  margin-left: 3px;
+  font-size: 8px;
+}
 .table-head--agrupada {
   grid-template-columns: 26px 56px 56px 52px 120px minmax(138px, 1fr) 74px 112px 40px 52px 112px 124px;
 }

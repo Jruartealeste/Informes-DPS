@@ -24,12 +24,12 @@
 </p>
 
 <div class="table-scroll">
-  <div class="table-card table-card--estimados-list">
+  <div class="table-card table-card--estimados-list" data-ordenable>
     <div class="table-head table-head--estimados-list">
-      <div>Título</div><div>OT sistema</div><div>Estado</div><div>Tareas</div><div>Creado</div><div title="Google Sheet del presupuesto">Presup.</div>
+      <div class="th-orden" role="button" tabindex="0" data-orden="titulo" data-tipo="t" aria-sort="none" title="Ordenar por Título">Título<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="ot" data-tipo="n" aria-sort="none" title="Ordenar por OT sistema">OT sistema<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="estado" data-tipo="t" aria-sort="none" title="Ordenar por Estado">Estado<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="tareas" data-tipo="n" aria-sort="none" title="Ordenar por Tareas">Tareas<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="creado" data-tipo="n" aria-sort="none" title="Ordenar por Creado">Creado<span class="th-orden__flecha"></span></div><div title="Google Sheet del presupuesto">Presup.</div>
     </div>
     {% for e in estimados %}
-    <div class="row-estimado" onclick="location.href='/estimados/{{ e.id }}'">
+    <div class="row-estimado" data-fila data-o-titulo="{{ e.titulo }}" data-o-ot="{{ e.numero_ot_advertys }}" data-o-estado="{{ e.estado }}" data-o-tareas="{{ e.tareas | length }}" data-o-creado="{{ e.id }}" onclick="location.href='/estimados/{{ e.id }}'">
       <div class="cell-detalle"><a href="/estimados/{{ e.id }}" class="row-estimado__titulo">{{ e.titulo }}</a></div>
       <div class="cell-mono">{{ e.numero_ot_advertys }}</div>
       <div>
@@ -56,5 +56,7 @@
   </p>
   {% endif %}
 </div>
+
+<script src="/static/js/ordenar-tabla.js"></script>
 
 {% endblock %}

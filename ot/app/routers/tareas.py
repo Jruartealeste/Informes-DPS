@@ -98,6 +98,45 @@ def _filtrar(
     return [t for t in tareas if pasa(t)]
 
 
+def _num_o_texto(v) -> tuple:
+    """Clave que ordena números como números y el resto como texto."""
+    s = str(v).strip()
+    m = re.match(r"^\d+", s)
+    if s.isdigit():
+        return (0, int(s), "")
+    return (1, 0, s.lower()) if not m else (0, int(m.group()), s.lower())
+
+
+# columna -> (función que saca el valor de la Tarea, tipo). Tipo "n" = número/fecha, "t" = texto.
+_ORDEN_COLUMNAS = {
+    "pedido": lambda t: t.fecha_pedido,
+    "vence": lambda t: t.fecha_vencimiento,
+    "ot": lambda t: (_num_o_texto(t.ot_interna.numero_interno if t.ot_interna else t.ot_ambigua) if (t.ot_interna or t.ot_ambigua) else None),
+    "dps": lambda t: (_num_o_texto(t.ot_interna.numero_ot_advertys) if t.ot_interna and t.ot_interna.numero_ot_advertys else None),
+    "estim": lambda t: (_num_o_texto(t.estimado.numero_estimado) if t.estimado and t.estimado.numero_estimado else None),
+    "tipo": lambda t: ", ".join(sorted(tt.tipo_tarea.nombre for tt in t.tipos)).lower() or None,
+    "detalle": lambda t: (t.detalle or "").lower() or None,
+    "pidio": lambda t: (t.pedido_por or "").lower() or None,
+    "resp": lambda t: " / ".join(sorted(r.responsable.nombre for r in t.responsables)).lower() or None,
+    "presup": lambda t: None if t.presupuestado is None else int(t.presupuestado),
+    "estado": lambda t: ESTADO_LABELS[t.estado_tarea].lower() if t.estado_tarea else None,
+    "fac": lambda t: FACTURACION_LABELS[t.estado_facturacion].lower(),
+}
+
+
+def _ordenar(tareas: list[Tarea], orden: str, direccion: str) -> list[Tarea]:
+    """Orden por columna (vacíos siempre al final). Por defecto: más nuevas
+    primero (id descendente)."""
+    desc = direccion != "asc"
+    clave = _ORDEN_COLUMNAS.get(orden)
+    if clave is None:
+        return sorted(tareas, key=lambda t: t.id, reverse=True)
+    con_valor = [(clave(t), t) for t in tareas]
+    llenos = sorted((p for p in con_valor if p[0] is not None), key=lambda p: (p[0], p[1].id), reverse=desc)
+    vacios = sorted((p for p in con_valor if p[0] is None), key=lambda p: p[1].id, reverse=True)
+    return [t for _, t in llenos] + [t for _, t in vacios]
+
+
 def _opciones_responsables(tareas: list[Tarea]) -> list[str]:
     nombres = {r.responsable.nombre for t in tareas for r in t.responsables}
     return sorted(nombres)
@@ -129,7 +168,13 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
 
     cliente = cliente_activo(request, db)
     todas = _cargar_tareas(db, cliente.id) if cliente else []
-    filtradas = _filtrar(todas, q, f_est, f_fac, f_resp, revision, vencidas)
+    orden = qp.get("orden", "")
+    dir_ = "asc" if qp.get("dir") == "asc" else "desc"
+    if orden not in _ORDEN_COLUMNAS:
+        orden = ""
+    # Vista agrupada: los grupos siguen el orden de las tareas, así que quedan
+    # por la más nueva de cada OT (ordenar por columna solo aplica a la plana).
+    filtradas = _ordenar(_filtrar(todas, q, f_est, f_fac, f_resp, revision, vencidas), "" if agrupado else orden, dir_)
     n_vencidas, n_por_vencer = _contador_vencidas(todas)
 
     grupos_todos = construir_grupos(todas)
@@ -143,6 +188,8 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
         "f_resp": f_resp,
         "revision": revision,
         "agrupado": agrupado,
+        "orden": orden,
+        "dir": dir_,
         "opt_estado": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
         "opt_fac": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
         "opt_resp": _opciones_responsables(todas),

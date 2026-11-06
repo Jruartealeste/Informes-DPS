@@ -159,12 +159,12 @@
   </form>
 
 <div class="table-scroll">
-  <div class="table-card table-card--ot-list">
+  <div class="table-card table-card--ot-list" data-ordenable>
     <div class="table-head table-head--ot-list">
-      <div class="row-ot__select"><input type="checkbox" id="chk-todas" aria-label="Tildar todas las OT internas"></div><div>OT interna</div><div>Título</div><div>Estado</div><div>OT de sistema</div><div>Tareas</div><div>Facturación</div>
+      <div class="row-ot__select"><input type="checkbox" id="chk-todas" aria-label="Tildar todas las OT internas"></div><div class="th-orden" role="button" tabindex="0" data-orden="n" data-tipo="n" aria-sort="none" title="Ordenar por OT interna">OT interna<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="titulo" data-tipo="t" aria-sort="none" title="Ordenar por Título">Título<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="estado" data-tipo="t" aria-sort="none" title="Ordenar por Estado">Estado<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="dps" data-tipo="n" aria-sort="none" title="Ordenar por OT de sistema">OT de sistema<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="tareas" data-tipo="n" aria-sort="none" title="Ordenar por Tareas">Tareas<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="fac" data-tipo="n" aria-sort="none" title="Ordenar por Facturación">Facturación<span class="th-orden__flecha"></span></div>
     </div>
     {% for ot in ots %}
-    <div class="row-ot" data-estado="{{ ot.ot_estado }}" data-dps="{{ ot.dps or '' }}" data-total="{{ ot.total }}" data-fact="{{ ot.facturadas }}" data-facs="{% for d in ot.semaforo_fac %}{{ d.valor }} {% endfor %}">
+    <div class="row-ot" data-fila data-o-n="{{ ot.n }}" data-o-titulo="{{ ot.titulo or '' }}" data-o-estado="{{ ot.ot_estado }}" data-o-dps="{{ ot.dps or '' }}" data-o-tareas="{{ ot.total }}" data-o-fac="{{ (ot.facturadas / ot.total) if ot.total else '' }}" data-estado="{{ ot.ot_estado }}" data-dps="{{ ot.dps or '' }}" data-total="{{ ot.total }}" data-fact="{{ ot.facturadas }}" data-facs="{% for d in ot.semaforo_fac %}{{ d.valor }} {% endfor %}">
       <label class="row-ot__select">
         <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}" data-titulo="{{ ot.titulo or '' }}">
       </label>
@@ -473,5 +473,7 @@
   });
 })();
 </script>
+
+<script src="/static/js/ordenar-tabla.js"></script>
 
 {% endblock %}

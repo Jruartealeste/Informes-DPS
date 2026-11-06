@@ -28,6 +28,8 @@
   <input type="hidden" id="input-agrupado" name="agrupado" value="{{ '1' if agrupado else '0' }}">
   <input type="hidden" id="input-revision" name="revision" value="{{ '1' if revision else '0' }}">
   <input type="hidden" id="input-vencidas" name="vencidas" value="{{ '1' if vencidas else '0' }}">
+  <input type="hidden" id="input-orden" name="orden" value="{{ orden }}">
+  <input type="hidden" id="input-dir" name="dir" value="{{ dir }}">
   <div class="filters__search">
     <svg class="filters__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input type="text" name="q" value="{{ q }}" placeholder="Buscar en detalle, OT, responsable…" aria-label="Buscar tareas">
@@ -86,6 +88,26 @@
 {% block scripts %}
 <script>
 (function () {
+  // Orden por columna: 1er click = mayor→menor (o más nuevo primero en
+  // fechas), 2do = menor→mayor, 3ro = vuelve al default (más nuevas arriba).
+  var formOrden = document.getElementById("filtros-form");
+  function ordenar(th) {
+    var o = document.getElementById("input-orden"), d = document.getElementById("input-dir");
+    var clave = th.getAttribute("data-orden");
+    if (o.value !== clave) { o.value = clave; d.value = "desc"; }
+    else if (d.value === "desc") { d.value = "asc"; }
+    else { o.value = ""; d.value = "desc"; }
+    formOrden.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  document.addEventListener("click", function (e) {
+    var th = e.target.closest && e.target.closest(".th-orden");
+    if (th) ordenar(th);
+  });
+  document.addEventListener("keydown", function (e) {
+    var th = e.target.closest && e.target.closest(".th-orden");
+    if (th && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ordenar(th); }
+  });
+
   var form = document.getElementById("filtros-form");
   var btn = document.getElementById("btn-filtros");
   var panel = document.getElementById("filtros-panel");
