@@ -12,8 +12,10 @@ Flujo (relevado en vivo el 2026-11-03 sobre el Estimado 599):
   (iframe propio, Dialog=true): Rubro Produccion = SERVICIOS PROPIOS Y
   TARIFARIO (combo; al elegirlo, Articulo pasa a ser un buscador con lupa),
   Articulo (popup de busqueda propio, ActionID=), Titulo, Detalle (= Titulo),
-  Cantidad y Precio Unitario -> "Aceptar" (uno por item) -> al final
-  "Guardar y cerrar" del Estimado.
+  Cantidad y Precio Unitario -> "Aceptar" -> "Guardar" del Estimado (OBLIGATORIO
+  despues de CADA item, regla de Javier 2026-11-10) -> al final "Guardar y cerrar".
+  "Nuevo" se toca dentro de la pestana "Items del Estimado". El pase a Provisorio
+  se verifica leyendo el campo Estado (el postback puede tardar).
 
 Articulo: se busca por el nombre de la columna C. Los articulos de Advertys
 se llaman "Categoria - Item" (ej. "Grafica - Adaptacion 1/2 pagina"): se
@@ -75,9 +77,12 @@ def frame_item(page):
 
 
 def frame_busqueda(page):
-    for f in page.frames:
-        if "ActionID=" in f.url:
-            return f
+    # El popup puede tardar en abrir (fallo real 2026-11-10, item 7): esperar hasta ~15 s.
+    for _ in range(30):
+        for f in page.frames:
+            if "ActionID=" in f.url:
+                return f
+        page.wait_for_timeout(500)
     raise CargarItemsError("No se encontro el popup de busqueda de Articulo.")
 
 
@@ -171,6 +176,9 @@ def cargar_item(page, it: dict, modo: str, n: int) -> None:
     else:
         cant_final, unitario = Decimal(1), precio
 
+    # "Nuevo" de la grilla, dentro de la pestana "Items del Estimado".
+    click_boton_visible(page, "Items del Estimado")
+    page.wait_for_timeout(500)
     if not click_boton_visible(page, "Nuevo"):
         raise CargarItemsError("No se encontro el boton 'Nuevo' de la grilla de Items.")
     esperar_postback(page)
@@ -202,6 +210,37 @@ def cargar_item(page, it: dict, modo: str, n: int) -> None:
     esperar_postback(page)
     page.wait_for_timeout(1500)
 
+    # REGLA de Javier (2026-11-10): guardar el Estimado despues de CADA item
+    # ("Guardar", no "Guardar y cerrar"), para no perder lo cargado si algo falla.
+    if not click_boton_visible(page, "Guardar"):
+        raise CargarItemsError(f"Item {n}: no se encontro 'Guardar' del Estimado: el item quedo sin guardar.")
+    esperar_postback(page)
+    page.wait_for_timeout(2500)
+    shot(page, f"est_items_cargar_{n}_guardado")
+
+
+def estado_estimado(page) -> str:
+    try:
+        return page.locator("input[id$='_xaf_dviEstado_Edit_I']").first.input_value(timeout=2000).strip()
+    except Exception:
+        return ""
+
+
+def pasar_a_provisorio(page) -> None:
+    """Cambia el Estimado a Provisorio y espera (hasta ~30 s) a verlo en el
+    campo Estado: el postback puede tardar mas que una espera fija (fallo real
+    2026-11-10: se seguia viendo 'Nuevo' y no aparecia 'Nuevo' en la grilla)."""
+    if estado_estimado(page) == "Provisorio":
+        return
+    if not click_boton_visible(page, "Provisorio"):
+        raise CargarItemsError(f"No hay boton 'Provisorio' y el estado es {estado_estimado(page)!r}.")
+    esperar_postback(page)
+    for _ in range(15):
+        page.wait_for_timeout(2000)
+        if estado_estimado(page) == "Provisorio":
+            return
+    raise CargarItemsError(f"El Estimado no paso a Provisorio (estado: {estado_estimado(page)!r}).")
+
 
 def cargar_items(numero_ot: str, numero_estimado: str, items: list[dict], modo: str) -> int:
     if not items:
@@ -230,11 +269,7 @@ def cargar_items(numero_ot: str, numero_estimado: str, items: list[dict], modo: 
             page.locator('a[title="Editar"]').first.click(timeout=5000)
             esperar_postback(page)
             page.wait_for_timeout(1500)
-            if click_boton_visible(page, "Provisorio"):
-                esperar_postback(page)
-                page.wait_for_timeout(1500)
-            else:
-                print("  (no hay boton 'Provisorio': el Estimado ya no esta en un estado que lo permita; sigo)")
+            pasar_a_provisorio(page)
             shot(page, f"est_items_cargar_{numero_estimado}_00_provisorio")
 
             cargados = 0

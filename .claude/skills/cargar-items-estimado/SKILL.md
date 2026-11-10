@@ -43,8 +43,21 @@ precio E. Si Javier cambia un dato, se corrige el JSON; no hay edición en la ap
 **4.**
 
 ```bash
-python -m modules.estimados_costos.cargar_items_estimado <ot> <estimado> <items.json> --modo cantidad
+python -m modules.estimados_costos.cargar_items_estimado <ot> <estimado> <items.json> --modo <cantidad|total>
 ```
+
+`--modo` es el del sheet (lo imprime `estimados_con_sheet`: "modo de precio: total"
+-> `--modo total`). Qué hace el script (regla de Javier, 2026-11-10):
+1. Pasa el Estimado a **Provisorio** y espera a ver "Provisorio" en el campo Estado
+   (el postback tarda; sin esa espera "Nuevo" no aparece en la grilla).
+2. Por cada item, en la pestaña **Items del Estimado**: "Nuevo" -> popup -> "Aceptar"
+   -> **"Guardar" del Estimado después de CADA item** (obligatorio, no solo al final).
+3. Al final "Guardar y cerrar".
+
+**Retomar tras un fallo a mitad:** los items ya guardados persisten. Mirar la captura
+`est_items_cargar_<n>_guardado.png` (grilla y Suma) y volver a correr solo con los
+items que faltan (JSON con el resto de la lista); el script detecta que ya está
+Provisorio y sigue. No reenviar la lista completa: duplicaría.
 
 Rubro fijo "SERVICIOS PROPIOS Y TARIFARIO". El artículo se busca por la columna C
 y se elige la coincidencia exacta; sin coincidencia exacta usa "Otros" (avisa).
