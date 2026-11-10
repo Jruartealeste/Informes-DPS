@@ -204,7 +204,20 @@
     alert(typeof msg === 'string' ? msg : 'No se pudo completar la acción (' + xhr.status + ').');
   });
 
+  // Si la persona arrastra para seleccionar texto dentro de la sheet y suelta
+  // el mouse afuera, el navegador dispara el click sobre el overlay (ancestro
+  // común). Solo cuenta como "click afuera" si el botón también se apretó ahí.
+  var mousedownEnOverlay = false;
+  document.addEventListener('mousedown', function (ev) {
+    mousedownEnOverlay = !!(ev.target.classList && ev.target.classList.contains('drawer-overlay'));
+  }, true);
+  function clickArrastradoDesdeAdentro(ev) {
+    return !!(ev && ev.target && ev.target.classList &&
+      ev.target.classList.contains('drawer-overlay') && !mousedownEnOverlay);
+  }
+
   function cerrarDrawer(ev) {
+    if (clickArrastradoDesdeAdentro(ev)) return;
     if (ev) ev.stopPropagation();
     var form = document.querySelector('#drawer-root form');
     if (form && drawerSnapshotInicial !== null && serializarDrawerForm(form) !== drawerSnapshotInicial) {
@@ -218,6 +231,7 @@
   // sola sin tocar #drawer-root, para volver a la sheet de abajo tal cual
   // estaba.
   function cerrarSheet2(ev) {
+    if (clickArrastradoDesdeAdentro(ev)) return;
     if (ev) ev.stopPropagation();
     document.getElementById('sheet-2-root').innerHTML = '';
   }
