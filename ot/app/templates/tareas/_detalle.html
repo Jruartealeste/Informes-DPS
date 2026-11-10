@@ -173,6 +173,14 @@
                 <div class="field-hint">Para: {{ m.destinatarios }}</div>
                 {% if m.error_detalle %}<div class="field-hint">{{ m.error_detalle }}</div>{% endif %}
                 <pre>{{ m.cuerpo }}</pre>
+                {% if m.estado == "BORRADOR" %}
+                <button type="button" class="btn btn--peligro"
+                        hx-post="/tareas/{{ det.id }}/mail/{{ m.id }}/eliminar"
+                        hx-target="#sheet-2-root" hx-swap="innerHTML"
+                        hx-confirm="¿Eliminar este borrador? No se puede deshacer.">
+                  Eliminar borrador
+                </button>
+                {% endif %}
               </div>
             </details>
             {% endfor %}

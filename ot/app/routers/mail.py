@@ -250,6 +250,22 @@ def enviar_mail_tarea(
     return HTMLResponse(f'<div id="drawer-root" hx-swap-oob="true">{drawer_html}</div>')
 
 
+@router.post("/tareas/{tarea_id}/mail/{mail_id}/eliminar")
+def eliminar_borrador(tarea_id: int, mail_id: int, request: Request, db: Session = Depends(get_db)):
+    """Elimina un mail en estado BORRADOR. Los ENVIADO/ERROR son historial y
+    no se tocan (409)."""
+    _usuario(request, db)
+    registro = db.get(TareaMail, mail_id)
+    if registro is None or registro.tarea_id != tarea_id:
+        return HTMLResponse("Mail no encontrado", status_code=404)
+    if registro.estado != EstadoMail.BORRADOR:
+        return HTMLResponse("Solo se pueden eliminar borradores", status_code=409)
+    db.delete(registro)
+    db.commit()
+    drawer_html = templates.env.get_template("tareas/_detalle.html").render(contexto_detalle(db, tarea_id))
+    return HTMLResponse(f'<div id="drawer-root" hx-swap-oob="true">{drawer_html}</div>')
+
+
 def _drive_json(fn, *args):
     try:
         return JSONResponse(fn(*args))

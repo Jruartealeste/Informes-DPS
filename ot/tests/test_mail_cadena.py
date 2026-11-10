@@ -116,3 +116,24 @@ def test_envio_con_adjunto_pasa_archivos(client, db_session, monkeypatch):
         files={"archivos": ("brief.pdf", b"%PDF-1", "application/pdf")},
     )
     assert llamadas == [[("brief.pdf", "application/pdf", b"%PDF-1")]]
+
+
+def test_eliminar_borrador_si_pero_enviado_no(client, db_session):
+    tarea, _ = _tarea_con_mail_enviado(db_session)
+    enviado = db_session.query(TareaMail).filter_by(tarea_id=tarea.id).one()
+    borrador = TareaMail(
+        tarea_id=tarea.id, destinatarios="fer@aleste.ar", asunto="x", cuerpo="y", estado=EstadoMail.BORRADOR
+    )
+    db_session.add(borrador)
+    db_session.commit()
+    enviado_id, borrador_id = enviado.id, borrador.id
+
+    r = client.post(f"/tareas/{tarea.id}/mail/{enviado_id}/eliminar")
+    assert r.status_code == 409
+    assert db_session.get(TareaMail, enviado_id) is not None
+
+    r = client.post(f"/tareas/{tarea.id}/mail/{borrador_id}/eliminar")
+    assert r.status_code == 200
+    db_session.expire_all()
+    assert db_session.get(TareaMail, borrador_id) is None
+    assert db_session.get(TareaMail, enviado_id) is not None
