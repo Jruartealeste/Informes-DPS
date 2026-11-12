@@ -7,6 +7,7 @@
     </svg>
   </button>
   <div class="combo__menu combo__menu--multi{{ ' is-abierto' if abierto }}">
+    <a href="/responsables" hx-get="/responsables" hx-target="#sheet-2-root" hx-swap="innerHTML" class="combo__gestionar">Gestionar responsables →</a>
     <input type="text" class="combo__filtro" placeholder="Buscar…" autocomplete="off">
     <div class="combo__lista">
       {% for r in responsables_todos %}
@@ -21,13 +22,14 @@
       {% endif %}
     </div>
     <div class="combo__nuevo">
-      <input type="text" name="nombre" class="combo__nuevo-input" placeholder="+ nuevo responsable" autocomplete="off">
+      <input type="text" name="nombre" class="combo__nuevo-input" placeholder="+ nuevo responsable" autocomplete="off" value="{{ nombre_nuevo or '' }}">
+      <input type="email" name="mail" class="combo__nuevo-input" placeholder="mail@aleste.ar (obligatorio)" autocomplete="off" value="{{ mail_nuevo or '' }}">
       <button type="button" class="btn btn--small"
               hx-post="/api/responsables" hx-include="closest .combo--multi"
               hx-target="closest .combo--multi" hx-swap="outerHTML">
         Agregar
       </button>
     </div>
-    <a href="/responsables" hx-get="/responsables" hx-target="#sheet-2-root" hx-swap="innerHTML" class="combo__gestionar">Gestionar responsables →</a>
+    {% if error %}<div class="combo__error" role="alert">{{ error }}</div>{% endif %}
   </div>
 </div>

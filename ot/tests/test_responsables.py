@@ -2,7 +2,7 @@ from app.models import Responsable
 
 
 def test_crear_responsable_nuevo_queda_tildado(client, db_session):
-    r = client.post("/api/responsables", data={"nombre": "pili", "responsable_ids": ""})
+    r = client.post("/api/responsables", data={"nombre": "pili", "mail": "pili@aleste.ar", "responsable_ids": ""})
     assert r.status_code == 200
 
     pili = db_session.query(Responsable).filter_by(nombre="pili").one()
@@ -13,6 +13,8 @@ def test_crear_responsable_nuevo_queda_tildado(client, db_session):
 
 def test_crear_responsable_repetido_reusa_existente(client, db_session):
     fer = db_session.query(Responsable).filter_by(nombre="fer").one()
+    fer.mail = "fer@aleste.ar"
+    db_session.commit()
 
     r = client.post("/api/responsables", data={"nombre": "FER", "responsable_ids": ""})
     assert r.status_code == 200

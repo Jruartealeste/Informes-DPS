@@ -1,7 +1,13 @@
 <div id="panel-responsables">
+  {% if error %}
+  <div class="field-warn" role="alert"><span>⚠</span><div>{{ error }}</div></div>
+  {% endif %}
   <form class="filters" hx-post="/responsables" hx-target="#panel-responsables" hx-swap="outerHTML">
     <div class="filters__search">
-      <input type="text" name="nombre" placeholder="Nombre del responsable nuevo" required>
+      <input type="text" name="nombre" placeholder="Nombre del responsable nuevo" value="{{ nombre_nuevo or '' }}" required>
+    </div>
+    <div class="filters__search">
+      <input type="email" name="mail" placeholder="Mail (obligatorio)" value="{{ mail_nuevo or '' }}" required>
     </div>
     <button type="submit" class="btn btn--primary">+ Agregar</button>
   </form>
@@ -12,7 +18,7 @@
         <div>Nombre</div><div></div>
       </div>
       {% for r in responsables %}
-      <div class="resp-row {{ '' if r.activo else 'is-inactivo' }}">
+      <div class="resp-row {{ '' if r.activo else 'is-inactivo' }}{{ '' if r.mail else ' is-editando-mail' }}">
         <div class="resp-row__linea">
           <input type="text" value="{{ r.nombre }}" class="field__value resp-row__nombre"
                  name="nombre" autocomplete="off"
@@ -42,7 +48,7 @@
         </div>
         <div class="resp-row__mail">
           <input type="email" value="{{ r.mail or '' }}" placeholder="mail@aleste.ar"
-                 class="field__value" name="mail" autocomplete="off"
+                 class="field__value" name="mail" autocomplete="off" required
                  hx-post="/responsables/{{ r.id }}/mail" hx-trigger="change"
                  hx-target="#panel-responsables" hx-swap="outerHTML">
         </div>

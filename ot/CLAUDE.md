@@ -403,6 +403,15 @@ Tablas:
     tarea (sin tildar). `_destinatarios` resuelve los ids tildados contra
     toda la tabla `responsables`, no solo `tarea.responsables`. El botón
     "Enviar mail" del drawer ya no exige que la tarea tenga responsables.
+  - **Mail obligatorio en responsables (2026-11-12):** no se puede crear un
+    responsable sin mail (ni desde el combo de la tarea, que pide nombre +
+    mail, ni desde "Gestionar responsables"), y en el gestor no se puede
+    vaciar el mail de uno existente. Validación server-side
+    (`responsables.mail_valido`); los errores se re-renderizan en el combo o
+    el panel. Los responsables legados sin mail siguen existiendo: en el
+    gestor su campo de mail queda visible, y volver a "crear" uno existente
+    sin mail por el combo le exige cargarlo. En el dropdown de responsables,
+    "Gestionar responsables" va primero.
   - **Misma cadena (2026-10-02):** si la tarea ya tiene un mail ENVIADO con
     hilo, el composer muestra un checkbox tildado por defecto "Enviar en la
     misma cadena" (destildar = mail nuevo con asunto libre). Al enviar encadenado
