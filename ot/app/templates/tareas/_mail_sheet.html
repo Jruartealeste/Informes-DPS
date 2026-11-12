@@ -70,6 +70,21 @@
             <a href="/responsables" hx-get="/responsables" hx-target="#sheet-2-root" hx-swap="innerHTML">Cargar mail →</a>
           </div>
           {% endif %}
+          {% if otros %}
+          {% set otros_tildados = otros | selectattr('id', 'in', seleccionados) | list %}
+          <details style="margin-top:8px" {{ "open" if otros_tildados or not (con_mail or sin_mail) }}>
+            <summary class="field-hint" style="cursor:pointer">Sumar otros responsables{% if otros_tildados %} ({{ otros_tildados | length }}){% endif %}</summary>
+            <div class="combo__lista" style="position:static;border:1px solid var(--line);border-radius:7px;max-height:200px;overflow:auto;margin-top:6px">
+              {% for r in otros %}
+              <label class="combo__check-row{{ ' is-inactivo' if not r.mail }}">
+                <input type="checkbox" name="destinatario_ids" value="{{ r.id }}" {{ "checked" if r.id in seleccionados }}>
+                <span class="combo__check-row__nombre">{{ r.nombre }}{% if r.mail %} <span style="color:var(--faint)">— {{ r.mail }}</span>{% endif %}</span>
+                {% if not r.mail %}<span class="combo__check-row__tag">sin mail</span>{% endif %}
+              </label>
+              {% endfor %}
+            </div>
+          </details>
+          {% endif %}
         </div>
 
         {% if cadena %}

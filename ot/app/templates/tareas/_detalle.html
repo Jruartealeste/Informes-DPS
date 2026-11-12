@@ -195,10 +195,8 @@
         <button type="button" class="btn solo-escritorio" onclick="cerrarDrawer(event)">Cancelar</button>
         <div class="drawer__footer-spacer"></div>
         {% if det %}
-        {% set hay_responsables = det.responsables_con_mail | length > 0 %}
         <button type="button" class="btn btn--icono btn--solo-icono" aria-label="Enviar mail"
-                title="{{ 'Enviar mail' if hay_responsables else 'Enviar mail: asigná un responsable primero' }}"
-                {% if not hay_responsables %}disabled{% endif %}
+                title="Enviar mail"
                 hx-get="/tareas/{{ det.id }}/mail" hx-target="#sheet-2-root" hx-swap="innerHTML">
           {{ icono("mail") }}
         </button>

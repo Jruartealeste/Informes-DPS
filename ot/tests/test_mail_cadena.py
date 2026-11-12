@@ -33,6 +33,30 @@ def test_composer_ofrece_cadena_tildada(client, db_session):
     assert 'value="Re: 5000 · Flyer"' in r.text
 
 
+def test_mail_a_responsable_que_no_es_de_la_tarea(client, db_session, monkeypatch):
+    tarea, fer = _tarea_con_mail_enviado(db_session)
+    otro = Responsable(nombre="otro-resp", mail="otro@aleste.ar", activo=True)
+    db_session.add(otro)
+    db_session.commit()
+
+    # el composer lo ofrece, sin tildar
+    r = client.get(f"/tareas/{tarea.id}/mail")
+    assert "Sumar otros responsables" in r.text
+    assert f'value="{otro.id}" >' in r.text or f'value="{otro.id}" ' in r.text
+
+    enviados = []
+
+    def falso(usuario, dest, asunto, cuerpo, en_cadena=None):
+        enviados.append(sorted(dest))
+        return gmail_client.MailEnviado("m9", "t9", "<z@aleste.ar>")
+
+    monkeypatch.setattr(mail_router, "enviar_mail", falso)
+    client.post(f"/tareas/{tarea.id}/mail", data={
+        "asunto": "a", "cuerpo": "b", "destinatario_ids": [str(fer.id), str(otro.id)],
+    })
+    assert enviados == [["fer@aleste.ar", "otro@aleste.ar"]]
+
+
 def test_composer_sin_hilo_previo_no_ofrece_cadena(client, db_session):
     tarea, _ = _tarea_con_mail_enviado(db_session, con_hilo=False)
     r = client.get(f"/tareas/{tarea.id}/mail")

@@ -397,6 +397,12 @@ Tablas:
     javier@aleste.ar). La firma sugerida es el nombre del usuario.
     `scripts/gmail_authorize.py` y `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/
     `GMAIL_*` del `.env` quedaron obsoletos y se sacaron.
+  - **Otros responsables (2026-11-12):** además de los responsables de la
+    tarea (tildados por defecto), el composer ofrece "Sumar otros
+    responsables" con todos los responsables activos que no están en la
+    tarea (sin tildar). `_destinatarios` resuelve los ids tildados contra
+    toda la tabla `responsables`, no solo `tarea.responsables`. El botón
+    "Enviar mail" del drawer ya no exige que la tarea tenga responsables.
   - **Misma cadena (2026-10-02):** si la tarea ya tiene un mail ENVIADO con
     hilo, el composer muestra un checkbox tildado por defecto "Enviar en la
     misma cadena" (destildar = mail nuevo con asunto libre). Al enviar encadenado

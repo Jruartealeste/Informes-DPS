@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app import gmail_client
 from app.db import get_db
 from app.gmail_client import GmailError, GmailNoConectado, GmailNoConfigurado, GmailTokenRevocado, enviar_mail
-from app.models import EstadoMail, Tarea, TareaMail, Usuario
+from app.models import EstadoMail, Responsable, Tarea, TareaMail, Usuario
 from app.routers.tareas import cargar_tarea_con_relaciones, contexto_detalle
 from app.templating import templates
 from app.viewmodels import tarea_vm
@@ -81,20 +81,20 @@ def _asunto_en_cadena(anterior: TareaMail) -> str:
     return f"Re: {base}"
 
 
-def _destinatarios(tarea: Tarea, ids_sel: set[int]) -> tuple[list[str], str]:
-    """(mails, etiqueta) de los responsables tildados. La etiqueta incluye
-    también a los que todavía no tienen mail cargado — sirve para dejar
-    registrado a quién estaba dirigido un borrador, aunque hoy no se les
-    pueda mandar nada."""
+def _destinatarios(db: Session, ids_sel: set[int]) -> tuple[list[str], str]:
+    """(mails, etiqueta) de los responsables tildados — sean o no de la
+    tarea (el composer deja sumar a cualquier responsable activo). La
+    etiqueta incluye también a los que todavía no tienen mail cargado —
+    sirve para dejar registrado a quién estaba dirigido un borrador, aunque
+    hoy no se les pueda mandar nada."""
     con_mail: list[str] = []
     sin_mail: list[str] = []
-    for r in tarea.responsables:
-        if r.responsable_id not in ids_sel:
-            continue
-        if r.responsable.mail:
-            con_mail.append(r.responsable.mail)
+    elegidos = db.query(Responsable).filter(Responsable.id.in_(ids_sel)).all() if ids_sel else []
+    for resp in elegidos:
+        if resp.mail:
+            con_mail.append(resp.mail)
         else:
-            sin_mail.append(r.responsable.nombre)
+            sin_mail.append(resp.nombre)
     con_mail = sorted(set(con_mail))
     partes = list(con_mail)
     if sin_mail:
@@ -117,6 +117,15 @@ def _sheet_ctx(
     con_mail = [r for r in det["responsables_con_mail"] if r["mail"]]
     sin_mail = [r for r in det["responsables_con_mail"] if not r["mail"]]
 
+    # cualquier otro responsable activo se puede sumar como destinatario
+    # aunque no esté asignado a la tarea (no vienen tildados por defecto)
+    ids_tarea = {r["id"] for r in det["responsables_con_mail"]}
+    otros = [
+        {"id": r.id, "nombre": r.nombre, "mail": r.mail}
+        for r in db.query(Responsable).filter(Responsable.activo.is_(True)).order_by(Responsable.nombre)
+        if r.id not in ids_tarea
+    ]
+
     # al abrir el composer de cero (sin nada tipeado todavía), si ya había
     # un borrador guardado se retoma ese texto en vez de regenerar el
     # template — así no se pierde lo redactado a mano.
@@ -137,6 +146,7 @@ def _sheet_ctx(
         "asunto_libre": asunto_libre,
         "con_mail": con_mail,
         "sin_mail": sin_mail,
+        "otros": otros,
         "seleccionados": (
             seleccionados if seleccionados is not None else {r["id"] for r in con_mail + sin_mail}
         ),
@@ -177,7 +187,7 @@ def enviar_mail_tarea(
         if sum(len(d) for _, _, d in adjuntos) > ADJUNTOS_MAX_BYTES else None
     )
     ids_sel = {int(x) for x in destinatario_ids if x.isdigit()}
-    mails, etiqueta = _destinatarios(tarea, ids_sel)
+    mails, etiqueta = _destinatarios(db, ids_sel)
     anterior = _mail_de_cadena(tarea)
     en_cadena = bool(misma_cadena) and anterior is not None
     if en_cadena:
