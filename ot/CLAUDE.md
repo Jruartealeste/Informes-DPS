@@ -1277,3 +1277,13 @@ C artículo, D cantidad, E total de la línea. **Deploy con migración: migrar p
 (`alembic upgrade head` con el `DATABASE_URL` de `.env.prod`) antes del push.**
 Tests: `tests/test_estimados_sheet.py`.
 
+
+## Desdoblar tarea para varios Estimados (2026-11-13)
+
+Una tarea sigue perteneciendo a un solo Estimado (`tareas.estimado_id`). Si el
+trabajo se factura en dos Estimados, se "desdobla" la tarea: botón **Desdoblar**
+en `/estimados/nuevo`, en "Agregar más tareas" y en las filas del Estimado
+(`POST /estimados/tareas/{id}/desdoblar`). Crea una copia en la misma OT interna
+(detalle + " (desdoblada)", mismos tipos/responsables/links, sin Estimado, sin
+mails, facturación SIN_FACTURAR); la original no se toca. No se pasó a N:M.
+Tests: `tests/test_estimados.py`.

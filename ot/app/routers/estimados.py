@@ -16,6 +16,7 @@ from app.models import (
     OtInterna,
     SolicitudAltaEstimado,
     Tarea,
+    TareaResponsable,
     TareaTipoTarea,
 )
 from app.templating import templates
@@ -290,6 +291,41 @@ def quitar_tarea(estimado_id: int, tarea_id: int, db: Session = Depends(get_db))
         tarea.estimado_id = None
         db.commit()
     return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
+
+
+@router.post("/estimados/tareas/{tarea_id}/desdoblar")
+def desdoblar_tarea(tarea_id: int, db: Session = Depends(get_db), volver: str = ""):
+    """Clona una tarea (misma OT interna, libre de Estimado) para poder
+    meter cada mitad en un Estimado distinto -- una tarea pertenece a un
+    solo Estimado (`tareas.estimado_id`), así que cuando el trabajo se
+    factura en dos Estimados se parte en dos tareas en vez de modelar N:M.
+    La original no se toca (sigue en su Estimado, si tiene). No copia mails
+    ni vínculo con la fila del sheet original; la facturación arranca en
+    SIN_FACTURAR."""
+    t = db.scalar(
+        select(Tarea)
+        .where(Tarea.id == tarea_id)
+        .options(selectinload(Tarea.tipos), selectinload(Tarea.responsables))
+    )
+    if not t:
+        raise HTTPException(404, "Tarea no encontrada.")
+    copia = Tarea(
+        ot_interna_id=t.ot_interna_id,
+        ot_ambigua=t.ot_ambigua,
+        fecha_pedido=t.fecha_pedido,
+        fecha_vencimiento=t.fecha_vencimiento,
+        detalle=f"{t.detalle} (desdoblada)",
+        pedido_por=t.pedido_por,
+        link_drive=t.link_drive,
+        presupuestado=t.presupuestado,
+        estado_tarea=t.estado_tarea,
+        tipos=[TareaTipoTarea(tipo_tarea_id=x.tipo_tarea_id) for x in t.tipos],
+        responsables=[TareaResponsable(responsable_id=x.responsable_id) for x in t.responsables],
+    )
+    db.add(copia)
+    db.commit()
+    destino = volver if volver.startswith("/estimados") and not volver.startswith("//") else "/estimados"
+    return RedirectResponse(destino, status_code=303)
 
 
 @router.post("/estimados/{estimado_id}/sheet")

@@ -2647,7 +2647,7 @@ select.chip-fac {
 }
 .table-head--estimado-sel,
 .row-tarea--estimado-sel {
-  grid-template-columns: 30px 90px minmax(220px, 1fr) 150px;
+  grid-template-columns: 30px 90px minmax(220px, 1fr) 150px 80px;
 }
 .row-tarea--estimado-sel {
   display: grid;
@@ -2670,7 +2670,7 @@ select.chip-fac {
 }
 .table-head--estimado-detalle,
 .row-tarea--estimado-detalle {
-  grid-template-columns: 90px minmax(220px, 1fr) 150px 70px;
+  grid-template-columns: 90px minmax(220px, 1fr) 150px 160px;
 }
 .row-tarea--estimado-detalle {
   display: grid;

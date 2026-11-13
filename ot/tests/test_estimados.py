@@ -145,3 +145,29 @@ def test_facturacion_solo_acepta_tareas_de_la_cola(client, db_session):
     db_session.expire_all()
     assert db_session.get(Tarea, en_cola).estado_facturacion.name == "FACTURADO"
     assert db_session.get(Tarea, fuera).estado_facturacion.name == "SIN_FACTURAR"
+
+
+def test_desdoblar_tarea_crea_copia_libre_para_otro_estimado(client, db_session):
+    ids = _armar(db_session, n_tareas=1)
+    e1 = _crear(client, ids, titulo="Etapa 1")
+    r = client.post(
+        f"/estimados/tareas/{ids[0]}/desdoblar?volver=/estimados/{e1}", follow_redirects=False
+    )
+    assert r.status_code == 303
+    assert r.headers["location"] == f"/estimados/{e1}"
+    db_session.expire_all()
+    original = db_session.get(Tarea, ids[0])
+    assert original.estimado_id == e1
+    copia = db_session.query(Tarea).filter(Tarea.id != ids[0]).one()
+    assert copia.estimado_id is None
+    assert copia.ot_interna_id == original.ot_interna_id
+    assert copia.detalle == "t0 (desdoblada)"
+    # la copia es candidata y entra en un segundo Estimado de la misma OT de sistema
+    e2 = _crear(client, [copia.id], titulo="Etapa 2")
+    assert e2 != e1
+
+
+def test_desdoblar_no_redirige_a_destinos_externos(client, db_session):
+    ids = _armar(db_session, n_tareas=1)
+    r = client.post(f"/estimados/tareas/{ids[0]}/desdoblar?volver=//evil.com", follow_redirects=False)
+    assert r.headers["location"] == "/estimados"

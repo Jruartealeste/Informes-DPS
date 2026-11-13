@@ -86,7 +86,10 @@
         <div class="cell-detalle">{{ t.detalle }}</div>
         <div class="cell-muted">{{ t.tipos_label }}</div>
         {% if est.editable %}
-        <div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <form method="post" action="/estimados/tareas/{{ t.id }}/desdoblar?volver=/estimados/{{ est.id }}">
+            <button type="submit" class="link-btn" title="Crea una copia libre de esta tarea para ponerla en otro Estimado">Desdoblar</button>
+          </form>
           <form method="post" action="/estimados/{{ est.id }}/tareas/{{ t.id }}/quitar">
             <button type="submit" class="link-btn btn--icono" aria-label="Quitar del Estimado" title="Quitar del Estimado">{{ icono("quitar") }}<span class="solo-escritorio">Quitar</span></button>
           </form>
@@ -106,7 +109,7 @@
     <div class="card__eyebrow">Agregar más tareas de la misma OT de sistema</div>
     <div class="table-card table-card--estimado-sel" style="margin-top:10px;">
       <div class="table-head table-head--estimado-sel">
-        <div></div><div>OT</div><div>Detalle</div><div>Tipo</div>
+        <div></div><div>OT</div><div>Detalle</div><div>Tipo</div><div></div>
       </div>
       {% for t in disponibles %}
       <label class="row-tarea--estimado-sel">
@@ -114,6 +117,7 @@
         <div class="cell-mono">OT {{ t.ot_numero }}</div>
         <div class="cell-detalle">{{ t.detalle }}</div>
         <div class="cell-muted">{{ t.tipos_label }}</div>
+        <div><button type="submit" class="link-btn" formnovalidate formaction="/estimados/tareas/{{ t.id }}/desdoblar?volver=/estimados/{{ est.id }}" title="Parte esta tarea en dos para ponerlas en Estimados distintos">Desdoblar</button></div>
       </label>
       {% endfor %}
     </div>
@@ -127,6 +131,7 @@
 {% if est.editable and disponibles %}
 <script>
   document.getElementById('form-agregar-tareas').addEventListener('submit', function (ev) {
+    if (ev.submitter && ev.submitter.hasAttribute('formaction')) return; // Desdoblar: no exige tildar nada
     var marcadas = Array.prototype.filter.call(document.querySelectorAll('.chk-tarea'), function (c) { return c.checked; });
     if (!marcadas.length) { ev.preventDefault(); alert('Tildá al menos una tarea.'); return; }
     document.getElementById('tarea_ids_input').value = marcadas.map(function (c) { return c.value; }).join(',');
