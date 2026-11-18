@@ -121,7 +121,14 @@ def abrir_recibo(page, numero: str | None):
             raise CrearReciboError(f"El recibo {numero} no esta en Borrador; no se toca.")
         fila.locator("img, a").nth(0).click(timeout=5000)
     else:
-        page.locator('a[title="Nuevo"]').first.click()
+        # La UI a veces viene en ingles ("New") segun la sesion.
+        nuevo = page.locator('a[title="Nuevo"], a[title="New"]').first
+        try:
+            nuevo.click(timeout=8000)
+        except Exception:
+            if not (click_visible(page, "Nuevo") or click_visible(page, "New")):
+                shot(page, "error_sin_boton_nuevo")
+                raise CrearReciboError("No se encontro el boton Nuevo/New del listado.")
     esperar_postback(page)
     page.wait_for_timeout(1500)
 

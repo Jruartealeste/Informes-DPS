@@ -53,5 +53,8 @@ retencion (Ganancias, IIBB PBA, SUSS, IVA).
 - El "Nuevo" de la barra superior y el del combo Moneda tienen el mismo texto/title;
   el script usa el de la grilla (y > 560 px).
 - El recibo queda en `Borrador` (sin asiento) tras Guardar y cerrar; la
-  contabilizacion no forma parte de este flujo.
+  contabilizacion no forma parte de este flujo (confirmado 2026-11-18: el 463
+  paso a `Contabilizado`, asiento 110004, sin intervencion del script).
+- La UI de Advertys a veces viene en ingles ("New" en vez de "Nuevo"); el script
+  contempla ambos.
 - Un recibo borrador de relevamiento/prueba se elimina a mano desde el listado.
