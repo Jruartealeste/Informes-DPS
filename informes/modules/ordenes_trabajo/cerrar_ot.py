@@ -65,6 +65,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
+from tools.advertys_session import AdvertysLoginError
+from tools.advertys_session import login as login_compartido
+
 load_dotenv()
 
 URL = os.environ.get("ADVERTYS_URL")
@@ -294,22 +297,11 @@ def click_boton_visible(page, texto, timeout=5000):
 
 def login(page):
     print(f"Abriendo {URL}")
-    page.goto(URL, wait_until="networkidle", timeout=30000)
-    user_input = page.locator('input[id$="xaf_dviUserName_Edit_I"]')
-    pass_input = page.locator('input[id$="xaf_dviPassword_Edit_I"]')
-    user_input.wait_for(state="visible", timeout=15000)
-    user_input.click()
-    user_input.fill(USER)
-    pass_input.click()
-    pass_input.fill(PASSWORD)
-    pass_input.press("Enter")
-    esperar_postback(page)
-    if "Login.aspx" in page.url:
-        login_link = page.locator('a[title="Iniciar sesión"], a[title="Iniciar sesion"]')
-        if login_link.count() > 0:
-            login_link.first.click(force=True, timeout=10000)
-            esperar_postback(page)
-    if "Login.aspx" in page.url:
+    # Login compartido: espera hasta ~30 s a que Advertys salga de Login.aspx
+    # (a veces tarda 10-15 s); la copia local no esperaba y fallaba en falso.
+    try:
+        login_compartido(page)
+    except AdvertysLoginError:
         print("ERROR: no se pudo hacer login. Revisa usuario/contraseña en .env")
         shot(page, "00_error_login")
         sys.exit(1)

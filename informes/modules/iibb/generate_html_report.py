@@ -50,6 +50,7 @@ vez que se corre -- no el filtro de periodo dinamico de los demas modulos.
 Uso:
     python -m modules.iibb.generate_html_report
 """
+import re
 from datetime import datetime
 
 import pandas as pd
@@ -124,6 +125,77 @@ def _oc_por_factura(items_oc: pd.DataFrame, ordenes_compra: pd.DataFrame,
         return pd.DataFrame(columns=_COLUMNAS_OC)
     resuelto = oc_resolver.resolver_proveedor_monto(con_oc, ordenes_compra, ordenes_publicidad)
     return resuelto[_COLUMNAS_OC]
+
+
+_RE_LEYENDA_OP = re.compile(r"Orden\s*N\S*:\s*(\d+)", re.IGNORECASE)
+
+AVISO_OC_FALTANTE = "OP faltante en la factura"
+AVISO_SIN_OC = "Sin OC/OP vinculada"
+
+
+def _oc_desde_imputaciones(imputaciones: pd.DataFrame, oc_detalle: pd.DataFrame,
+                            ordenes_publicidad: pd.DataFrame) -> pd.DataFrame:
+    """OP de Medios que la contabilidad imputa a una factura (cuenta
+    config.CUENTA_VENTA_MEDIOS_OP, Leyenda "Orden N°: <numero>/0") pero que
+    el crawl de items NO trajo (oc_detalle). Caso real: factura
+    000500000570, la OP 8033 estaba imputada ($4.255.473,15) y el crawl de
+    la pestana "Items Facturas Medios" devolvio solo 7 de las 8 -- el
+    deducible (sale de la contabilidad) quedaba mayor a la suma de las OP
+    del listado, sin ningun aviso.
+
+    Como el numero de OP no es unico entre años, se desambigua por el
+    importe imputado (importe_sin_iva de la OP). Las lineas de una NC
+    (mismo numero_referencia, signo invertido) netean a 0 y se descartan.
+    Devuelve las mismas columnas que _oc_por_factura() para sumar al
+    listado."""
+    vacio = pd.DataFrame(columns=_COLUMNAS_OC)
+    if imputaciones.empty:
+        return vacio
+    op = imputaciones[imputaciones["cuenta"] == config.CUENTA_VENTA_MEDIOS_OP].copy()
+    op["numero_oc"] = op["leyenda"].fillna("").apply(
+        lambda t: (m.group(1) if (m := _RE_LEYENDA_OP.search(t)) else None)
+    )
+    op = op[op["numero_oc"].notna()]
+    if op.empty:
+        return vacio
+    neto = op.groupby(["numero_referencia", "numero_oc"])["importe"].sum().reset_index()
+    neto = neto[neto["importe"].abs() >= 0.01]
+
+    ya = set(zip(oc_detalle["numero_referencia"], oc_detalle["numero_oc"]))
+    filas = []
+    for r in neto.itertuples(index=False):
+        if (r.numero_referencia, r.numero_oc) in ya:
+            continue
+        monto = abs(float(r.importe))
+        cand = ordenes_publicidad[ordenes_publicidad["numero_oc"] == r.numero_oc]
+        exacto = cand[(cand["importe_sin_iva"] - monto).abs() < 1.0]
+        elegido = exacto if not exacto.empty else cand
+        if elegido.empty:
+            filas.append({"numero_referencia": r.numero_referencia, "numero_oc": r.numero_oc,
+                          "proveedor": None, "oc_saldo": monto})
+        else:
+            f = elegido.sort_values("ano_op", ascending=False).iloc[0]
+            filas.append({"numero_referencia": r.numero_referencia, "numero_oc": r.numero_oc,
+                          "proveedor": f["proveedor"], "oc_saldo": f["importe_sin_iva"]})
+    return pd.DataFrame(filas, columns=_COLUMNAS_OC) if filas else vacio
+
+
+def _avisos_por_factura(deducible: pd.DataFrame, oc_crawl: pd.DataFrame,
+                         oc_extra: pd.DataFrame) -> pd.DataFrame:
+    """Control por factura (numero_referencia): AVISO_OC_FALTANTE si hay OP
+    imputadas en contabilidad que no estaban en los items de la factura
+    (se completaron con oc_extra); AVISO_SIN_OC si tiene monto deducible
+    pero ninguna OC/OP vinculada (ej. factura 000500001478: la OC se creo
+    un dia despues de facturar y el item quedo sin vincular)."""
+    filas = []
+    con_crawl = set(oc_crawl["numero_referencia"])
+    con_extra = oc_extra.groupby("numero_referencia")["numero_oc"].apply(list).to_dict() if not oc_extra.empty else {}
+    for ref in deducible["numero_referencia"].unique():
+        if ref in con_extra:
+            filas.append((ref, AVISO_OC_FALTANTE, "N° " + ", ".join(sorted(con_extra[ref]))))
+        elif ref not in con_crawl:
+            filas.append((ref, AVISO_SIN_OC, ""))
+    return pd.DataFrame(filas, columns=["numero_referencia", "aviso_oc", "aviso_oc_detalle"])
 
 
 def _recortar_ultimos_n_meses(facturas: pd.DataFrame, n_meses: int) -> tuple[pd.DataFrame, pd.Timestamp, pd.Timestamp]:
@@ -280,7 +352,8 @@ def _marcar_estado_nc(facturas: pd.DataFrame) -> pd.DataFrame:
 
 
 def armar_tabla(facturas_6m: pd.DataFrame, deducible: pd.DataFrame, servicio_agencia: pd.DataFrame,
-                 oc_detalle: pd.DataFrame, subtotal_real: pd.DataFrame) -> pd.DataFrame:
+                 oc_detalle: pd.DataFrame, subtotal_real: pd.DataFrame,
+                 avisos: pd.DataFrame | None = None) -> pd.DataFrame:
     tabla = facturas_6m.merge(deducible, on=config.CLAVE_COMPUESTA, how="left")
     tabla["monto_deducible"] = tabla["monto_deducible"].fillna(0.0)
     tabla = tabla.merge(servicio_agencia, on=config.CLAVE_COMPUESTA, how="left")
@@ -318,6 +391,13 @@ def armar_tabla(facturas_6m: pd.DataFrame, deducible: pd.DataFrame, servicio_age
     # ninguna OC/OP vinculada, en vez de dejar la celda en blanco.
     tabla["proveedor"] = tabla["proveedor"].fillna("(sin OC vinculada)")
     tabla["oc_saldo"] = tabla["oc_saldo"].fillna(0.0)
+    if avisos is not None and not avisos.empty:
+        tabla = tabla.merge(avisos, on="numero_referencia", how="left")
+    else:
+        tabla["aviso_oc"] = None
+        tabla["aviso_oc_detalle"] = None
+    tabla["aviso_oc"] = tabla["aviso_oc"].fillna("")
+    tabla["aviso_oc_detalle"] = tabla["aviso_oc_detalle"].fillna("")
     return tabla
 
 
@@ -336,9 +416,12 @@ def main():
 
     deducible = _deducible_por_factura(imputaciones)
     servicio_agencia = _servicio_agencia_por_factura(imputaciones)
-    oc_detalle = _oc_por_factura(items_oc, ordenes_compra, ordenes_publicidad)
+    oc_crawl = _oc_por_factura(items_oc, ordenes_compra, ordenes_publicidad)
+    oc_extra = _oc_desde_imputaciones(imputaciones, oc_crawl, ordenes_publicidad)
+    oc_detalle = pd.concat([oc_crawl, oc_extra], ignore_index=True)
+    avisos = _avisos_por_factura(deducible, oc_crawl, oc_extra)
     subtotal_real = _subtotal_real_por_factura(detalle_impositivo)
-    tabla = armar_tabla(facturas_6m, deducible, servicio_agencia, oc_detalle, subtotal_real)
+    tabla = armar_tabla(facturas_6m, deducible, servicio_agencia, oc_detalle, subtotal_real, avisos)
     # La fila de la factura real va antes que la de su NC dentro del grupo
     # (la tabla agrupada toma "first" para fecha/cliente/montos).
     tabla["_es_nc"] = tabla["tipo_asiento"].isin(_TIPOS_NC).astype(int)
@@ -382,10 +465,14 @@ def main():
         "base_imponible", "base_imponible_unico",
         "numero_oc", "proveedor", "oc_saldo", "con_deducible", "_periodo",
         "grupo_factura", "estado_nc", "nc_numero", "anulada", "cuenta_factura",
+        "aviso_oc", "aviso_oc_detalle",
     ])
 
     spec = {
         "dateField": "_periodo",
+        # Montos con centavos: es la planilla para ARBA y los importes de OC/OP
+        # tienen decimales (ej. $4.255.473,15).
+        "moneyDecimals": 2,
         "statTiles": [
             {"label": "Facturas vigentes", "kind": "nunique", "field": "grupo_factura", "fmt": "int", "filter": {"field": "cuenta_factura", "equals": 1}},
             {"label": "Con OC/OP deducible", "kind": "nunique", "field": "grupo_factura", "fmt": "int", "filter": {"field": "con_deducible", "equals": 1}},
@@ -404,6 +491,8 @@ def main():
                     {"key": "numero_referencia", "field": "numero_referencia", "op": "first"},
                     {"key": "estado_nc", "field": "estado_nc", "op": "first"},
                     {"key": "nc_numero", "field": "nc_numero", "op": "first"},
+                    {"key": "aviso_oc", "field": "aviso_oc", "op": "first"},
+                    {"key": "aviso_oc_detalle", "field": "aviso_oc_detalle", "op": "first"},
                     {"key": "anulada", "field": "anulada", "op": "first"},
                     {"key": "fecha", "field": "fecha", "op": "first"},
                     {"key": "cliente", "field": "cliente", "op": "first"},
@@ -419,16 +508,23 @@ def main():
                     ["subtotal_ml", "Subtotal s/IVA"], ["monto_deducible", "Monto OC/OP deducible"],
                     ["servicio_agencia", "Servicio de Agencia"],
                     ["base_imponible", "Base imponible IIBB"],
+                    ["aviso_oc", "Control OC/OP"],
                 ],
                 "groupNumericCols": ["subtotal_ml", "monto_deducible", "servicio_agencia", "base_imponible"],
                 # Mobile: solo Fecha, N° Factura y Base imponible en la fila; el resto
                 # va en una ficha dentro del detalle desplegable.
-                "groupMobileHide": ["estado_nc", "cliente", "tipo_venta", "subtotal_ml", "monto_deducible", "servicio_agencia"],
+                "groupMobileHide": ["estado_nc", "aviso_oc", "cliente", "tipo_venta", "subtotal_ml", "monto_deducible", "servicio_agencia"],
                 # Escritorio: que Cliente no se parta en 5 líneas.
                 "groupMinWidths": {"cliente": 160},
                 "groupMobileWidths": {"fecha": 84, "numero_referencia": 112},
-                "groupBadges": {"estado_nc": {ESTADO_ANULADA: "critical", ESTADO_PARCIAL: "serious"}},
-                "groupBadgeNotes": {"estado_nc": {"field": "nc_numero", "prefix": "NC "}},
+                "groupBadges": {
+                    "estado_nc": {ESTADO_ANULADA: "critical", ESTADO_PARCIAL: "serious"},
+                    "aviso_oc": {AVISO_OC_FALTANTE: "serious", AVISO_SIN_OC: "critical"},
+                },
+                "groupBadgeNotes": {
+                    "estado_nc": {"field": "nc_numero", "prefix": "NC "},
+                    "aviso_oc": {"field": "aviso_oc_detalle", "prefix": ""},
+                },
                 "groupStrikeField": "anulada",
                 "detailColumns": [
                     ["numero_oc", "N° OC/OP"], ["proveedor", "Proveedor"], ["oc_saldo", "Monto sin IVA"],
@@ -451,6 +547,9 @@ def main():
     with open(config.REPORT_HTML_OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
 
+    con_aviso = facturas_unicas[(facturas_unicas["aviso_oc"] != "") & (facturas_unicas["_es_nc"] == 0)]
+    for r in con_aviso.itertuples():
+        print(f"  AVISO {r.numero_referencia}: {r.aviso_oc} {r.aviso_oc_detalle}".rstrip())
     print(f"OK: informe generado en {config.REPORT_HTML_OUTPUT_PATH}")
     print(f"  {cant_facturas} facturas en ventana ({desde.date()} a {hasta.date()}), {cant_con_deducible} con OC/OP deducible, base imponible neta {_fmt_money(total_base_imponible)}.")
 

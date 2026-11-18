@@ -242,7 +242,26 @@ def pasar_a_provisorio(page) -> None:
     raise CargarItemsError(f"El Estimado no paso a Provisorio (estado: {estado_estimado(page)!r}).")
 
 
-def cargar_items(numero_ot: str, numero_estimado: str, items: list[dict], modo: str) -> int:
+def escribir_textos(page, cabecera: str | None, pie: str | None) -> None:
+    """Completa (reemplazando) las pestanas "Texto Cabecera" y "Texto Pie" del
+    Estimado, que son textareas simples (dviTextoCabecera / dviTextoPie). Se
+    persisten con el "Guardar" que sigue a cada item."""
+    for pestana, campo, texto in (("Texto Cabecera", "TextoCabecera", cabecera),
+                                  ("Texto Pie", "TextoPie", pie)):
+        if not texto:
+            continue
+        if not click_boton_visible(page, pestana):
+            raise CargarItemsError(f"No se encontro la pestana {pestana!r}.")
+        page.wait_for_timeout(1000)
+        area = page.locator(f"textarea[id$='_xaf_dvi{campo}_Edit_I']").first
+        area.fill(texto)
+        page.keyboard.press("Tab")
+        page.wait_for_timeout(500)
+        shot(page, f"est_items_cargar_texto_{campo}")
+
+
+def cargar_items(numero_ot: str, numero_estimado: str, items: list[dict], modo: str,
+                 cabecera: str | None = None, pie: str | None = None) -> int:
     if not items:
         raise CargarItemsError("La lista de items esta vacia.")
     with sync_playwright() as p:
@@ -271,6 +290,7 @@ def cargar_items(numero_ot: str, numero_estimado: str, items: list[dict], modo: 
             page.wait_for_timeout(1500)
             pasar_a_provisorio(page)
             shot(page, f"est_items_cargar_{numero_estimado}_00_provisorio")
+            escribir_textos(page, cabecera, pie)
 
             cargados = 0
             for n, it in enumerate(items, start=1):
@@ -295,10 +315,14 @@ def main():
     ap.add_argument("items_json", help="JSON: lista de {titulo, articulo, cantidad, precio}")
     ap.add_argument("--modo", choices=("cantidad", "total"), required=True,
                     help="cantidad: D x (E/D); total: cantidad 1 y precio final E")
+    ap.add_argument("--cabecera", help="archivo UTF-8 con el Texto Cabecera del Estimado (reemplaza el actual)")
+    ap.add_argument("--pie", help="archivo UTF-8 con el Texto Pie del Estimado (reemplaza el actual)")
     args = ap.parse_args()
+    cabecera = Path(args.cabecera).read_text(encoding="utf-8").strip() if args.cabecera else None
+    pie = Path(args.pie).read_text(encoding="utf-8").strip() if args.pie else None
     items = json.loads(Path(args.items_json).read_text(encoding="utf-8"))
     try:
-        n = cargar_items(args.numero_ot, args.numero_estimado, items, args.modo)
+        n = cargar_items(args.numero_ot, args.numero_estimado, items, args.modo, cabecera, pie)
     except CargarItemsError as e:
         print(f"ERROR: {e}")
         print("No reintentar a ciegas: revisar el Estimado en Advertys (puede haber items ya cargados).")

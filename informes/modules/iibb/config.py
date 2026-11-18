@@ -97,6 +97,13 @@ COLUMN_MAP = {
 # Advertys (ej. 411040), no como texto.
 CUENTAS_DEDUCIBLES = (411040, 411075)
 
+# Subconjunto de CUENTAS_DEDUCIBLES: la de Medios (OP). Su Leyenda tiene
+# siempre el formato "Orden N°: <numero>/0" (un asiento por OP), asi que de
+# ahi se puede sacar el N° de OP aunque el crawl de items no lo haya traido
+# -- ver generate_html_report._oc_desde_imputaciones(). La de Produccion
+# (411040) tiene leyenda de texto libre, no sirve para eso.
+CUENTA_VENTA_MEDIOS_OP = 411075
+
 # Cuentas de "Servicio de Agencia" (Produccion/Medios) -- tambien deducible
 # de la base imponible, ver docstring arriba (actualizacion 2026-08-18).
 CUENTAS_SERVICIO_AGENCIA = (411020, 411070)

@@ -1132,7 +1132,16 @@ DASHBOARD_JS = """
     out = s + out;
     return (neg ? '-' : '') + out;
   }
-  function fmtMoney(v) { return '$ ' + fmtInt(v); }
+  // spec.moneyDecimals (opcional, default 0): cantidad de decimales de los
+  // montos en pesos (separador decimal coma, como el de miles es punto).
+  function fmtMoney(v) {
+    var d = spec.moneyDecimals || 0;
+    if (!d) return '$ ' + fmtInt(v);
+    var f = Math.pow(10, d), r = Math.round(Math.abs(v || 0) * f);
+    var dec = String(r % f);
+    while (dec.length < d) dec = '0' + dec;
+    return '$ ' + (v < 0 && r > 0 ? '-' : '') + fmtInt(Math.floor(r / f)) + ',' + dec;
+  }
   function fmtPct(v) { return Math.round(v || 0) + '%'; }
   function fmt(kind, v) {
     if (kind === 'money') return fmtMoney(v);

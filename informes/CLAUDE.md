@@ -29,6 +29,9 @@ workflow correspondiente:
   Advertys los Estimados de Costo listos según el informe de Estimados
   Pendientes, de cualquier OT (abierta o cerrada) — skill
   `finalizar-estimados-pendientes`.
+- `workflows/crear_estimado.md` — crear el encabezado de un Estimado de
+  Costo en una OT existente (`crear_estimado.py`), con confirmación de OT y
+  título en cada corrida; incluye qué hacer si el script informa error.
 - `workflows/crear_ot.md` — dar de alta el encabezado de una OT nueva en
   Advertys corriendo `modules/ordenes_trabajo/crear_ot.py`, con
   confirmación explícita de Javier en cada corrida — skill
