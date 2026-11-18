@@ -12,7 +12,7 @@ ot/         # app web (FastAPI+Postgres) de tareas/OT del equipo. Va a
             # escribir en Advertys (alta de OT). Ver ot/CLAUDE.md.
 .claude/    # skills y agents de Claude Code, compartidos por ambos
             # subproyectos (viven acá, no adentro de informes/ u ot/).
-Skills/     # referencia general "skill-builder" (no específica de ningún
+docs/       # referencia general "skill-builder" (no específica de ningún
             # subproyecto de datos).
 ```
 

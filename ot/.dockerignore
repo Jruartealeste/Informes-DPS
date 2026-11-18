@@ -6,6 +6,6 @@ __pycache__/
 .env
 *.db
 tests/
-Seguimiento de órdenes de trabajo/
+design/
 scripts/
 .git/

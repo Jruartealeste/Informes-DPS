@@ -1,7 +1,7 @@
 # OTs — quickstart
 
 Primer corte: modelo de datos + CRUD de tareas + pantalla **Tareas** con el
-diseño de `Seguimiento de órdenes de trabajo/design_handoff_ots/`. Sin auth,
+diseño de `design/design_handoff_ots/`. Sin auth,
 sin sync real a Advertys todavía — ver `CLAUDE.md` para el alcance completo
 y el roadmap.
 
@@ -29,7 +29,7 @@ uvicorn app.main:app --reload
 ```
 
 Abrir http://127.0.0.1:8000/tareas — comparar contra
-`Seguimiento de órdenes de trabajo/design_handoff_ots/design/Seguimiento de OTs.dc.html`
+`design/design_handoff_ots/design/Seguimiento de OTs.dc.html`
 (dark/light, densidad compacta/cómoda) antes de dar por cerrada cualquier
 etapa visual.
 

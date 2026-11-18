@@ -2,7 +2,7 @@
 
 Transcribe las ~30 filas reales de la pestaña ALUAR que ya estaban
 embebidas (a modo de ejemplo) en el prototipo de diseño
-(`Seguimiento de órdenes de trabajo/design_handoff_ots/design/Seguimiento de OTs.dc.html`,
+(`design/design_handoff_ots/design/Seguimiento de OTs.dc.html`,
 array `OTS`), para poder probar la app con datos que se ven como los
 reales. Esto NO reemplaza `scripts/migrar_sheet.py` (la migración real
 del Sheet completo, con dry-run y revisión de Javier).
