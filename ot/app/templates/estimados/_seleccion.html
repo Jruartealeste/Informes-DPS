@@ -1,0 +1,69 @@
+{# Lista de tareas tildables agrupadas por OT interna (con "tildar todo el grupo").
+   Espera un form con un hidden #tarea_ids_input; el script de abajo lo completa al enviar. #}
+{% macro lista(grupos, volver) %}
+<div class="table-scroll">
+<div class="table-card table-card--estimado-sel">
+  <div class="table-head table-head--estimado-sel">
+    <div></div><div>OT</div><div>Detalle</div><div>Tipo</div><div></div>
+  </div>
+  {% for g in grupos %}
+  <label class="row-grupo--estimado-sel">
+    <input type="checkbox" class="chk-grupo" aria-label="Tildar todas las tareas de la OT {{ g.ot_numero }}">
+    <span>OT interna {{ g.ot_numero }}</span>
+    <span class="cell-muted">{{ g.tareas | length }} tarea{{ 's' if g.tareas | length != 1 }}</span>
+  </label>
+  {% for t in g.tareas %}
+  <label class="row-tarea--estimado-sel">
+    <div><input type="checkbox" class="chk-tarea" value="{{ t.id }}"></div>
+    <div class="cell-mono">OT {{ t.ot_numero }}</div>
+    <div class="cell-detalle">{{ t.detalle }}</div>
+    <div class="cell-muted">{{ t.tipos_label }}</div>
+    <div><button type="submit" class="link-btn" formnovalidate formaction="/estimados/tareas/{{ t.id }}/desdoblar?volver={{ volver | urlencode }}" title="Parte esta tarea en dos para ponerlas en Estimados distintos">Desdoblar</button></div>
+  </label>
+  {% endfor %}
+  {% endfor %}
+</div>
+</div>
+{% endmacro %}
+
+{# Cablea el form: tildar grupo, estado indeterminado y armado de tarea_ids al enviar. #}
+{% macro script(form_id) %}
+<script>
+  (function () {
+    var form = document.getElementById('{{ form_id }}');
+    function tareasDe(chkGrupo) {
+      var out = [], el = chkGrupo.closest('label').nextElementSibling;
+      while (el && !el.classList.contains('row-grupo--estimado-sel')) {
+        var c = el.querySelector('.chk-tarea');
+        if (c) out.push(c);
+        el = el.nextElementSibling;
+      }
+      return out;
+    }
+    function refrescar(chkGrupo) {
+      var ts = tareasDe(chkGrupo), n = ts.filter(function (c) { return c.checked; }).length;
+      chkGrupo.checked = n === ts.length && n > 0;
+      chkGrupo.indeterminate = n > 0 && n < ts.length;
+    }
+    Array.prototype.forEach.call(form.querySelectorAll('.chk-grupo'), function (g) {
+      g.addEventListener('change', function () {
+        tareasDe(g).forEach(function (c) { c.checked = g.checked; });
+        g.indeterminate = false;
+      });
+    });
+    Array.prototype.forEach.call(form.querySelectorAll('.chk-tarea'), function (c) {
+      c.addEventListener('change', function () {
+        var el = c.closest('label').previousElementSibling;
+        while (el && !el.classList.contains('row-grupo--estimado-sel')) el = el.previousElementSibling;
+        if (el) refrescar(el.querySelector('.chk-grupo'));
+      });
+    });
+    form.addEventListener('submit', function (ev) {
+      if (ev.submitter && ev.submitter.hasAttribute('formaction')) return; // Desdoblar: no exige tildar nada
+      var marcadas = Array.prototype.filter.call(form.querySelectorAll('.chk-tarea'), function (c) { return c.checked; });
+      if (!marcadas.length) { ev.preventDefault(); alert('Tildá al menos una tarea.'); return; }
+      document.getElementById('tarea_ids_input').value = marcadas.map(function (c) { return c.value; }).join(',');
+    });
+  })();
+</script>
+{% endmacro %}

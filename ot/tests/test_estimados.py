@@ -171,3 +171,59 @@ def test_desdoblar_no_redirige_a_destinos_externos(client, db_session):
     ids = _armar(db_session, n_tareas=1)
     r = client.post(f"/estimados/tareas/{ids[0]}/desdoblar?volver=//evil.com", follow_redirects=False)
     assert r.headers["location"] == "/estimados"
+
+
+def _armar_dos_ots_misma_sistema(db_session):
+    """Dos OT internas (4086 y 999) compartiendo la OT de sistema 260, más una
+    tercera (5000) con otra OT de sistema."""
+    cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
+    ots = {
+        n: OtInterna(numero_interno=n, cliente_id=cliente.id, numero_ot_advertys=s)
+        for n, s in (("4086", "260"), ("999", "260"), ("5000", "300"))
+    }
+    db_session.add_all(ots.values())
+    db_session.flush()
+    tareas = {
+        n: Tarea(ot_interna_id=ots[n].id, detalle=f"tarea de {n}", fecha_pedido=date(2026, 10, 1))
+        for n in ots
+    }
+    db_session.add_all(tareas.values())
+    db_session.commit()
+    return {n: t.id for n, t in tareas.items()}
+
+
+def test_nuevo_agrupa_candidatas_por_ot_interna_y_excluye_otra_ot_sistema(client, db_session):
+    ids = _armar_dos_ots_misma_sistema(db_session)
+    r = client.get("/estimados/nuevo?ot_advertys=260")
+    assert r.status_code == 200
+    assert f'class="chk-tarea" value="{ids["4086"]}"' in r.text
+    assert f'class="chk-tarea" value="{ids["999"]}"' in r.text
+    assert f'class="chk-tarea" value="{ids["5000"]}"' not in r.text
+    # orden natural de los grupos: 999 antes que 4086
+    assert r.text.index("OT interna 999") < r.text.index("OT interna 4086")
+
+
+def test_estimado_con_tareas_de_dos_ots_internas_y_rechazo_de_otra_ot_sistema(client, db_session):
+    ids = _armar_dos_ots_misma_sistema(db_session)
+    est_id = _crear(client, [ids["4086"], ids["999"]])
+    r = client.get(f"/estimados/{est_id}")
+    assert "OT interna 999 · 1 tarea" in r.text
+    assert "OT interna 4086 · 1 tarea" in r.text
+    r = client.post(f"/estimados/{est_id}/agregar", data={"tarea_ids": str(ids["5000"])})
+    assert r.status_code == 422
+
+
+def test_listado_ofrece_nuevo_estimado_por_ot_sistema(client, db_session):
+    _armar_dos_ots_misma_sistema(db_session)
+    r = client.get("/estimados")
+    assert r.status_code == 200
+    assert '<option value="260">260 · OT int. 999, 4086</option>' in r.text
+    assert '<option value="300">' in r.text
+
+
+def test_selector_omite_ot_sistema_sin_tareas_libres(client, db_session):
+    ids = _armar_dos_ots_misma_sistema(db_session)
+    _crear(client, [ids["4086"], ids["999"]])  # agota la 260
+    r = client.get("/estimados")
+    assert '<option value="260">' not in r.text
+    assert '<option value="300">' in r.text

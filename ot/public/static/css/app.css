@@ -2665,6 +2665,39 @@ select.chip-fac {
   background: var(--hover);
 }
 
+.row-grupo--estimado-sel {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--hover);
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+}
+.row-grupo--estimado-detalle {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--hover);
+  border-top: 1px solid var(--line-soft);
+}
+.form-nuevo-por-ot {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.select-app {
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 7px 12px;
+  font-size: 13px;
+  max-width: 100%;
+}
+
 .table-card--estimado-detalle {
   min-width: 640px;
 }

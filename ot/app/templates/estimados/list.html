@@ -10,6 +10,17 @@
     </div>
     <div class="page-header__spacer"></div>
     <div class="page-header__actions">
+      {% if ots_sistema %}
+      <form method="get" action="/estimados/nuevo" class="form-nuevo-por-ot">
+        <select name="ot_advertys" class="select-app" required aria-label="OT de sistema para el nuevo Estimado">
+          <option value="" disabled selected>OT de sistema…</option>
+          {% for o in ots_sistema %}
+          <option value="{{ o.numero }}">{{ o.numero }} · OT int. {{ o.internas | join(', ') }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn--small btn--primary">Nuevo Estimado</button>
+      </form>
+      {% endif %}
       <a href="/estimados/solicitudes" class="filters__revision {{ 'is-active' if n_solicitudes_pendientes }}">
         Solicitudes de alta{% if n_solicitudes_pendientes %} <strong>{{ n_solicitudes_pendientes }}</strong>{% endif %}
       </a>
@@ -18,8 +29,9 @@
 </div>
 
 <p class="form-nota form-nota--pageintro">
-  Resúmenes locales de tareas agrupadas para cargar un Estimado de Costo en Advertys — se arman desde el
-  detalle de una OT interna que ya tenga OT de sistema asignada. Los items y montos siguen cargándose a mano
+  Resúmenes locales de tareas agrupadas para cargar un Estimado de Costo en Advertys — se arman elegiendo una OT
+  de sistema (arriba) o desde el detalle de una OT interna que ya la tenga asignada; entran las tareas de todas
+  las OT internas que la comparten. Los items y montos siguen cargándose a mano
   en Advertys.
 </p>
 

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "estimados/_seleccion.html" as sel %}
 {% block titulo %}Nuevo Estimado · OT sistema {{ numero_ot_advertys }} · Órdenes de trabajo{% endblock %}
 {% block content %}
 
@@ -26,21 +27,8 @@
       en Advertys se sigue haciendo a mano.
     </p>
 
-    {% if candidatas %}
-    <div class="table-card table-card--estimado-sel">
-      <div class="table-head table-head--estimado-sel">
-        <div></div><div>OT</div><div>Detalle</div><div>Tipo</div><div></div>
-      </div>
-      {% for t in candidatas %}
-      <label class="row-tarea--estimado-sel">
-        <div><input type="checkbox" class="chk-tarea" value="{{ t.id }}"></div>
-        <div class="cell-mono">OT {{ t.ot_numero }}</div>
-        <div class="cell-detalle">{{ t.detalle }}</div>
-        <div class="cell-muted">{{ t.tipos_label }}</div>
-        <div><button type="submit" class="link-btn" formnovalidate formaction="/estimados/tareas/{{ t.id }}/desdoblar?volver={{ ('/estimados/nuevo?ot_advertys=' ~ numero_ot_advertys) | urlencode }}" title="Parte esta tarea en dos para ponerlas en Estimados distintos">Desdoblar</button></div>
-      </label>
-      {% endfor %}
-    </div>
+    {% if grupos %}
+    {{ sel.lista(grupos, '/estimados/nuevo?ot_advertys=' ~ numero_ot_advertys) }}
     <div class="page-header__actions form-acciones">
       <button type="submit" class="btn btn--primary">Crear resumen de Estimado</button>
     </div>
@@ -53,16 +41,5 @@
   </form>
 </div>
 
-<script>
-  document.getElementById('form-nuevo-estimado').addEventListener('submit', function (ev) {
-    if (ev.submitter && ev.submitter.hasAttribute('formaction')) return; // Desdoblar: no exige tildar nada
-    var marcadas = Array.prototype.filter.call(document.querySelectorAll('.chk-tarea'), function (c) { return c.checked; });
-    if (!marcadas.length) {
-      ev.preventDefault();
-      alert('Tildá al menos una tarea.');
-      return;
-    }
-    document.getElementById('tarea_ids_input').value = marcadas.map(function (c) { return c.value; }).join(',');
-  });
-</script>
+{% if grupos %}{{ sel.script('form-nuevo-estimado') }}{% endif %}
 {% endblock %}

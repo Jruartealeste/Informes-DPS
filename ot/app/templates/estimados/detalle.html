@@ -2,6 +2,7 @@
 {% block titulo %}{{ est.titulo }} · Estimados · Órdenes de trabajo{% endblock %}
 {% block content %}
 {% from "_iconos.html" import icono %}
+{% import "estimados/_seleccion.html" as sel %}
 
 <div class="ot-header">
   <a href="/estimados" class="ot-header__back">← Estimados</a>
@@ -80,7 +81,11 @@
       <div class="table-head table-head--estimado-detalle">
         <div>OT</div><div>Detalle</div><div>Tipo</div>{% if est.editable %}<div></div>{% endif %}
       </div>
-      {% for t in est.tareas %}
+      {% for g in est.grupos %}
+      {% if est.grupos | length > 1 %}
+      <div class="row-grupo--estimado-detalle">OT interna {{ g.ot_numero }} · {{ g.tareas | length }} tarea{{ 's' if g.tareas | length != 1 }}</div>
+      {% endif %}
+      {% for t in g.tareas %}
       <div class="row-tarea--estimado-detalle">
         <div class="cell-mono">OT {{ t.ot_numero }}</div>
         <div class="cell-detalle">{{ t.detalle }}</div>
@@ -97,30 +102,18 @@
         {% endif %}
       </div>
       {% endfor %}
+      {% endfor %}
       {% if not est.tareas %}
       <p class="empty-state">Todavía no tiene tareas.</p>
       {% endif %}
     </div>
   </div>
 
-  {% if est.editable and disponibles %}
+  {% if est.editable and grupos_disponibles %}
   <form method="post" action="/estimados/{{ est.id }}/agregar" id="form-agregar-tareas" class="card card--estimado-resumen">
     <input type="hidden" name="tarea_ids" id="tarea_ids_input">
-    <div class="card__eyebrow">Agregar más tareas de la misma OT de sistema</div>
-    <div class="table-card table-card--estimado-sel" style="margin-top:10px;">
-      <div class="table-head table-head--estimado-sel">
-        <div></div><div>OT</div><div>Detalle</div><div>Tipo</div><div></div>
-      </div>
-      {% for t in disponibles %}
-      <label class="row-tarea--estimado-sel">
-        <div><input type="checkbox" class="chk-tarea" value="{{ t.id }}"></div>
-        <div class="cell-mono">OT {{ t.ot_numero }}</div>
-        <div class="cell-detalle">{{ t.detalle }}</div>
-        <div class="cell-muted">{{ t.tipos_label }}</div>
-        <div><button type="submit" class="link-btn" formnovalidate formaction="/estimados/tareas/{{ t.id }}/desdoblar?volver=/estimados/{{ est.id }}" title="Parte esta tarea en dos para ponerlas en Estimados distintos">Desdoblar</button></div>
-      </label>
-      {% endfor %}
-    </div>
+    <div class="card__eyebrow">Agregar tareas · OT sistema {{ est.numero_ot_advertys }}</div>
+    <div style="margin-top:10px;">{{ sel.lista(grupos_disponibles, '/estimados/' ~ est.id) }}</div>
     <div class="page-header__actions form-acciones">
       <button type="submit" class="btn btn--small">Agregar tildadas</button>
     </div>
@@ -128,15 +121,6 @@
   {% endif %}
 </div>
 
-{% if est.editable and disponibles %}
-<script>
-  document.getElementById('form-agregar-tareas').addEventListener('submit', function (ev) {
-    if (ev.submitter && ev.submitter.hasAttribute('formaction')) return; // Desdoblar: no exige tildar nada
-    var marcadas = Array.prototype.filter.call(document.querySelectorAll('.chk-tarea'), function (c) { return c.checked; });
-    if (!marcadas.length) { ev.preventDefault(); alert('Tildá al menos una tarea.'); return; }
-    document.getElementById('tarea_ids_input').value = marcadas.map(function (c) { return c.value; }).join(',');
-  });
-</script>
-{% endif %}
+{% if est.editable and grupos_disponibles %}{{ sel.script('form-agregar-tareas') }}{% endif %}
 
 {% endblock %}

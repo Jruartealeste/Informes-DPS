@@ -83,6 +83,12 @@ def _tareas_candidatas(db: Session, numero_ot_advertys: str) -> list[Tarea]:
     return list(db.scalars(stmt).unique())
 
 
+def _grupos_candidatas(db: Session, numero_ot_advertys: str) -> list[dict]:
+    return _agrupar_por_ot(
+        [_tarea_resumen_vm(t) for t in _tareas_candidatas(db, numero_ot_advertys)]
+    )
+
+
 def _cargar_tareas_validadas(db: Session, ids: list[int], numero_ot_advertys: str) -> list[Tarea]:
     """Carga las tareas pedidas y corta con 422 si alguna no está libre
     (ya tiene estimado_id) o pertenece a una ot_interna con otra OT de
@@ -119,7 +125,49 @@ def _tarea_resumen_vm(t: Tarea) -> dict:
     }
 
 
+def _clave_numero(valor: str) -> tuple:
+    """Orden natural: los numéricos primero y por valor ('999' < '4086')."""
+    return (0, int(valor), "") if valor.isdigit() else (1, 0, valor)
+
+
+def _agrupar_por_ot(tareas_vm: list[dict]) -> list[dict]:
+    """Agrupa los resúmenes de tareas por OT interna, ordenadas por número. Dentro
+    de cada grupo se conserva el orden de entrada (id de tarea)."""
+    grupos: dict[str, list[dict]] = {}
+    for t in tareas_vm:
+        grupos.setdefault(t["ot_numero"], []).append(t)
+    return [
+        {"ot_numero": n, "tareas": grupos[n]}
+        for n in sorted(grupos, key=_clave_numero)
+    ]
+
+
+def _ots_sistema_disponibles(db: Session) -> list[dict]:
+    """OT de sistema con al menos una tarea libre (mismas condiciones que
+    _tareas_candidatas), con los números de OT interna que aportan tareas libres --
+    alimenta el selector 'Nuevo Estimado' del listado."""
+    filas = db.execute(
+        select(OtInterna.numero_ot_advertys, OtInterna.numero_interno)
+        .join(Tarea, Tarea.ot_interna_id == OtInterna.id)
+        .where(
+            OtInterna.numero_ot_advertys.is_not(None),
+            OtInterna.numero_ot_advertys != "",
+            Tarea.estimado_id.is_(None),
+            or_(Tarea.estado_tarea.is_(None), Tarea.estado_tarea != EstadoTarea.ANULADA),
+        )
+        .distinct()
+    ).all()
+    por_sistema: dict[str, list[str]] = {}
+    for sistema, interno in filas:
+        por_sistema.setdefault(sistema, []).append(interno)
+    return [
+        {"numero": s, "internas": sorted(por_sistema[s], key=_clave_numero)}
+        for s in sorted(por_sistema, key=_clave_numero)
+    ]
+
+
 def _estimado_vm(e: Estimado) -> dict:
+    tareas_vm = [_tarea_resumen_vm(t) for t in e.tareas]
     return {
         "id": e.id,
         "titulo": e.titulo,
@@ -136,7 +184,8 @@ def _estimado_vm(e: Estimado) -> dict:
         "sheet_pestana": e.sheet_pestana or SHEET_PESTANA_DEFAULT,
         "sheet_fila_inicio": e.sheet_fila_inicio or SHEET_FILA_INICIO_DEFAULT,
         "items_modo": e.items_modo or "cantidad",
-        "tareas": [_tarea_resumen_vm(t) for t in e.tareas],
+        "tareas": tareas_vm,
+        "grupos": _agrupar_por_ot(tareas_vm),
     }
 
 
@@ -178,6 +227,7 @@ def listado_estimados(request: Request, db: Session = Depends(get_db)):
         {
             "estimados": [_estimado_vm(e) for e in estimados],
             "n_solicitudes_pendientes": n_solicitudes_pendientes,
+            "ots_sistema": _ots_sistema_disponibles(db),
             **_ctx_base(request, db),
         },
     )
@@ -204,13 +254,12 @@ def form_nuevo_estimado(request: Request, db: Session = Depends(get_db)):
     numero_ot_advertys = request.query_params.get("ot_advertys", "").strip()
     if not numero_ot_advertys:
         raise HTTPException(400, "Falta el número de OT de sistema (ot_advertys)")
-    candidatas = _tareas_candidatas(db, numero_ot_advertys)
     return templates.TemplateResponse(
         request,
         "estimados/nuevo.html",
         {
             "numero_ot_advertys": numero_ot_advertys,
-            "candidatas": [_tarea_resumen_vm(t) for t in candidatas],
+            "grupos": _grupos_candidatas(db, numero_ot_advertys),
             **_ctx_base(request, db),
         },
     )
@@ -253,14 +302,14 @@ def crear_estimado(
 @router.get("/estimados/{estimado_id}")
 def detalle_estimado(estimado_id: int, request: Request, db: Session = Depends(get_db)):
     estimado = _cargar_estimado(db, estimado_id)
-    disponibles = []
+    grupos_disponibles = []
     if estimado.estado == EstadoEstimado.BORRADOR:
-        disponibles = [_tarea_resumen_vm(t) for t in _tareas_candidatas(db, estimado.numero_ot_advertys)]
+        grupos_disponibles = _grupos_candidatas(db, estimado.numero_ot_advertys)
 
     return templates.TemplateResponse(
         request,
         "estimados/detalle.html",
-        {"est": _estimado_vm(estimado), "disponibles": disponibles, **_ctx_base(request, db)},
+        {"est": _estimado_vm(estimado), "grupos_disponibles": grupos_disponibles, **_ctx_base(request, db)},
     )
 
 
