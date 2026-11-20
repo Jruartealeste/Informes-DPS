@@ -193,7 +193,20 @@ def cargar_item(page, it: dict, modo: str, n: int) -> None:
     dlg = frame_item(page)
     _escribir(dlg, page, "Cantidad", f"{cant_final:f}".rstrip("0").rstrip(".") if cant_final % 1 else str(int(cant_final)))
     dlg = frame_item(page)
-    _escribir(dlg, page, "PrecioUnitario", _num_ar(unitario))
+    # El campo numerico de Advertys a veces se come digitos si se tipea rapido
+    # (fallo real 2026-11-20: 67642 quedo en "67" y 0). Tipear con pausa entre
+    # teclas y verificar el valor antes de seguir; el Total se revalida abajo.
+    for _intento in range(3):
+        dlg = frame_item(page)
+        campo = _campo(dlg, "PrecioUnitario")
+        campo.click()
+        page.keyboard.press("Control+A")
+        page.keyboard.type(_num_ar(unitario), delay=90)
+        page.keyboard.press("Tab")
+        page.wait_for_timeout(900)
+        dlg = frame_item(page)
+        if abs(_parse_importe(_campo(dlg, "PrecioUnitario").input_value()) - unitario) <= Decimal("0.005"):
+            break
     page.wait_for_timeout(800)
 
     dlg = frame_item(page)
