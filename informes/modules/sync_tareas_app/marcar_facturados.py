@@ -7,9 +7,9 @@ ingestada) y habla con `ot/` igual que push.py (OT_SYNC_URL / OT_SYNC_TOKEN).
 
 Criterio de "facturado de verdad" (por Estimado, columna `estado` del export
 + `total_facturado`):
-  - estado "Facturado total" o "Facturado manual"      -> FACTURADO
-  - estado "Finalizado" con total_facturado > 0         -> FACTURADO
-    (en Advertys un Estimado solo se finaliza facturado y con O.C. cruzadas)
+  - estado "Facturado total", "Facturado manual" o "Finalizado" -> FACTURADO
+    (decision de Javier 2026-11-20; en Advertys un Estimado solo se
+    finaliza facturado y con O.C. cruzadas)
   - cualquier otro (Provisorio, Autorizado AFacturar, Ok cliente, Anulado...)
     -> NO se toca.
 Se muestra la relacion total_facturado/neto solo como dato; no decide porque
@@ -36,7 +36,7 @@ load_dotenv()
 OT_SYNC_URL = os.environ.get("OT_SYNC_URL")
 OT_SYNC_TOKEN = os.environ.get("OT_SYNC_TOKEN")
 
-ESTADOS_FACTURADO = {"Facturado total", "Facturado manual"}
+ESTADOS_FACTURADO = {"Facturado total", "Facturado manual", "Finalizado"}
 
 
 def _headers() -> dict:
@@ -44,9 +44,7 @@ def _headers() -> dict:
 
 
 def _es_facturado(estado: str | None, total_facturado: float | None) -> bool:
-    if estado in ESTADOS_FACTURADO:
-        return True
-    return estado == "Finalizado" and (total_facturado or 0) > 0
+    return estado in ESTADOS_FACTURADO
 
 
 def _linea(c: dict, a) -> str:
