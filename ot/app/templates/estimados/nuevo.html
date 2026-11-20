@@ -22,9 +22,14 @@
 
     <div class="card__field-label card__field-label--sep">Tareas a incluir</div>
     <p class="form-nota">
-      Se muestran las tareas de esta OT de sistema (incluidas las de otras OT internas que la compartan) que
-      todavía no están en ningún Estimado. Esto arma el resumen local — la carga real del Estimado y sus items
-      en Advertys se sigue haciendo a mano.
+      Tareas de esta OT de sistema que todavía no están en ningún Estimado.
+      <span class="info-tip">
+        <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+        <span class="info-tip__panel" role="note">
+          Incluye las de otras OT internas que la compartan. Esto arma el resumen local — la carga real del
+          Estimado y sus items en Advertys se sigue haciendo a mano.
+        </span>
+      </span>
     </p>
 
     {% if grupos %}

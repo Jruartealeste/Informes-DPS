@@ -426,6 +426,30 @@ def cargar_numero_estimado(estimado_id: int, db: Session = Depends(get_db), nume
     return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
 
 
+@router.post("/estimados/{estimado_id}/desenlazar")
+def desenlazar_estimado(estimado_id: int, db: Session = Depends(get_db)):
+    """Suelta el vínculo con el Estimado de Advertys (número cargado por error o
+    Estimado anulado allá) y devuelve el Estimado local a BORRADOR, conservando
+    título, tareas y sheet. Solo toca esta app: nada se escribe en Advertys. Si el
+    número vino de un pedido de alta ya resuelto, ese pedido se borra para poder
+    cargar otro número o pedir un alta nueva."""
+    estimado = _cargar_estimado(db, estimado_id)
+    if estimado.estado != EstadoEstimado.GENERADO:
+        # ya desenlazado (doble click, pestaña vieja): idempotente, vuelve al detalle
+        return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
+    solicitud = estimado.solicitud_alta
+    estimado.numero_estimado = None
+    estimado.estado = EstadoEstimado.BORRADOR
+    estimado.solicitud_alta_id = None
+    db.flush()
+    if solicitud is not None:
+        db.refresh(solicitud)
+        if not solicitud.estimados:
+            db.delete(solicitud)
+    db.commit()
+    return RedirectResponse(f"/estimados/{estimado_id}", status_code=303)
+
+
 @router.post("/estimados/{estimado_id}/generar-en-advertys")
 def generar_estimado_en_advertys(
     estimado_id: int,

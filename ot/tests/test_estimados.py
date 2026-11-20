@@ -227,3 +227,34 @@ def test_selector_omite_ot_sistema_sin_tareas_libres(client, db_session):
     r = client.get("/estimados")
     assert '<option value="260">' not in r.text
     assert '<option value="300">' in r.text
+
+
+def test_desenlazar_vuelve_a_borrador_y_permite_nuevo_alta(client, db_session):
+    ids = _armar(db_session)
+    est_id = _crear(client, ids)
+    r = client.post(f"/estimados/{est_id}/generar-en-advertys", follow_redirects=False)
+    assert r.status_code == 303
+    sol = db_session.query(SolicitudAltaEstimado).one()
+    client.post(f"/estimados/solicitudes/{sol.id}/resolver", data={"numero_estimado": "601"})
+    db_session.expire_all()
+    assert db_session.get(Estimado, est_id).estado == EstadoEstimado.GENERADO
+
+    r = client.post(f"/estimados/{est_id}/desenlazar", follow_redirects=False)
+    assert r.status_code == 303
+    db_session.expire_all()
+    e = db_session.get(Estimado, est_id)
+    assert e.estado == EstadoEstimado.BORRADOR
+    assert e.numero_estimado is None and e.solicitud_alta_id is None
+    assert len(e.tareas) == 2
+    assert db_session.query(SolicitudAltaEstimado).count() == 0
+    # se puede cargar otro número
+    r = client.post(f"/estimados/{est_id}/cargar-numero", data={"numero_estimado": "602"}, follow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_desenlazar_un_borrador_es_idempotente(client, db_session):
+    est_id = _crear(client, _armar(db_session))
+    r = client.post(f"/estimados/{est_id}/desenlazar", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == f"/estimados/{est_id}"
+    db_session.expire_all()
+    assert db_session.get(Estimado, est_id).estado == EstadoEstimado.BORRADOR

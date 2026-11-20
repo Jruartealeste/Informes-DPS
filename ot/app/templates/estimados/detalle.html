@@ -109,6 +109,26 @@
     </div>
   </div>
 
+  {% if not est.es_borrador %}
+  <div class="card card--estimado-resumen">
+    <div class="card__eyebrow">Vínculo con Advertys</div>
+    <p class="form-nota">
+      Enlazado al Estimado N° {{ est.numero_estimado }}.
+      <span class="info-tip">
+        <button type="button" class="info-tip__btn" aria-expanded="false" aria-label="Más información">?</button>
+        <span class="info-tip__panel" role="note">
+          Si el número está mal o ese Estimado ya no existe en Advertys, desenlazalo: vuelve a Borrador con sus
+          tareas y podés cargar otro número o pedir un alta nueva. No modifica nada en Advertys.
+        </span>
+      </span>
+    </p>
+    <form method="post" action="/estimados/{{ est.id }}/desenlazar"
+          onsubmit="return confirm('¿Desenlazar el Estimado N° {{ est.numero_estimado }} de Advertys? Vuelve a Borrador; en Advertys no se toca nada.');">
+      <button type="submit" class="btn btn--small btn--peligro">Desenlazar de Advertys</button>
+    </form>
+  </div>
+  {% endif %}
+
   {% if est.editable and grupos_disponibles %}
   <form method="post" action="/estimados/{{ est.id }}/agregar" id="form-agregar-tareas" class="card card--estimado-resumen">
     <input type="hidden" name="tarea_ids" id="tarea_ids_input">
