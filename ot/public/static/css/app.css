@@ -2643,11 +2643,11 @@ select.chip-fac {
 }
 
 .table-card--estimado-sel {
-  max-width: 760px;
+  max-width: 1040px;
 }
 .table-head--estimado-sel,
 .row-tarea--estimado-sel {
-  grid-template-columns: 30px 90px minmax(220px, 1fr) 150px 140px;
+  grid-template-columns: 30px 90px minmax(220px, 1fr) 130px 130px 150px 140px;
 }
 .row-tarea--estimado-sel {
   display: grid;

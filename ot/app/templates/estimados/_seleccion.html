@@ -4,7 +4,7 @@
 <div class="table-scroll">
 <div class="table-card table-card--estimado-sel">
   <div class="table-head table-head--estimado-sel">
-    <div></div><div>OT</div><div>Detalle</div><div>Tipo</div><div></div>
+    <div></div><div>OT</div><div>Detalle</div><div>Estado</div><div>Facturación</div><div>Tipo</div><div></div>
   </div>
   {% for g in grupos %}
   <label class="row-grupo--estimado-sel">
@@ -17,6 +17,8 @@
     <div><input type="checkbox" class="chk-tarea" value="{{ t.id }}"></div>
     <div class="cell-mono">OT {{ t.ot_numero }}</div>
     <div class="cell-detalle">{{ t.detalle }}</div>
+    <div><span class="chip-estado" data-valor="{{ t.estado_tarea }}">{{ t.estado_tarea_label }}</span></div>
+    <div><span class="chip-fac" data-valor="{{ t.estado_facturacion }}">{{ t.estado_facturacion_label }}</span></div>
     <div class="cell-muted">{{ t.tipos_label }}</div>
     <div style="display:flex;gap:12px;align-items:center">
       <button type="submit" class="link-btn" formnovalidate formaction="/estimados/tareas/{{ t.id }}/desdoblar?volver={{ volver | urlencode }}" title="Parte esta tarea en dos para ponerlas en Estimados distintos">Desdoblar</button>

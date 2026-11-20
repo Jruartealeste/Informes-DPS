@@ -7,7 +7,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
-from app.labels import TIPO_TAREA_LABELS
+from app.labels import ESTADO_LABELS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import (
     EstadoEstimado,
     EstadoSolicitudAltaEstimado,
@@ -122,6 +122,10 @@ def _tarea_resumen_vm(t: Tarea) -> dict:
         "detalle": t.detalle,
         "tipos_label": ", ".join(TIPO_TAREA_LABELS.get(tt.tipo_tarea.nombre, tt.tipo_tarea.nombre) for tt in t.tipos) or "—",
         "ot_numero": t.ot_interna.numero_interno if t.ot_interna else "—",
+        "estado_tarea": t.estado_tarea.name if t.estado_tarea else "SIN_ESTADO",
+        "estado_tarea_label": ESTADO_LABELS.get(t.estado_tarea, "SIN ESTADO"),
+        "estado_facturacion": t.estado_facturacion.name,
+        "estado_facturacion_label": FACTURACION_LABELS[t.estado_facturacion],
         "eliminable": t.es_desdoblada and t.estimado_id is None,
     }
 
