@@ -437,6 +437,11 @@ def cargar_numero_estimado(estimado_id: int, db: Session = Depends(get_db), nume
     if estimado.estado != EstadoEstimado.BORRADOR:
         raise HTTPException(409, "Este Estimado ya tiene un número cargado.")
     _exigir_sin_pedido_pendiente(estimado)
+    if not estimado.tareas:
+        raise HTTPException(
+            422,
+            "El Estimado no tiene tareas: tildalas y apretá «Agregar tildadas» antes de cargar el número.",
+        )
     valor = numero_estimado.strip()
     if not valor:
         raise HTTPException(422, "Falta el número de Estimado.")

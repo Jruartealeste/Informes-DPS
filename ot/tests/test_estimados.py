@@ -67,6 +67,17 @@ def test_anulada_no_entra_en_facturacion(client, db_session):
     assert est_id
 
 
+def test_cargar_numero_sin_tareas_da_422(client, db_session):
+    ids = _armar(db_session)
+    est_id = _crear(client, ids[:1])
+    assert client.post(f"/estimados/{est_id}/tareas/{ids[0]}/quitar", follow_redirects=False).status_code == 303
+    r = client.post(f"/estimados/{est_id}/cargar-numero", data={"numero_estimado": "599"})
+    assert r.status_code == 422
+    db_session.expire_all()
+    e = db_session.get(Estimado, est_id)
+    assert e.estado == EstadoEstimado.BORRADOR and e.numero_estimado is None
+
+
 def test_cargar_numero_con_pedido_pendiente_da_409(client, db_session):
     ids = _armar(db_session)
     est_id = _crear(client, ids)
