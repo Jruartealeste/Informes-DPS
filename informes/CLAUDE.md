@@ -39,6 +39,10 @@ workflow correspondiente:
   Advertys corriendo `modules/ordenes_trabajo/crear_ot.py`, con
   confirmación explícita de Javier en cada corrida — skill
   `crear-ot-advertys`.
+- `workflows/marcar_facturados.md` — pasar a FACTURADO en la app `ot/` las
+  tareas de Estimados ya facturados en Advertys (`marcar_facturados.py`,
+  dry-run por defecto, `--aplicar` solo con OK de Javier) — skill
+  `marcar-facturados`.
 - `workflows/arquitectura_claude_code.md` — cómo mapear estas 3 capas a
   los mecanismos reales de Claude Code (Skills, Subagents, Agent Teams) y
   la regla de decisión para sumar automatización nueva. Leerlo cuando el
