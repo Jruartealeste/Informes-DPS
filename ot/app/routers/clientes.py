@@ -17,7 +17,13 @@ router = APIRouter()
 def activar_cliente(cliente_id: int, request: Request, db: Session = Depends(get_db)):
     if not db.get(Cliente, cliente_id):
         raise HTTPException(404, "Cliente no encontrado")
-    destino = request.headers.get("referer") or "/tareas"
+    # `next` (ruta propia, ej. el aviso de vencidas de otro anunciante) gana
+    # sobre el referer; solo rutas locales, nunca una URL externa.
+    siguiente = request.query_params.get("next", "")
+    if siguiente.startswith("/") and not siguiente.startswith("//") and "\\" not in siguiente:
+        destino = siguiente
+    else:
+        destino = request.headers.get("referer") or "/tareas"
     resp = RedirectResponse(destino, status_code=303)
     resp.set_cookie(COOKIE_CLIENTE, str(cliente_id), max_age=31536000, path="/")
     return resp

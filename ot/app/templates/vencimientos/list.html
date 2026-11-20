@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Vencimientos · Órdenes de trabajo{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header__row">
+    <div>
+      <h1 class="page-header__title">Vencimientos</h1>
+      <p class="form-nota" style="margin-top:2px">
+        Todos los anunciantes activos · {{ n_vencidas }} vencida{{ 's' if n_vencidas != 1 }} · {{ n_por_vencer }} por vencer (próximos 3 días).
+        Las tareas finalizadas, aprobadas o anuladas no cuentan.
+      </p>
+    </div>
+  </div>
+</div>
+
+{% for g in grupos %}
+<section class="venc-grupo">
+  <h2 class="venc-grupo__titulo">
+    <a href="/clientes/{{ g.id }}/activar?next={{ '/tareas?vencidas=1' | urlencode }}">{{ g.nombre }}</a>
+    <span class="venc-grupo__cuenta">{{ g['items'] | selectattr('vencida') | list | length }} vencida{{ 's' if (g['items'] | selectattr('vencida') | list | length) != 1 }} · {{ g['items'] | length }} en total</span>
+  </h2>
+  {% for it in g['items'] %}
+  <div class="venc-fila">
+    <div class="venc-fila__fecha is-{{ 'vencida' if it.vencida else 'por_vencer' }}">
+      {{ it.fecha.strftime('%d/%m/%Y') }}
+      <span class="venc-fila__rel">
+        {% if it.dias > 0 %}hace {{ it.dias }} día{{ 's' if it.dias > 1 }}{% elif it.dias == 0 %}vence hoy{% else %}en {{ -it.dias }} día{{ 's' if it.dias < -1 }}{% endif %}
+      </span>
+    </div>
+    <div class="venc-fila__ot">OT {{ it.ot }}</div>
+    <div>{{ it.detalle }}</div>
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<p class="venc-vacio">No hay tareas vencidas ni por vencer. 🎉</p>
+{% endfor %}
+
+{% endblock %}

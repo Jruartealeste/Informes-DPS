@@ -19,6 +19,7 @@ from app.routers import (
     sync,
     tareas,
     usuarios,
+    vencimientos,
 )
 
 app = FastAPI(title="Órdenes de trabajo")
@@ -59,6 +60,7 @@ app.include_router(auth_routes.router)
 app.include_router(clientes.router)
 app.include_router(usuarios.router)
 app.include_router(tareas.router)
+app.include_router(vencimientos.router)
 app.include_router(ordenes_trabajo.router)
 app.include_router(ordenes_trabajo.router_paginas)
 app.include_router(responsables.router)

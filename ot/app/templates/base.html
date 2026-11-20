@@ -38,7 +38,7 @@
         <div class="sidebar__group-label" id="sidebar-anunciante-label">Anunciante</div>
         <select class="sidebar__select" aria-labelledby="sidebar-anunciante-label" onchange="location.href = '/clientes/' + this.value + '/activar'">
           {% for c in clientes_sidebar %}
-          <option value="{{ c.id }}" title="{{ c.nombre }}" {{ 'selected' if c.id == cliente_activo_id else '' }}>{{ c.nombre }} ({{ c.total_tareas }}){{ ' · desactivado' if not c.activo }}</option>
+          <option value="{{ c.id }}" title="{{ c.nombre }}" {{ 'selected' if c.id == cliente_activo_id else '' }}>{{ c.nombre }} ({{ c.total_tareas }}){{ ' · desactivado' if not c.activo }}{{ ' · ⚠ ' ~ venc_por_cliente[c.id] ~ ' vencida' ~ ('s' if venc_por_cliente[c.id] > 1) if venc_por_cliente.get(c.id) }}</option>
           {% endfor %}
         </select>
         {% set _activo = clientes_sidebar | selectattr('id', 'equalto', cliente_activo_id) | list %}
@@ -48,6 +48,15 @@
       <div class="sidebar__group">
         <div class="sidebar__group-label">Secciones</div>
         <div class="sidebar__list">
+          <a href="/vencimientos" class="sidebar__item {{ 'is-active' if seccion_activa == 'vencimientos' else '' }}" title="Vencimientos de todos los anunciantes">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+            </svg>
+            <span class="sidebar__item-label">Vencimientos</span>
+            {% if venc_n_vencidas %}<span class="sidebar__alerta sidebar__alerta--danger" role="status" aria-label="{{ venc_n_vencidas }} tarea{{ 's' if venc_n_vencidas > 1 }} vencida{{ 's' if venc_n_vencidas > 1 }}" title="{{ venc_n_vencidas }} vencida{{ 's' if venc_n_vencidas > 1 }} en total (todos los anunciantes)">{{ venc_n_vencidas }}</span>{% endif %}
+            {% if venc_n_por_vencer %}<span class="sidebar__badge" title="Vencen en los próximos 3 días">+{{ venc_n_por_vencer }}</span>{% endif %}
+          </a>
           <a href="/tareas" class="sidebar__item {{ 'is-active' if seccion_activa == 'tareas' else '' }}" title="Tareas">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="m3 17 2 2 4-4"></path>
@@ -161,6 +170,14 @@
       <div class="aviso-solo-lectura" role="status">
         Este anunciante está <strong>desactivado</strong>: se puede consultar, pero no admite cambios.
         {% if es_admin %}<a href="/anunciantes">Reactivarlo en Anunciantes</a>{% endif %}
+      </div>
+      {% endif %}
+      {# Tareas vencidas en OTROS anunciantes: se avisa desde cualquier pantalla #}
+      {% if venc_otros and seccion_activa != 'vencimientos' %}
+      <div class="aviso-vencidas" role="alert">
+        <strong>{{ venc_otros_total }} tarea{{ 's' if venc_otros_total > 1 }} vencida{{ 's' if venc_otros_total > 1 }}</strong> en
+        {% for c in venc_otros[:4] %}<a href="/clientes/{{ c.id }}/activar?next={{ '/tareas?vencidas=1' | urlencode }}">{{ c.nombre }} ({{ c.n }})</a>{{ ', ' if not loop.last }}{% endfor %}{% if venc_otros | length > 4 %} y {{ venc_otros | length - 4 }} más{% endif %}.
+        <a href="/vencimientos" class="aviso-vencidas__todas">Ver todas →</a>
       </div>
       {% endif %}
       {# vuelta de "Conectar Gmail" (auth_routes._callback_gmail) #}

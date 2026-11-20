@@ -1287,3 +1287,16 @@ en `/estimados/nuevo`, en "Agregar más tareas" y en las filas del Estimado
 (detalle + " (desdoblada)", mismos tipos/responsables/links, sin Estimado, sin
 mails, facturación SIN_FACTURAR); la original no se toca. No se pasó a N:M.
 Tests: `tests/test_estimados.py`.
+
+## Vencimientos globales (2026-11-18)
+
+- Aviso de tareas vencidas que **no depende del anunciante activo**: ítem
+  "Vencimientos" en el sidebar (badge rojo = vencidas, `+N` = por vencer en 3
+  días), banner rojo en toda pantalla cuando hay vencidas en *otros*
+  anunciantes (con link que activa ese anunciante y abre Tareas filtrada), marca
+  "⚠ n vencidas" en el selector de anunciante, y página `/vencimientos` con todo
+  agrupado por anunciante. Misma regla que `viewmodels.estado_vencimiento`
+  (cerradas no cuentan); anunciantes desactivados quedan afuera.
+- Código: `app/vencimientos.py` (consulta única, la usa el context processor de
+  `templating.py` en cada request), `routers/vencimientos.py`,
+  `clientes.activar_cliente` acepta `?next=` (solo rutas locales).

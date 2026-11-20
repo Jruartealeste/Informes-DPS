@@ -5,6 +5,7 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
+from app import vencimientos
 from app.cliente_ctx import CLIENTE_DEFAULT, COOKIE_CLIENTE
 from app.db import get_db
 from app.models import (
@@ -78,7 +79,17 @@ def _contexto_clientes(request: Request) -> dict:
             .select_from(SolicitudAltaEstimado)
             .where(SolicitudAltaEstimado.estado == EstadoSolicitudAltaEstimado.PENDIENTE)
         ) or 0
+        # Vencimientos de TODOS los anunciantes activos: el aviso se ve desde
+        # cualquier pantalla, esté el anunciante que esté seleccionado.
+        venc = vencimientos.resumen(vencimientos.consultar(db))
+        venc_otros = [c for c in venc["vencidas_por_cliente"] if c["id"] != activo_id]
+        venc_por_cliente = {c["id"]: c["n"] for c in venc["vencidas_por_cliente"]}
         return {
+            "venc_n_vencidas": venc["n_vencidas"],
+            "venc_n_por_vencer": venc["n_por_vencer"],
+            "venc_otros": venc_otros,
+            "venc_otros_total": sum(c["n"] for c in venc_otros),
+            "venc_por_cliente": venc_por_cliente,
             "n_altas_ot_pendientes": n_altas_ot,
             "n_altas_estimado_pendientes": n_altas_estimado,
             "clientes_sidebar": clientes_sidebar,

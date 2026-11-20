@@ -3332,3 +3332,77 @@ select.chip-fac {
     justify-content: center;
   }
 }
+
+/* Vencimientos globales (todos los anunciantes): marca en el sidebar, aviso
+   en cualquier pantalla y página /vencimientos. */
+.sidebar__alerta--danger {
+  color: var(--danger-text);
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+}
+.aviso-vencidas {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-line);
+  color: var(--danger-text);
+}
+.aviso-vencidas a {
+  color: inherit;
+  font-weight: 600;
+}
+.aviso-vencidas__todas {
+  margin-left: 6px;
+}
+.venc-grupo {
+  margin: 0 20px 18px;
+  max-width: 900px;
+}
+.venc-grupo__titulo {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+.venc-grupo__titulo a {
+  color: inherit;
+}
+.venc-grupo__cuenta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.venc-fila {
+  display: grid;
+  grid-template-columns: 86px 56px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-top: 1px solid var(--border, rgba(128, 128, 128, 0.25));
+  font-size: 13px;
+}
+.venc-fila__fecha,
+.venc-fila__ot {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.venc-fila__fecha.is-vencida {
+  color: var(--danger-text);
+  font-weight: 600;
+}
+.venc-fila__fecha.is-por_vencer {
+  color: var(--warn-text);
+}
+.venc-fila__rel {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.venc-vacio {
+  margin: 0 20px;
+  color: var(--muted);
+}
