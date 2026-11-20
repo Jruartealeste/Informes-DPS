@@ -122,6 +122,7 @@ def _tarea_resumen_vm(t: Tarea) -> dict:
         "detalle": t.detalle,
         "tipos_label": ", ".join(TIPO_TAREA_LABELS.get(tt.tipo_tarea.nombre, tt.tipo_tarea.nombre) for tt in t.tipos) or "—",
         "ot_numero": t.ot_interna.numero_interno if t.ot_interna else "—",
+        "eliminable": t.es_desdoblada and t.estimado_id is None,
     }
 
 
@@ -368,10 +369,29 @@ def desdoblar_tarea(tarea_id: int, db: Session = Depends(get_db), volver: str = 
         link_drive=t.link_drive,
         presupuestado=t.presupuestado,
         estado_tarea=t.estado_tarea,
+        es_desdoblada=True,
         tipos=[TareaTipoTarea(tipo_tarea_id=x.tipo_tarea_id) for x in t.tipos],
         responsables=[TareaResponsable(responsable_id=x.responsable_id) for x in t.responsables],
     )
     db.add(copia)
+    db.commit()
+    destino = volver if volver.startswith("/estimados") and not volver.startswith("//") else "/estimados"
+    return RedirectResponse(destino, status_code=303)
+
+
+@router.post("/estimados/tareas/{tarea_id}/eliminar")
+def eliminar_tarea_desdoblada(tarea_id: int, db: Session = Depends(get_db), volver: str = ""):
+    """Borra de verdad una copia creada con "Desdoblar". Solo vale para esas
+    copias y mientras no estén asignadas a un Estimado (si lo están, primero hay
+    que quitarlas); cualquier otra tarea se anula, no se elimina."""
+    t = db.get(Tarea, tarea_id)
+    if not t:
+        raise HTTPException(404, "Tarea no encontrada.")
+    if not t.es_desdoblada:
+        raise HTTPException(409, "Solo se pueden eliminar tareas desdobladas.")
+    if t.estimado_id is not None:
+        raise HTTPException(409, "La tarea está asignada a un Estimado: quitala del Estimado primero.")
+    db.delete(t)
     db.commit()
     destino = volver if volver.startswith("/estimados") and not volver.startswith("//") else "/estimados"
     return RedirectResponse(destino, status_code=303)

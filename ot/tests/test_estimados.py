@@ -258,3 +258,40 @@ def test_desenlazar_un_borrador_es_idempotente(client, db_session):
     assert r.status_code == 303 and r.headers["location"] == f"/estimados/{est_id}"
     db_session.expire_all()
     assert db_session.get(Estimado, est_id).estado == EstadoEstimado.BORRADOR
+
+
+def _desdoblar(client, tarea_id):
+    r = client.post(f"/estimados/tareas/{tarea_id}/desdoblar", follow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_eliminar_solo_desdobladas_libres(client, db_session):
+    ids = _armar(db_session, n_tareas=1)
+    _desdoblar(client, ids[0])
+    copia = db_session.query(Tarea).filter(Tarea.es_desdoblada.is_(True)).one()
+
+    # la tarea original no se puede eliminar
+    assert client.post(f"/estimados/tareas/{ids[0]}/eliminar").status_code == 409
+
+    # la copia libre aparece con botón Eliminar y se borra
+    r = client.get("/estimados/nuevo?ot_advertys=260")
+    assert f"/estimados/tareas/{copia.id}/eliminar" in r.text
+    assert f"/estimados/tareas/{ids[0]}/eliminar" not in r.text
+    copia_id = copia.id
+    r = client.post(f"/estimados/tareas/{copia_id}/eliminar", follow_redirects=False)
+    assert r.status_code == 303
+    db_session.expire_all()
+    assert db_session.get(Tarea, copia_id) is None
+    assert db_session.get(Tarea, ids[0]) is not None
+
+
+def test_no_se_elimina_desdoblada_asignada_a_estimado(client, db_session):
+    ids = _armar(db_session, n_tareas=1)
+    _desdoblar(client, ids[0])
+    copia_id = db_session.query(Tarea).filter(Tarea.es_desdoblada.is_(True)).one().id
+    est_id = _crear(client, [copia_id])
+    assert client.post(f"/estimados/tareas/{copia_id}/eliminar").status_code == 409
+    assert f"/estimados/tareas/{copia_id}/eliminar" not in client.get(f"/estimados/{est_id}").text
+    # al quitarla del Estimado vuelve a ser eliminable
+    client.post(f"/estimados/{est_id}/tareas/{copia_id}/quitar")
+    assert client.post(f"/estimados/tareas/{copia_id}/eliminar", follow_redirects=False).status_code == 303

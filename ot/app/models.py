@@ -1,7 +1,7 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -323,6 +323,10 @@ class Tarea(Base):
         default=EstadoFacturacion.SIN_FACTURAR
     )
     fila_sheet_original: Mapped[int | None] = mapped_column()
+    # Copia creada con "Desdoblar" (estimados.py): es la única que se puede
+    # eliminar de verdad (y solo mientras no esté en un Estimado); el resto
+    # de las tareas solo se anula.
+    es_desdoblada: Mapped[bool] = mapped_column(default=False, server_default=false())
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     actualizado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -18,7 +18,12 @@
     <div class="cell-mono">OT {{ t.ot_numero }}</div>
     <div class="cell-detalle">{{ t.detalle }}</div>
     <div class="cell-muted">{{ t.tipos_label }}</div>
-    <div><button type="submit" class="link-btn" formnovalidate formaction="/estimados/tareas/{{ t.id }}/desdoblar?volver={{ volver | urlencode }}" title="Parte esta tarea en dos para ponerlas en Estimados distintos">Desdoblar</button></div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <button type="submit" class="link-btn" formnovalidate formaction="/estimados/tareas/{{ t.id }}/desdoblar?volver={{ volver | urlencode }}" title="Parte esta tarea en dos para ponerlas en Estimados distintos">Desdoblar</button>
+      {% if t.eliminable %}
+      <button type="submit" class="link-btn" formnovalidate formaction="/estimados/tareas/{{ t.id }}/eliminar?volver={{ volver | urlencode }}" title="Elimina esta tarea desdoblada (todavía no está en ningún Estimado)" onclick="return confirm('¿Eliminar esta tarea desdoblada? No se puede deshacer.');">Eliminar</button>
+      {% endif %}
+    </div>
   </label>
   {% endfor %}
   {% endfor %}
