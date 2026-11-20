@@ -310,3 +310,74 @@ def listar_estimados_con_sheet(db: Session = Depends(get_db)) -> list[dict]:
         }
         for e in estimados
     ]
+
+
+# --- Marcar tareas como FACTURADO según Advertys (Informes/modules/sync_tareas_app/marcar_facturados.py) ---
+# Informes lee de advertys.db qué Estimados ya se facturaron de verdad y pide
+# acá pasar a FACTURADO las tareas de esos Estimados. La decisión de qué es
+# "facturado" vive del lado de Informes (tiene los datos de Advertys); acá solo
+# se aplica, y nunca se pisan tareas anuladas, ya facturadas ni "no corresponde".
+
+
+def _tarea_facturable(t) -> bool:
+    from app.models import EstadoFacturacion, EstadoTarea
+
+    return t.estado_tarea != EstadoTarea.ANULADA and t.estado_facturacion not in (
+        EstadoFacturacion.FACTURADO,
+        EstadoFacturacion.NO_CORRESPONDE,
+    )
+
+
+@router.get("/estimados-a-facturar", dependencies=[Depends(_verificar_token)])
+def listar_estimados_a_facturar(db: Session = Depends(get_db)) -> list[dict]:
+    """Estimados con número en Advertys que tienen tareas todavía no marcadas
+    como facturadas (candidatos a cruzar contra Advertys)."""
+    estimados = db.scalars(
+        select(Estimado).where(Estimado.numero_estimado.is_not(None)).options(selectinload(Estimado.tareas))
+    )
+    salida = []
+    for e in estimados:
+        pend = [t for t in e.tareas if _tarea_facturable(t)]
+        if pend:
+            salida.append(
+                {
+                    "numero_estimado": e.numero_estimado,
+                    "titulo": e.titulo,
+                    "numero_ot_advertys": e.numero_ot_advertys,
+                    "tareas_pendientes": [
+                        {"id": t.id, "detalle": t.detalle, "estado_facturacion": t.estado_facturacion.name}
+                        for t in pend
+                    ],
+                }
+            )
+    return salida
+
+
+class EstimadosFacturadosIn(BaseModel):
+    numeros_estimado: list[str] = Field(min_length=1)
+
+
+@router.post("/estimados-facturados", dependencies=[Depends(_verificar_token)])
+def marcar_estimados_facturados(body: EstimadosFacturadosIn, db: Session = Depends(get_db)) -> dict:
+    """Pasa a FACTURADO las tareas de los Estimados indicados. Idempotente:
+    saltea las ya facturadas, las "no corresponde" y las anuladas."""
+    from app.models import EstadoFacturacion
+
+    numeros = {n.strip() for n in body.numeros_estimado if n.strip()}
+    estimados = db.scalars(
+        select(Estimado).where(Estimado.numero_estimado.in_(numeros)).options(selectinload(Estimado.tareas))
+    ).all()
+    marcadas = 0
+    for e in estimados:
+        for t in e.tareas:
+            if _tarea_facturable(t):
+                t.estado_facturacion = EstadoFacturacion.FACTURADO
+                marcadas += 1
+    db.add(SyncLog(origen="estimados_facturados", cantidad=marcadas, ok=True))
+    db.commit()
+    return {
+        "ok": True,
+        "estimados_encontrados": len(estimados),
+        "estimados_no_encontrados": sorted(numeros - {e.numero_estimado for e in estimados}),
+        "tareas_marcadas": marcadas,
+    }
