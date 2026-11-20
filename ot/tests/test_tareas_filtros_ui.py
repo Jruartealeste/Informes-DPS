@@ -3,8 +3,10 @@ def test_pagina_tiene_boton_filtros_y_alerta_de_revision_visible(client):
     assert 'id="btn-filtros"' in html
     # los selects viven dentro del panel de filtros, no sueltos en la barra
     panel = html.split('id="filtros-panel"')[1].split("</form>")[0]
-    for nombre in ("f_est", "f_fac", "f_resp"):
-        assert f'name="{nombre}"' in panel
+    # cada filtro es un dropdown de tildes (varias opciones a la vez)
+    assert panel.count('class="msel"') == 3
+    for nombre in ("f_est", "f_fac"):
+        assert f'type="checkbox" name="{nombre}"' in panel
     # la alerta queda fuera del panel, siempre visible
     assert 'id="btn-revision"' in html.split('id="filtros-panel"')[1].split("</div>\n  </div>")[1]
 

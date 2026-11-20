@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}OT internas · Órdenes de trabajo{% endblock %}
 {% block content %}
+{% from "_msel.html" import msel %}
 
 <div class="page-header">
   <div class="page-header__row">
@@ -35,32 +36,13 @@
       <span class="filters__count" id="filtros-count" hidden></span>
     </button>
     <div class="filtros__panel" id="filtros-panel" role="group" aria-label="Filtros de OT internas" hidden>
-      <label class="filtros__campo">
-        <span class="filtros__label">Estado</span>
-        <select id="filtro-estado">
-          <option value="">Todos los estados</option>
-          <option value="ABIERTA">Abierta</option>
-          <option value="CERRADA">Cerrada</option>
-        </select>
-      </label>
-      <label class="filtros__campo">
-        <span class="filtros__label">OT de sistema</span>
-        <select id="filtro-dps">
-          <option value="">Todas las OT de sistema</option>
-          {% for d in dps_existentes %}<option value="{{ d.valor }}">OT de sistema {{ d.valor }}</option>{% endfor %}
-        </select>
-      </label>
-      <label class="filtros__campo">
-        <span class="filtros__label">Facturación</span>
-        <select id="filtro-fac">
-          <option value="">Toda la facturación</option>
-          <option value="pendiente">Con tareas por facturar</option>
-          <option value="completa">Todo facturado</option>
-          <optgroup label="Con tareas en">
-            {% for valor, label in estados_facturacion %}<option value="{{ valor }}">{{ label|capitalize|replace(' ok ', ' OK ') }}</option>{% endfor %}
-          </optgroup>
-        </select>
-      </label>
+      {% set opt_fac = [("pendiente", "Con tareas por facturar"), ("completa", "Todo facturado")] %}
+      {% for valor, label in estados_facturacion %}{% set _ = opt_fac.append((valor, "Con tareas en " ~ label|lower|replace(" ok ", " OK "))) %}{% endfor %}
+      {% set opt_dps = [] %}
+      {% for d in dps_existentes %}{% set _ = opt_dps.append((d.valor, "OT de sistema " ~ d.valor)) %}{% endfor %}
+      {{ msel("f_estado", "Estado", "Todos los estados", "estados", [("ABIERTA", "Abierta"), ("CERRADA", "Cerrada")], [], "filtro-estado") }}
+      {{ msel("f_dps", "OT de sistema", "Todas las OT de sistema", "OT de sistema", opt_dps, [], "filtro-dps") }}
+      {{ msel("f_fac", "Facturación", "Toda la facturación", "opciones", opt_fac, [], "filtro-fac") }}
       <div class="filtros__foot">
         <button type="button" class="filters__clear" id="filtros-reset">Limpiar filtros</button>
       </div>
@@ -281,8 +263,16 @@
   var btnFiltros = document.getElementById('btn-filtros');
   var panelFiltros = document.getElementById('filtros-panel');
   var fq = document.getElementById('filtro-q');
+  // Estado / OT de sistema / Facturación admiten varias opciones tildadas
+  // (misma lógica que en Tareas): una fila pasa si coincide con alguna.
   var fEstado = document.getElementById('filtro-estado');
   var fDps = document.getElementById('filtro-dps');
+  function elegidas(wrap) {
+    return Array.prototype.map.call(wrap.querySelectorAll('input[type="checkbox"]:checked'), function (c) { return c.value; });
+  }
+  function destildar(wrap) {
+    Array.prototype.forEach.call(wrap.querySelectorAll('input[type="checkbox"]'), function (c) { c.checked = false; });
+  }
   // Filtro rápido: por defecto se ven las OT internas sin OT de sistema (las que
   // hay que resolver); "Con" muestra las ya asignadas.
   function asignacion() { return document.querySelector('input[name="filtro_asignacion"]:checked').value; }
@@ -296,12 +286,14 @@
     pintarAsignacion();
   }
   var fFac = document.getElementById('filtro-fac');
-  // Las referencias del semáforo filtran: mismo valor que el select de
-  // Facturación del panel (un click lo aplica, otro lo quita).
+  // Las referencias del semáforo filtran: mismo valor que la opción de
+  // Facturación del panel (un click la tilda, otro la destilda; se suman).
   var leyendaFac = document.querySelectorAll('.semaforo-leyenda__item[data-fac]');
   Array.prototype.forEach.call(leyendaFac, function (b) {
     b.addEventListener('click', function () {
-      fFac.value = fFac.value === b.dataset.fac ? '' : b.dataset.fac;
+      var cb = fFac.querySelector('input[value="' + b.dataset.fac + '"]');
+      if (cb) cb.checked = !cb.checked;
+      window.mselResumir();
       aplicarFiltros();
     });
   });
@@ -314,6 +306,7 @@
   function aplicarFiltros() {
     var q = fq.value.trim().toLowerCase();
     var filas = document.querySelectorAll('.row-ot');
+    var vEstado = elegidas(fEstado), vDps = elegidas(fDps), vFac = elegidas(fFac);
     var visibles = 0;
     var enOtraVista = 0;
     Array.prototype.forEach.call(filas, function (r) {
@@ -323,23 +316,25 @@
       // en "Sin"), se ofrece cambiar en vez de mostrar "ninguna coincide".
       var otraVista = asignacion() === 'sin' ? d.dps !== '' : d.dps === '';
       if (q && r.textContent.toLowerCase().indexOf(q) === -1) ok = false;
-      if (fEstado.value && d.estado !== fEstado.value) ok = false;
+      var pasaEstado = !vEstado.length || vEstado.indexOf(d.estado) !== -1;
+      var pasaDps = !vDps.length || vDps.indexOf(d.dps) !== -1;
+      var pasaFac = !vFac.length || vFac.some(function (v) {
+        if (v === 'pendiente') return total > fact;
+        if (v === 'completa') return total > 0 && fact === total;
+        return (' ' + d.facs).indexOf(' ' + v + ' ') !== -1;
+      });
+      if (!pasaEstado || !pasaDps || !pasaFac) ok = false;
       if (asignacion() === 'sin' ? d.dps !== '' : d.dps === '') ok = false;
-      if (fDps.value && d.dps !== fDps.value) ok = false;
-      if (fFac.value === 'pendiente' && !(total > fact)) ok = false;
-      if (fFac.value === 'completa' && !(total > 0 && fact === total)) ok = false;
-      if (/^[A-Z_]+$/.test(fFac.value) && (' ' + d.facs).indexOf(' ' + fFac.value + ' ') === -1) ok = false;
-      if (otraVista && q && r.textContent.toLowerCase().indexOf(q) !== -1 &&
-          !(fEstado.value && d.estado !== fEstado.value) && !(fDps.value && d.dps !== fDps.value)) enOtraVista++;
+      if (otraVista && q && r.textContent.toLowerCase().indexOf(q) !== -1 && pasaEstado && pasaDps) enOtraVista++;
       r.hidden = !ok;
       // una fila oculta no puede quedar tildada: iría igual en el envío
       if (!ok) r.querySelector('.chk-ot').checked = false;
       if (ok) visibles++;
     });
     Array.prototype.forEach.call(leyendaFac, function (b) {
-      b.setAttribute('aria-pressed', b.dataset.fac === fFac.value ? 'true' : 'false');
+      b.setAttribute('aria-pressed', vFac.indexOf(b.dataset.fac) !== -1 ? 'true' : 'false');
     });
-    var activos = [fEstado, fDps, fFac].filter(function (sel) { return sel.value; }).length;
+    var activos = vEstado.length + vDps.length + vFac.length;
     var cuenta = document.getElementById('filtros-count');
     cuenta.textContent = activos;
     cuenta.hidden = activos === 0;
@@ -355,7 +350,9 @@
   }
 
   function limpiarFiltros() {
-    fq.value = ''; fEstado.value = ''; fDps.value = ''; fFac.value = '';
+    fq.value = '';
+    [fEstado, fDps, fFac].forEach(destildar);
+    window.mselResumir();
     fijarAsignacion('sin');
     aplicarFiltros();
   }
@@ -375,12 +372,12 @@
   [fEstado, fFac].forEach(function (c) { c.addEventListener('change', aplicarFiltros); });
   // Elegir una OT de sistema puntual implica ver las asignadas.
   fDps.addEventListener('change', function () {
-    if (fDps.value) fijarAsignacion('con');
+    if (elegidas(fDps).length) fijarAsignacion('con');
     aplicarFiltros();
   });
   Array.prototype.forEach.call(document.querySelectorAll('input[name="filtro_asignacion"]'), function (r) {
     r.addEventListener('change', function () {
-      if (asignacion() === 'sin') fDps.value = '';
+      if (asignacion() === 'sin') { destildar(fDps); window.mselResumir(); }
       pintarAsignacion();
       aplicarFiltros();
     });

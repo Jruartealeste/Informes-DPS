@@ -81,6 +81,22 @@ def test_filtro_por_estado(client, db_session):
     assert "Tarea en proceso" not in r.text
 
 
+def test_filtro_por_varios_estados(client, db_session):
+    cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
+    ot = OtInterna(numero_interno="4211", cliente_id=cliente.id)
+    db_session.add(ot)
+    db_session.flush()
+    db_session.add(Tarea(ot_interna_id=ot.id, detalle="Tarea finalizada", estado_tarea=EstadoTarea.FINALIZADO))
+    db_session.add(Tarea(ot_interna_id=ot.id, detalle="Tarea en proceso", estado_tarea=EstadoTarea.EN_PROCESO))
+    db_session.add(Tarea(ot_interna_id=ot.id, detalle="Tarea pausada", estado_tarea=EstadoTarea.PAUSADO))
+    db_session.commit()
+
+    r = client.get("/tareas/partial", params=[("f_est", "FINALIZADO"), ("f_est", "EN_PROCESO")])
+    assert "Tarea finalizada" in r.text
+    assert "Tarea en proceso" in r.text
+    assert "Tarea pausada" not in r.text
+
+
 def test_editar_tarea(client, db_session):
     fer = db_session.query(Responsable).filter_by(nombre="fer").one()
     cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()

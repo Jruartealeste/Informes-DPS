@@ -249,4 +249,4 @@ def test_listado_semaforo_de_facturacion_de_las_tareas(client, db_session):
     assert 'data-facs="PARA_FACTURAR FACTURADO "' in html
     assert 'title="2 tareas para facturar"' in html
     assert 'title="1 tarea facturado"' in html
-    assert '<option value="FALTA_OK_CLIENTE">' in html  # filtro por estado
+    assert 'name="f_fac" value="FALTA_OK_CLIENTE"' in html  # filtro por estado (tildes)

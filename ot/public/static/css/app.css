@@ -3439,3 +3439,95 @@ select.chip-fac {
   margin: 0 20px;
   color: var(--muted);
 }
+
+/* Dropdown de filtro con selección múltiple (tildes): ver templates/_msel.html */
+.msel {
+  position: relative;
+}
+.msel__btn {
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+.msel__btn:hover,
+.msel__btn[aria-expanded="true"] {
+  background: var(--hover);
+}
+.msel__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.msel.is-activo .msel__btn {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.msel__txt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msel__flecha {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.msel__menu {
+  position: absolute;
+  z-index: 31;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.msel__menu[hidden] {
+  display: none;
+}
+.msel__opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.msel__opt:hover {
+  background: var(--hover);
+}
+.msel__opt input {
+  flex: none;
+  margin: 0;
+}
+.msel__limpiar {
+  cursor: pointer;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+.msel__limpiar:hover {
+  color: var(--text);
+}

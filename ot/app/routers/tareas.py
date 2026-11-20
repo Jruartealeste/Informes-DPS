@@ -57,9 +57,9 @@ def _cargar_tareas(db: Session, cliente_id: int) -> list[Tarea]:
 def _filtrar(
     tareas: list[Tarea],
     q: str,
-    f_est: str,
-    f_fac: str,
-    f_resp: str,
+    f_est: list[str],
+    f_fac: list[str],
+    f_resp: list[str],
     revision: bool,
     vencidas: bool = False,
 ) -> list[Tarea]:
@@ -80,11 +80,12 @@ def _filtrar(
             ).lower()
             if ql not in haystack:
                 return False
-        if f_est and (t.estado_tarea is None or t.estado_tarea.name != f_est):
+        # Cada filtro admite varias opciones: pasa si coincide con cualquiera.
+        if f_est and (t.estado_tarea is None or t.estado_tarea.name not in f_est):
             return False
-        if f_fac and t.estado_facturacion.name != f_fac:
+        if f_fac and t.estado_facturacion.name not in f_fac:
             return False
-        if f_resp and f_resp not in [r.responsable.nombre for r in t.responsables]:
+        if f_resp and not set(f_resp) & {r.responsable.nombre for r in t.responsables}:
             return False
         if revision:
             tiene_tipos = len(t.tipos) > 0
@@ -159,9 +160,9 @@ def _contador_vencidas(tareas: list[Tarea]) -> tuple[int, int]:
 def _contexto_tabla(db: Session, request: Request) -> dict:
     qp = request.query_params
     q = qp.get("q", "")
-    f_est = qp.get("f_est", "")
-    f_fac = qp.get("f_fac", "")
-    f_resp = qp.get("f_resp", "")
+    f_est = [v for v in qp.getlist("f_est") if v]
+    f_fac = [v for v in qp.getlist("f_fac") if v]
+    f_resp = [v for v in qp.getlist("f_resp") if v]
     revision = qp.get("revision") == "1"
     vencidas = qp.get("vencidas") == "1"
     agrupado = qp.get("agrupado", "0") == "1"
@@ -193,6 +194,7 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
         "opt_estado": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
         "opt_fac": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
         "opt_resp": _opciones_responsables(todas),
+        "opt_resp_pares": [(n, n) for n in _opciones_responsables(todas)],
         "n_revision": _contador_revision(todas),
         "vencidas": vencidas,
         "n_vencidas": n_vencidas,

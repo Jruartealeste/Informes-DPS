@@ -267,7 +267,7 @@
       if (document.querySelector('.htmx-request')) return true;
       var a = document.activeElement;
       if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return true;
-      if (document.querySelector('.combo__menu.is-abierto, details[open]')) return true;
+      if (document.querySelector('.combo__menu.is-abierto, details[open], .msel__menu:not([hidden])')) return true;
       return false;
     }
     function refrescar() {
@@ -565,6 +565,68 @@
         row.style.display = !q || row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
       });
     });
+  })();
+
+  // msel: dropdown de filtro con selección múltiple (macro _msel.html). El
+  // menú queda abierto mientras se tildan opciones; cada tilde dispara el
+  // `change` normal del checkbox (el form de Tareas lo recoge por htmx, el
+  // listado de OT internas lo lee desde su propio JS).
+  (function () {
+    function resumir(wrap) {
+      var marcadas = wrap.querySelectorAll('input[type="checkbox"]:checked');
+      var txt = wrap.querySelector('.msel__txt');
+      txt.textContent = !marcadas.length ? wrap.dataset.todos
+        : marcadas.length === 1 ? marcadas[0].dataset.etiqueta
+        : marcadas.length + ' ' + wrap.dataset.plural;
+      wrap.classList.toggle('is-activo', marcadas.length > 0);
+    }
+    function abrir(wrap, v) {
+      wrap.querySelector('.msel__menu').hidden = !v;
+      wrap.querySelector('.msel__btn').setAttribute('aria-expanded', v ? 'true' : 'false');
+    }
+    function cerrarTodos(excepto) {
+      document.querySelectorAll('.msel').forEach(function (w) {
+        if (w !== excepto && !w.querySelector('.msel__menu').hidden) abrir(w, false);
+      });
+    }
+    document.addEventListener('click', function (ev) {
+      var t = ev.target.closest ? ev.target : ev.target.parentElement;
+      var btn = t.closest('.msel__btn');
+      if (btn) {
+        var wrap = btn.closest('.msel');
+        var abierto = !wrap.querySelector('.msel__menu').hidden;
+        cerrarTodos(wrap);
+        abrir(wrap, !abierto);
+        return;
+      }
+      var limpiar = t.closest('.msel__limpiar');
+      if (limpiar) {
+        var w = limpiar.closest('.msel');
+        var cbs = w.querySelectorAll('input[type="checkbox"]:checked');
+        if (!cbs.length) return;
+        cbs.forEach(function (c) { c.checked = false; });
+        resumir(w);
+        cbs[0].dispatchEvent(new Event('change', { bubbles: true }));
+        return;
+      }
+      if (!t.closest('.msel')) cerrarTodos();
+    });
+    document.addEventListener('change', function (ev) {
+      var w = ev.target.closest && ev.target.closest('.msel');
+      if (w) resumir(w);
+    });
+    // Escape cierra primero el menú abierto (y no el panel de filtros de abajo).
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape') return;
+      var abierto = document.querySelector('.msel__menu:not([hidden])');
+      if (!abierto) return;
+      var wrap = abierto.closest('.msel');
+      abrir(wrap, false);
+      wrap.querySelector('.msel__btn').focus();
+      ev.stopImmediatePropagation();
+    });
+    // Para quien limpia los checkboxes por código (ej. "Limpiar filtros").
+    window.mselResumir = function () { document.querySelectorAll('.msel').forEach(resumir); };
   })();
 
   // info-tip: botón "?" que revela un texto explicativo al lado (evita
