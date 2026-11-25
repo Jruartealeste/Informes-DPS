@@ -10,3 +10,6 @@ informe_*.html
 informes/salida/*.xlsx
 # log local de procesar_solicitudes.py (estado por maquina, no se versiona)
 informes/salida/solicitudes_alta_*.jsonl
+
+# Estado de Resultados: montos de sueldos cargados a mano (ver inputs.example.json)
+informes/modules/estado_resultados/inputs.json

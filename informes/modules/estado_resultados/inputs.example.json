@@ -1,0 +1,8 @@
+{
+  "anio": 2026,
+  "_nota": "Copiar a inputs.json (gitignored: tiene montos de sueldos) y completar. Signo negativo = costo. staff_freelance imputado al mes devengado (la factura llega el mes siguiente). staff_blanco sale del F931. retiro_socio_estimado es un numero estimado.",
+  "staff_freelance": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "staff_blanco": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "retiro_socio_estimado": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "meses_incompletos": []
+}

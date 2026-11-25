@@ -107,6 +107,7 @@ mismos archivos (`config.py`, `ingest.py`, `generate_html_report.py`,
 | **Cobranza x Proveedores** (cruce Recibo Cliente + Facturas + O.C. Producción/Publicidad) | `modules/cobranza_proveedores/` | `items_factura_oc_cobranza` (no ingesta, cruza `recibos`+`referencias_canceladas`+`facturas`+`items_factura_oc_cobranza`+`ordenes_compra_produccion`+`ordenes_publicidad`) | `salida/informe_cobranza_proveedores.html` |
 | **Balance Mensual** (Consultas > Contabilidad > Balance Mensual, cruzado con Imputaciones) | `modules/balance_mensual/` | *(sin tabla en `advertys.db`: lee directo los dos export crudos, sin ingest)* | `salida/balance_mensual_<desde>_<hasta>.xlsx` (deliverable Excel, no HTML) |
 | **Facturación ALUAR** (ventas a un cliente puntual por concepto contable, cruzado con Imputaciones) | `modules/facturacion_aluar/` | `facturacion_aluar` (recorte de Imputaciones + Facturas, no ingesta un export propio), `facturas_relacionadas_aluar` (crawl) | `salida/informe_facturacion_aluar.html` |
+| **Estado de Resultados** (Balance Mensual por cuenta + `inputs.json` manual para Staff/Retiro) | `modules/estado_resultados/` | *(sin tabla en `advertys.db`: lee el CSV de `modules.balance_mensual.export`)* | `salida/informe_estado_resultados.html` — refresh: `python -m tools.actualizar_estado_resultados` |
 | Productos (Entidades > Generales > Productos > Producto) | `modules/productos/` | `productos` (reemplazo total, solo Habilitados) | (sin informe propio, `modules.sync_tareas_app.push` lo manda a `ot/` para precargar el combo Producto del alta de OT) |
 
 Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
@@ -781,6 +782,53 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   recorte al rango 1/7/25-31/8/26 se hace en Python
   (`generate_excel.py`), mismo criterio que otros módulos con filtros
   rígidos de Advertys.
+
+### Notas del módulo Estado de Resultados
+
+- **Origen (Javier, 2026-11-25):** la planilla Google "EERR ALESTE"
+  (pestaña "EERR Nuevo", armada con `SUMIFS` sobre el balance mensual de
+  Advertys) se corrigió y se pasó al dashboard. El módulo replica esa
+  estructura; el cálculo vive en `compute.py` (puro, testeado en
+  `tests/test_estado_resultados.py`, que cruza enero contra la planilla).
+- **Criterios decididos por Javier:** (1) Staff Freelance va corrido un mes
+  *a propósito* (la factura llega a principios del mes siguiente por el
+  sueldo del anterior, criterio devengado) — no es un bug;
+  `inputs.json › meses_incompletos` marca los meses que todavía esperan
+  facturas. (2) Retiro socio es un número estimado, queda dentro del
+  RESULTADO rotulado "(estimado)". (3) Medios se ve en dos vistas: bruto
+  (con pass-through OP) y neto (servicio + markup + bonificaciones), con la
+  diferencia de pass-through acumulada aparte y un "RESULTADO sin
+  diferencia pass-through" conservador.
+- **Gotcha: `common.normalizar_numero` devuelve `None` para los importes
+  negativos del export de Balance Mensual** (`-$ 2.783.414,80` → `- 2783414.80`
+  no parsea por el espacio). En este informe eso borraba todos los
+  ingresos (saldo acreedor = negativo). Por eso `compute.parse_importe`
+  tiene su propio parser. Ojo: `balance_mensual/generate_excel.py` todavía
+  usa la función compartida y puede estar perdiendo los negativos —
+  revisar antes de confiar en ese Excel.
+- **Compras en USD (Javier, 2026-11-25):** las compras con moneda USD se
+  cargan con una cotización puesta a mano que no es la del día de la
+  factura. `ajuste_usd.py` las revalúa con el dólar **BNA oficial comprador
+  a la fecha de factura** (histórico de `api.argentinadatos.com`, cacheado
+  en `exploracion/bna_oficial_comprador.json`; dolarapi.com solo da el
+  valor del día) y muestra la diferencia como una línea aparte en los
+  costos indirectos, sin tocar el libro. La cotización cargada solo existe
+  en Imputaciones (`exploracion/iibb_export.xlsx`), por eso el refresh baja
+  también ese export. Gotchas: la API da 403 si no se manda User-Agent
+  (urllib por defecto); y el export de Compras a veces falla la primera vez
+  con "No se encontró el nodo 'Compras'" — reintentar. Con las 3 compras
+  USD de 2026 el ajuste es +427.111 (casi todo Energyear).
+- **Los sueldos en relación de dependencia salen del F931** (Javier,
+  2026-11-25); en `inputs.json` están copiados a mano. `inputs.json` está en `.gitignore` (montos de sueldos, el repo tiene remoto en GitHub): en un clon nuevo copiar `inputs.example.json` y completarlo; si falta, el informe sale con RRHH/retiro en 0 y avisa.
+- **Cuentas sin mapear:** todo código 4xx/5xx que `config.py` no clasifica
+  entra a "Otros" (ingresos) o a "Sin clasificar" dentro de Costos Fijos,
+  y el informe muestra un aviso — nunca se pierde en silencio (era el
+  problema de la planilla vieja, que ignoraba cuentas nuevas). Las
+  cuentas 511xxx (sueldos) y 515060 (staff) del libro NO se suman porque
+  Staff sale de `inputs.json`; si 511xxx aparece con saldo, hay aviso.
+- **Pendiente de decisión:** el libro (515060) suma ~163 M en el año y
+  Staff Freelance de la planilla de RRHH ~146 M; el informe muestra la
+  diferencia como control, sin resolver cuál es el dato oficial.
 
 ### Notas del módulo Facturación ALUAR
 

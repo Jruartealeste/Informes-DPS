@@ -15,6 +15,7 @@ import os
 import html_report as hr
 from modules.cobranza_proveedores import config as cobranza_proveedores_config
 from modules.compras import config as compras_config
+from modules.estado_resultados import config as estado_resultados_config
 from modules.estimados_pendientes import generate_html_report as estimados_pendientes_report
 from modules.facturacion_aluar import config as facturacion_aluar_config
 from modules.facturas import config as facturas_config
@@ -34,6 +35,7 @@ MODULOS = [
     ("iibb", "IIBB (recupero OC/OP)", os.path.basename(iibb_config.REPORT_HTML_OUTPUT_PATH)),
     ("cobranza_proveedores", "Cobranza x Proveedores", os.path.basename(cobranza_proveedores_config.REPORT_HTML_OUTPUT_PATH)),
     ("facturacion_aluar", "Facturación ALUAR", os.path.basename(facturacion_aluar_config.REPORT_HTML_OUTPUT_PATH)),
+    ("estado_resultados", "Estado de Resultados", os.path.basename(estado_resultados_config.REPORT_HTML_OUTPUT_PATH)),
 ]
 
 

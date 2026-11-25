@@ -2782,6 +2782,11 @@ NAV_ICONS = {
         f'<path d="M9 12.5h6M9 15.5h6M9 18.5h3" {_ICON_STROKE}/>'
     ),
 }
+NAV_ICONS["estado_resultados"] = (
+    f'<path d="M4 20h16" {_ICON_STROKE}/>'
+    f'<path d="M7 20v-6M12 20V8M17 20v-9" {_ICON_STROKE}/>'
+    f'<path d="M5 9l5-4 4 3 5-5" {_ICON_STROKE}/>'
+)
 NAV_ICON_DEFAULT = f'<circle cx="12" cy="12" r="4" fill="currentColor"/>'
 
 _CHEVRON_ICON = f'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 18l-6-6 6-6" {_ICON_STROKE}/></svg>'
