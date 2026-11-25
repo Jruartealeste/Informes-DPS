@@ -30,6 +30,7 @@ table.eerr td.total, table.eerr th.total { border-left: 1px solid var(--baseline
 table.eerr td.sin-dato { color: var(--text-muted); }
 table.eerr td.neg { color: #d03b3b; }
 table.eerr td.parcial { font-style: italic; }
+table.eerr td.manual { background: rgba(240, 190, 30, 0.22); }
 table.eerr tr.sec td { background: var(--page-plane); color: var(--text-secondary); font-weight: 700; font-size: 11px; letter-spacing: .05em; padding-top: 12px; }
 table.eerr tr.sec td:first-child { background: var(--page-plane); }
 table.eerr tr.det td { color: var(--text-secondary); font-size: 11.5px; }
@@ -37,7 +38,28 @@ table.eerr tr.det td:first-child { padding-left: 28px; }
 table.eerr tr.grp td:first-child { padding-left: 16px; }
 table.eerr tr.sub td { font-weight: 600; }
 table.eerr tr.tot td { font-weight: 700; border-top: 1px solid var(--baseline); background: var(--brand-tint); }
-table.eerr tr.tot td:first-child { background: var(--brand-tint); }
+/* La primera columna es sticky: su fondo tiene que ser opaco en todas las filas,
+   si no los numeros que pasan por debajo al desplazar se ven a traves. */
+table.eerr tr.tot td:first-child { background: linear-gradient(var(--brand-tint), var(--brand-tint)), var(--surface-1); }
+table.eerr th:first-child, table.eerr td:first-child { box-shadow: inset -1px 0 0 var(--baseline); }
+table.eerr tr.sec td + td { position: static; }
+/* Resumen: cifras + grafico en una sola franja */
+.eerr-resumen { display: grid; grid-template-columns: minmax(300px, 5fr) 7fr; gap: 28px; align-items: center; }
+.eerr-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
+.eerr-kpi { border-left: 2px solid var(--gridline); padding-left: 12px; min-width: 0; }
+.eerr-kpi--clave { border-left-color: var(--brand); }
+.eerr-kpi .k-label { font-size: 12px; color: var(--text-secondary); }
+.eerr-kpi .k-valor { font-size: 21px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text-primary); line-height: 1.25; white-space: nowrap; }
+.eerr-kpi .k-pct { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-left: 6px; }
+.eerr-kpi .k-sub { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+.eerr-grafico .g-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+@media (max-width: 760px) { .eerr-resumen { grid-template-columns: 1fr; gap: 18px; } }
+@media (max-width: 600px) {
+  table.eerr th:first-child, table.eerr td:first-child { min-width: 132px; max-width: 150px; font-size: 11.5px; }
+  table.eerr tr.det td:first-child { padding-left: 14px; }
+  table.eerr tr.grp td:first-child { padding-left: 8px; }
+  table.eerr .nota { display: none; }
+}
 table.eerr tr.pct td { color: var(--text-secondary); font-style: italic; }
 table.eerr tr.ctl td { color: var(--text-muted); font-size: 11.5px; }
 table.eerr:not(.show-det) tr.det { display: none; }
@@ -69,6 +91,8 @@ def _fmt(v, pct=False) -> str:
         return "—"
     if pct:
         return f"{v * 100:.1f}%".replace(".", ",")
+    if abs(v) < 0.5:  # evita "-0"
+        return "0"
     return f"{v:,.0f}".replace(",", ".")
 
 
@@ -90,7 +114,7 @@ def _tabla(res: dict, hoy: date) -> str:
     for f in res["filas"]:
         tipo = f["tipo"]
         if tipo == "sec":
-            body.append(f'<tr class="sec"><td colspan="{len(visibles) + 2}">{escape(f["label"])}</td></tr>')
+            body.append(f'<tr class="sec"><td>{escape(f["label"])}</td><td colspan="{len(visibles) + 1}"></td></tr>')
             continue
         nota = f'<span class="nota">{escape(f["nota"])}</span>' if f.get("nota") else ""
         celdas = [f'<td>{escape(f["label"])}{nota}</td>']
@@ -107,6 +131,9 @@ def _tabla(res: dict, hoy: date) -> str:
             if f["id"] in ("rrhh-free", "rrhh") and i in incompletos:
                 clases.append("parcial")
             titulo = ' title="Mes incompleto: faltan facturas de staff por llegar"' if (f["id"] in ("rrhh-free", "rrhh") and i in incompletos) else ""
+            if i in f.get("marcas", []):
+                clases.append("manual")
+                titulo = ' title="Corregido a mano en la planilla (factura mal emitida o de varios meses)"'
             celdas.append(f'<td class="{" ".join(clases)}"{titulo}>{_fmt(v, f["pct"])}</td>')
         t = f["total"]
         neg = " neg" if (t is not None and t < -0.5 and not f["pct"]) or (f["pct"] and t is not None and t < 0) else ""
@@ -129,15 +156,15 @@ def _grafico_resultado(res: dict) -> str:
     vals = [res["series"]["resultado"][m - 1] for m in datos]
     fmt = lambda v: f"{v / 1e6:,.1f} M".replace(",", "X").replace(".", ",").replace("X", ".")  # noqa: E731
     n = len(cats)
-    width = max(560, n * 60)
-    pad_l, pad_r, pad_t, label_h, plot_h = 70, 20, 20, 34, 220
+    width = max(380, n * 40)
+    pad_l, pad_r, pad_t, label_h, plot_h = 58, 8, 8, 22, 112
     plot_w = width - pad_l - pad_r
     vmax = max(max(vals), 0)
     vmin = min(min(vals), 0)
     rango = (vmax - vmin) or 1
     y_cero = pad_t + plot_h * (vmax / rango)
     slot = plot_w / n
-    bar_w = max(18, slot - 12)
+    bar_w = max(12, slot - 10)
     partes = []
     for i, (c, v) in enumerate(zip(cats, vals)):
         x = pad_l + i * slot + (slot - bar_w) / 2
@@ -148,12 +175,12 @@ def _grafico_resultado(res: dict) -> str:
             f'<g><rect class="hit" x="{x - 4:.1f}" y="{pad_t}" width="{bar_w + 8:.1f}" height="{plot_h}" '
             f'data-label="{escape(c)}" data-value="{escape(fmt(v))}" />'
             f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_w:.1f}" height="{max(h, 1):.1f}" rx="3" fill="{color}" opacity="0.9" pointer-events="none" />'
-            f'<text x="{x + bar_w / 2:.1f}" y="{pad_t + plot_h + 18}" text-anchor="middle">{escape(c)}</text></g>'
+            f'<text x="{x + bar_w / 2:.1f}" y="{pad_t + plot_h + 16}" text-anchor="middle" font-size="10">{escape(c)}</text></g>'
         )
     grid = []
-    for k in range(5):
-        val = vmin + rango * k / 4
-        y = pad_t + plot_h - plot_h * k / 4
+    # Tres referencias: maximo, cero y minimo (el cero ya es la baseline).
+    for val in sorted({vmax, vmin}):
+        y = y_cero - (val / rango) * plot_h
         grid.append(f'<line class="gridline" x1="{pad_l}" x2="{width - pad_r}" y1="{y:.1f}" y2="{y:.1f}" />'
                     f'<text x="{pad_l - 8}" y="{y + 4:.1f}" text-anchor="end">{escape(fmt(val))}</text>')
     return (f'<svg class="chart" style="--w:{width}" viewBox="0 0 {width} {pad_t + plot_h + label_h}" preserveAspectRatio="xMinYMin meet">'
@@ -185,13 +212,24 @@ def main(anio: int = config.ANIO_DEFAULT):
     pct = lambda a, b: f"{(a / b * 100):.1f}%".replace(".", ",") if b else "—"  # noqa: E731
     m = lambda v: f"$ {v / 1e6:,.1f} M".replace(",", "X").replace(".", ",").replace("X", ".")  # noqa: E731
 
-    tiles = hr.stat_tiles([
-        ("Ingresos", m(t["ingresos"]), f"{len(res['meses_datos'])} meses con datos"),
-        ("Margen bruto", m(t["mg_bruto"]), f"{pct(t['mg_bruto'], t['ingresos'])} s/ ingresos"),
-        ("Resultado", m(t["resultado"]), f"{pct(t['resultado'], t['ingresos'])} s/ ingresos (incluye retiro estimado)"),
-        ("Resultado sin diferencia pass-through", m(t["resultado_sin_dif"]),
-         f"Conservador: saca {m(t['dif_pass'])} de Medios facturado sin costo cargado"),
-    ])
+    def kpi(label, valor, pct_txt="", sub="", clave=False):
+        pct_html = f'<span class="k-pct">{escape(pct_txt)}</span>' if pct_txt else ""
+        return (f'<div class="eerr-kpi{" eerr-kpi--clave" if clave else ""}">'
+                f'<div class="k-label">{escape(label)}</div>'
+                f'<div class="k-valor">{escape(valor)}{pct_html}</div>'
+                f'<div class="k-sub">{escape(sub)}</div></div>')
+
+    n_meses = len(res["meses_datos"])
+    resumen = (
+        '<div class="eerr-resumen"><div class="eerr-kpis">'
+        + kpi("Ingresos", m(t["ingresos"]), sub=f"{n_meses} meses con datos")
+        + kpi("Margen bruto", m(t["mg_bruto"]), pct(t["mg_bruto"], t["ingresos"]), "sobre ingresos")
+        + kpi("Resultado", m(t["resultado"]), pct(t["resultado"], t["ingresos"]), "incluye retiro estimado", clave=True)
+        + kpi("Sin diferencia pass-through", m(t["resultado_sin_dif"]),
+              sub=f"saca {m(t['dif_pass'])} de Medios sin costo cargado")
+        + '</div><div class="eerr-grafico"><div class="g-label">Resultado por mes</div>'
+        + _grafico_resultado(res) + '</div></div>'
+    )
 
     avisos = "".join(f'<div class="eerr-aviso">{escape(a)}</div>' for a in res["avisos"])
     notas = (
@@ -199,6 +237,7 @@ def main(anio: int = config.ANIO_DEFAULT):
         'RRHH y Retiro socio salen de <code>modules/estado_resultados/inputs.json</code> (no están en Advertys). '
         '<b>Staff Freelance</b> está imputado al mes devengado (la factura llega el mes siguiente); '
         'los meses en cursiva tienen facturas pendientes de llegar. '
+        'En el detalle por cuenta, las celdas en amarillo del staff son facturas corregidas a mano en la planilla. '
         '<b>Retiro socio</b> es un número estimado. '
         '<b>Medios</b> se muestra bruto (con pass-through de OP) y neto en la última sección. '
         + ('El mes con * está en curso. ' if res["anio"] == hoy.year and res["meses_datos"] and max(res["meses_datos"]) == hoy.month else '')
@@ -209,8 +248,7 @@ def main(anio: int = config.ANIO_DEFAULT):
 
     secciones = "".join([
         CSS,
-        hr.section("Resumen del año", tiles, wide=True),
-        hr.section("Resultado por mes", _grafico_resultado(res), wide=True),
+        hr.section(f"Resumen {anio}", resumen, wide=True),
         hr.section(f"Estado de Resultados {anio}", avisos + toolbar + _tabla(res, hoy) + notas + JS, wide=True),
     ])
     html = hr.page_shell(f"Estado de Resultados {anio}", "ALESTE ADS S.A. - Advertys", secciones)

@@ -1,7 +1,11 @@
 {
   "anio": 2026,
-  "_nota": "Copiar a inputs.json (gitignored: tiene montos de sueldos) y completar. Signo negativo = costo. staff_freelance imputado al mes devengado (la factura llega el mes siguiente). staff_blanco sale del F931. retiro_socio_estimado es un numero estimado.",
-  "staff_freelance": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "_nota": "Copiar a inputs.json (gitignored: tiene montos de sueldos) y completar. staff_freelance_facturado = tabla 'Staff Freelance' de la pestana 'Gastos RRHH' de la planilla, por persona y MES DE FACTURA, montos positivos (las facturas mal emitidas se corrigen alla). El modulo corre staff_freelance_desfase_meses para llevarlo al mes devengado. staff_freelance_manual = meses de factura corregidos a mano (celdas amarillas). staff_blanco sale del F931 (negativo = costo). retiro_socio_estimado es estimado.",
+  "staff_freelance_facturado": {
+    "PERSONA EJEMPLO": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  },
+  "staff_freelance_manual": {},
+  "staff_freelance_desfase_meses": 1,
   "staff_blanco": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   "retiro_socio_estimado": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   "meses_incompletos": []

@@ -78,6 +78,39 @@ def _ratio(num: np.ndarray, den: np.ndarray) -> np.ndarray:
     return out
 
 
+def staff_freelance_devengado(inputs: dict):
+    """Staff freelance llevado al mes devengado.
+
+    inputs['staff_freelance_facturado'] = {persona: [12 montos POSITIVOS por mes de
+    factura]} -- copia de la tabla 'Staff Freelance' de 'Gastos RRHH' en la planilla,
+    donde se corrigen a mano las facturas mal emitidas. Se corre
+    'staff_freelance_desfase_meses' (default 1): lo facturado en el mes m+1 es el
+    costo devengado del mes m. Lo facturado en enero (trabajo de diciembre del anio
+    anterior) queda afuera, y diciembre queda en 0 hasta tener las facturas de enero.
+
+    Devuelve (total_negativo[12], [{'nombre', 'devengado'(negativo), 'manual_dev'}]),
+    donde manual_dev son los meses DEVENGADOS que vienen de una celda corregida a mano.
+    Compatibilidad: si solo existe 'staff_freelance' (lista ya devengada, negativa),
+    se usa tal cual sin detalle por persona."""
+    fact = inputs.get("staff_freelance_facturado")
+    if not fact:
+        v = np.array(inputs.get("staff_freelance") or [0.0] * 12, dtype=float)
+        return v, []
+    k = int(inputs.get("staff_freelance_desfase_meses", 1))
+    manual = inputs.get("staff_freelance_manual", {})
+    total = np.zeros(12)
+    personas = []
+    for nombre, montos in fact.items():
+        f = np.array(montos, dtype=float)
+        dev = np.zeros(12)
+        dev[: 12 - k] = f[k:]
+        dev = -dev
+        total = total + dev
+        manual_dev = [m - k for m in manual.get(nombre, []) if 1 <= m - k <= 12]
+        personas.append({"nombre": nombre, "devengado": dev, "manual_dev": manual_dev})
+    return total, personas
+
+
 def calcular(df: pd.DataFrame, inputs: dict, anio: int, ajustes_usd: dict | None = None) -> dict:
     """`ajustes_usd`: salida de ajuste_usd.calcular_ajustes() (opcional). Si viene,
     se suma una linea 'Ajuste cotizacion compras USD' a los costos indirectos."""
@@ -92,7 +125,7 @@ def calcular(df: pd.DataFrame, inputs: dict, anio: int, ajustes_usd: dict | None
 
     filas = []
 
-    def fila(id_, label, tipo, valores, *, pct=False, total=None, detalle=False, nota=None):
+    def fila(id_, label, tipo, valores, *, pct=False, total=None, detalle=False, nota=None, marcas=None):
         v = np.asarray(valores, dtype=float)
         if total is None:
             total = float(np.nansum(v))
@@ -100,7 +133,7 @@ def calcular(df: pd.DataFrame, inputs: dict, anio: int, ajustes_usd: dict | None
             "id": id_, "label": label, "tipo": tipo, "pct": pct,
             "valores": [None if np.isnan(x) else float(x) for x in v],
             "total": None if (total is None or (isinstance(total, float) and np.isnan(total))) else float(total),
-            "detalle": detalle, "nota": nota,
+            "detalle": detalle, "nota": nota, "marcas": sorted(marcas or []),
         })
 
     def detalle_cuentas(codigos):
@@ -153,12 +186,16 @@ def calcular(df: pd.DataFrame, inputs: dict, anio: int, ajustes_usd: dict | None
          total=float(_ratio(np.array([mg_bruto.sum()] * 12), np.array([ingresos.sum()] * 12))[0]))
 
     # ---------------- RRHH (inputs manuales) ----------------
-    staff_free = arr("staff_freelance")
+    staff_free, personas = staff_freelance_devengado(inputs)
     staff_blanco = arr("staff_blanco")
     rrhh = staff_free + staff_blanco
     fila("h-rrhh", "RRHH", "sec", np.zeros(12), total=None)
+    for p in personas:
+        if np.any(np.abs(p["devengado"]) > 0.5):
+            fila(f"staff-{p['nombre']}", p["nombre"], "det", p["devengado"], detalle=True, marcas=p["manual_dev"])
     fila("rrhh-free", "Staff Freelance (devengado)", "grp", staff_free,
-         nota="Imputado al mes devengado: la factura llega a principios del mes siguiente.")
+         nota="Imputado al mes devengado: la factura llega a principios del mes siguiente. "
+              "Las correcciones de facturas mal emitidas se hacen en la planilla (Gastos RRHH).")
     fila("rrhh-blanco", "Staff en relación de dependencia", "grp", staff_blanco)
     fila("rrhh", "RRHH", "sub", rrhh)
 

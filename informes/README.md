@@ -818,6 +818,21 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   (urllib por defecto); y el export de Compras a veces falla la primera vez
   con "No se encontró el nodo 'Compras'" — reintentar. Con las 3 compras
   USD de 2026 el ajuste es +427.111 (casi todo Energyear).
+- **Staff Freelance por persona (Javier, 2026-11-25):** `inputs.json` guarda la
+  tabla "Staff Freelance" de la pestaña `Gastos RRHH` de la planilla tal cual
+  (por persona y **mes de factura**, montos positivos) y el módulo la corre
+  `staff_freelance_desfase_meses` (1) al mes devengado. Las facturas mal
+  emitidas (en el mes equivocado o sumando varios meses) **se corrigen en la
+  pestaña `Ajustes Staff` de la planilla** (desde 2026-11-25): cada fila es
+  Año | Persona | Mes factura | Importe (±) | Motivo, y suma/resta a esa celda
+  de `Gastos RRHH`; mover una factura de mes = una fila −importe en el mes
+  facturado y otra +importe en el mes correcto. Las celdas de `Gastos RRHH`
+  son todas `SUMIFS(COMPRAS) + SUMIFS(Ajustes Staff)` — no se pisan a mano —
+  y un formato condicional las pinta de amarillo cuando tienen ajustes.
+  `staff_freelance_manual` lista esos meses y el informe los pinta igual. Después
+  de corregir en la planilla hay que re-sincronizar `inputs.json` (pedírselo
+  a Claude: lee la pestaña con el conector de Google Sheets — el pipeline no
+  tiene credenciales propias de Google). El aguinaldo NO se prorratea.
 - **Los sueldos en relación de dependencia salen del F931** (Javier,
   2026-11-25); en `inputs.json` están copiados a mano. `inputs.json` está en `.gitignore` (montos de sueldos, el repo tiene remoto en GitHub): en un clon nuevo copiar `inputs.example.json` y completarlo; si falta, el informe sale con RRHH/retiro en 0 y avisa.
 - **Cuentas sin mapear:** todo código 4xx/5xx que `config.py` no clasifica

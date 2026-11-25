@@ -95,6 +95,20 @@ def test_ajuste_usd_entra_al_resultado():
     assert not any(f["id"] == "ajuste-usd" for f in base["filas"])
 
 
+def test_staff_devengado_por_persona():
+    inputs = {"staff_freelance_facturado": {"A": [10, 20, 30] + [0] * 9, "B": [0, 5] + [0] * 10},
+              "staff_freelance_manual": {"A": [2, 1]}, "staff_freelance_desfase_meses": 1}
+    total, personas = compute.staff_freelance_devengado(inputs)
+    # lo facturado en febrero (20+5) es el costo devengado de enero
+    assert list(total[:3]) == [-25.0, -30.0, 0.0]
+    a = next(p for p in personas if p["nombre"] == "A")
+    # factura de feb corregida a mano -> marca en enero devengado; la de enero (dic 2025) queda afuera
+    assert a["manual_dev"] == [1]
+    # compatibilidad con el formato viejo (lista ya devengada)
+    v, ps = compute.staff_freelance_devengado({"staff_freelance": [-1.0] * 12})
+    assert v[0] == -1.0 and ps == []
+
+
 def test_contra_planilla_si_hay_export():
     if not config.BALANCE_CSV.exists() or not config.INPUTS_JSON.exists():
         return
@@ -113,6 +127,7 @@ if __name__ == "__main__":
     test_parse_importe_negativos()
     test_calculo_sintetico()
     test_ajuste_usd()
+    test_staff_devengado_por_persona()
     test_ajuste_usd_entra_al_resultado()
     test_contra_planilla_si_hay_export()
     print("OK: tests de estado_resultados")
