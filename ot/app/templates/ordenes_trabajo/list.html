@@ -43,6 +43,10 @@
       {{ msel("f_estado", "Estado", "Todos los estados", "estados", [("ABIERTA", "Abierta"), ("CERRADA", "Cerrada")], [], "filtro-estado") }}
       {{ msel("f_dps", "OT de sistema", "Todas las OT de sistema", "OT de sistema", opt_dps, [], "filtro-dps") }}
       {{ msel("f_fac", "Facturación", "Toda la facturación", "opciones", opt_fac, [], "filtro-fac") }}
+      <label class="filtros__check">
+        <input type="checkbox" id="filtro-cerradas">
+        Mostrar anuladas y facturadas <span class="filtros__check-n">({{ ots | selectattr('cerrada') | list | length }})</span>
+      </label>
       <div class="filtros__foot">
         <button type="button" class="filters__clear" id="filtros-reset">Limpiar filtros</button>
       </div>
@@ -146,7 +150,7 @@
       <div class="row-ot__select"><input type="checkbox" id="chk-todas" aria-label="Tildar todas las OT internas"></div><div class="th-orden" role="button" tabindex="0" data-orden="n" data-tipo="n" aria-sort="none" title="Ordenar por OT interna">OT interna<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="titulo" data-tipo="t" aria-sort="none" title="Ordenar por Título">Título<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="estado" data-tipo="t" aria-sort="none" title="Ordenar por Estado">Estado<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="dps" data-tipo="n" aria-sort="none" title="Ordenar por OT de sistema">OT de sistema<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="tareas" data-tipo="n" aria-sort="none" title="Ordenar por Tareas">Tareas<span class="th-orden__flecha"></span></div><div class="th-orden" role="button" tabindex="0" data-orden="fac" data-tipo="n" aria-sort="none" title="Ordenar por Facturación">Facturación<span class="th-orden__flecha"></span></div>
     </div>
     {% for ot in ots %}
-    <div class="row-ot" data-fila data-o-n="{{ ot.n }}" data-o-titulo="{{ ot.titulo or '' }}" data-o-estado="{{ ot.ot_estado }}" data-o-dps="{{ ot.dps or '' }}" data-o-tareas="{{ ot.total }}" data-o-fac="{{ (ot.facturadas / ot.total) if ot.total else '' }}" data-estado="{{ ot.ot_estado }}" data-dps="{{ ot.dps or '' }}" data-total="{{ ot.total }}" data-fact="{{ ot.facturadas }}" data-facs="{% for d in ot.semaforo_fac %}{{ d.valor }} {% endfor %}">
+    <div class="row-ot" data-fila data-o-n="{{ ot.n }}" data-o-titulo="{{ ot.titulo or '' }}" data-o-estado="{{ ot.ot_estado }}" data-o-dps="{{ ot.dps or '' }}" data-o-tareas="{{ ot.total }}" data-o-fac="{{ (ot.facturadas / ot.total) if ot.total else '' }}" data-estado="{{ ot.ot_estado }}" data-dps="{{ ot.dps or '' }}" data-total="{{ ot.total }}" data-cerrada="{{ '1' if ot.cerrada else '' }}" data-fact="{{ ot.facturadas }}" data-facs="{% for d in ot.semaforo_fac %}{{ d.valor }} {% endfor %}">
       <label class="row-ot__select">
         <input type="checkbox" class="chk-ot" value="{{ ot.n }}" data-dps="{{ ot.dps or '' }}" data-cliente="{{ ot.cliente_id or '' }}" data-titulo="{{ ot.titulo or '' }}">
       </label>
@@ -286,6 +290,7 @@
     pintarAsignacion();
   }
   var fFac = document.getElementById('filtro-fac');
+  var fCerradas = document.getElementById('filtro-cerradas');
   // Las referencias del semáforo filtran: mismo valor que la opción de
   // Facturación del panel (un click la tilda, otro la destilda; se suman).
   var leyendaFac = document.querySelectorAll('.semaforo-leyenda__item[data-fac]');
@@ -323,7 +328,10 @@
         if (v === 'completa') return total > 0 && fact === total;
         return (' ' + d.facs).indexOf(' ' + v + ' ') !== -1;
       });
-      if (!pasaEstado || !pasaDps || !pasaFac) ok = false;
+      // OT con todas las tareas anuladas/facturadas: ocultas salvo que se pidan
+      // con el check o eligiendo "Todo facturado" en Facturación.
+      var pasaCerrada = !d.cerrada || fCerradas.checked || vFac.indexOf('completa') !== -1;
+      if (!pasaEstado || !pasaDps || !pasaFac || !pasaCerrada) ok = false;
       if (asignacion() === 'sin' ? d.dps !== '' : d.dps === '') ok = false;
       if (otraVista && q && r.textContent.toLowerCase().indexOf(q) !== -1 && pasaEstado && pasaDps) enOtraVista++;
       r.hidden = !ok;
@@ -334,7 +342,7 @@
     Array.prototype.forEach.call(leyendaFac, function (b) {
       b.setAttribute('aria-pressed', vFac.indexOf(b.dataset.fac) !== -1 ? 'true' : 'false');
     });
-    var activos = vEstado.length + vDps.length + vFac.length;
+    var activos = vEstado.length + vDps.length + vFac.length + (fCerradas.checked ? 1 : 0);
     var cuenta = document.getElementById('filtros-count');
     cuenta.textContent = activos;
     cuenta.hidden = activos === 0;
@@ -352,6 +360,7 @@
   function limpiarFiltros() {
     fq.value = '';
     [fEstado, fDps, fFac].forEach(destildar);
+    fCerradas.checked = false;
     window.mselResumir();
     fijarAsignacion('sin');
     aplicarFiltros();
@@ -370,6 +379,7 @@
     aplicarFiltros();
   });
   [fEstado, fFac].forEach(function (c) { c.addEventListener('change', aplicarFiltros); });
+  fCerradas.addEventListener('change', aplicarFiltros);
   // Elegir una OT de sistema puntual implica ver las asignadas.
   fDps.addEventListener('change', function () {
     if (elegidas(fDps).length) fijarAsignacion('con');

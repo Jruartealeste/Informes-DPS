@@ -45,6 +45,10 @@
       {{ msel("f_est", "Estado", "Todos los estados", "estados", opt_estado, f_est) }}
       {{ msel("f_fac", "Facturación", "Toda la facturación", "estados", opt_fac, f_fac) }}
       {{ msel("f_resp", "Responsable", "Todos los responsables", "responsables", opt_resp_pares, f_resp) }}
+      <label class="filtros__check">
+        <input type="checkbox" name="ver_cerradas" value="1" {{ "checked" if ver_cerradas }}>
+        Mostrar anuladas y facturadas <span class="filtros__check-n" id="n-cerradas">({{ n_cerradas }})</span>
+      </label>
       <div class="filtros__foot">
         <a href="/tareas" class="filters__clear" id="filtros-reset">Limpiar filtros</a>
       </div>
@@ -99,7 +103,7 @@
   // servidor: la tabla se actualiza por htmx sin re-renderizar este form.
   function actualizar() {
     var n = 0;
-    n = form.querySelectorAll("#filtros-panel .msel input:checked").length;
+    n = form.querySelectorAll("#filtros-panel .msel input:checked, #filtros-panel .filtros__check input:checked").length;
     var c = document.getElementById("filtros-count");
     c.textContent = n;
     c.hidden = n === 0;

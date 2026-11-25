@@ -218,6 +218,33 @@ def test_se_puede_anular_tarea_finalizada_con_advertencia(client, db_session):
     assert db_session.get(Tarea, tarea_id).estado_tarea == EstadoTarea.ANULADA
 
 
+def test_anuladas_y_facturadas_ocultas_por_defecto(client, db_session):
+    _tarea_con_facturacion(db_session, "4270", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.EN_PROCESO)
+    _tarea_con_facturacion(db_session, "4271", EstadoFacturacion.FACTURADO)
+    _tarea_con_facturacion(db_session, "4272", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.ANULADA)
+
+    r = client.get("/tareas/partial")
+    assert "Tarea 4270" in r.text and "Tarea 4271" not in r.text and "Tarea 4272" not in r.text
+
+    # Con el check vuelven las dos.
+    r = client.get("/tareas/partial?ver_cerradas=1")
+    assert all(f"Tarea {n}" in r.text for n in ("4270", "4271", "4272"))
+
+    # Pidiéndolas en el filtro de su columna también aparecen, sin el check.
+    r = client.get("/tareas/partial?f_fac=FACTURADO")
+    assert "Tarea 4271" in r.text and "Tarea 4270" not in r.text
+    r = client.get("/tareas/partial?f_est=ANULADA")
+    assert "Tarea 4272" in r.text and "Tarea 4270" not in r.text
+
+
+def test_ot_interna_cerrada_se_marca_en_el_listado(client, db_session):
+    _tarea_con_facturacion(db_session, "4280", EstadoFacturacion.FACTURADO)
+    _tarea_con_facturacion(db_session, "4281", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.EN_PROCESO)
+    html = client.get("/ordenes-trabajo").text
+    assert re.search(r'data-o-n="4280"[^>]*data-cerrada="1"', html)
+    assert re.search(r'data-o-n="4281"[^>]*data-cerrada=""', html)
+
+
 def test_necesitan_revision(client, db_session):
     cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
     ot = OtInterna(numero_interno="4230", cliente_id=cliente.id)

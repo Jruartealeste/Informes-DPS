@@ -1300,3 +1300,15 @@ Tests: `tests/test_estimados.py`.
 - Código: `app/vencimientos.py` (consulta única, la usa el context processor de
   `templating.py` en cada request), `routers/vencimientos.py`,
   `clientes.activar_cliente` acepta `?next=` (solo rutas locales).
+
+## Anuladas y facturadas ocultas por defecto (2026-11-25)
+
+- **Tareas** (`/tareas`): las tareas `ANULADA` o con facturación `FACTURADO` no
+  se listan salvo que se pida con el check "Mostrar anuladas y facturadas
+  (N)" del panel de Filtros (`ver_cerradas=1`) o eligiendo ese valor a mano en
+  Estado / Facturación (`routers/tareas.py::es_cerrada`). Los contadores de
+  revisión/vencidas siguen contando todas.
+- **OT internas** (`/ordenes-trabajo`): una OT con todas sus tareas anuladas o
+  facturadas (`cerrada` en `viewmodels.grupo_vm`) se oculta por defecto; vuelve
+  con el mismo check o con la opción "Todo facturado" de Facturación. Filtro
+  client-side, como el resto de ese listado.

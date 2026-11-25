@@ -216,6 +216,13 @@ def grupo_vm(key: str, tareas_orm: list[Tarea]) -> dict:
         "facturadas": facturadas,
         "pct": round((facturadas / total) * 100) if total else 0,
         "progreso": f"{facturadas}/{total}",
+        # Cerrada: todas sus tareas están anuladas o facturadas — el listado de
+        # OT internas la oculta por defecto.
+        "cerrada": total > 0
+        and all(
+            t.estado_tarea == EstadoTarea.ANULADA or t.estado_facturacion == EstadoFacturacion.FACTURADO
+            for t in tareas_orm
+        ),
         # Semáforo del listado de OT internas: qué estados de facturación
         # tienen sus tareas (el estado es de cada tarea, no de la OT).
         "semaforo_fac": desglose_facturacion_vm(tareas_orm),
@@ -247,6 +254,7 @@ def ot_interna_vm(ot: OtInterna) -> dict:
             "facturadas": 0,
             "pct": 0,
             "progreso": "0/0",
+            "cerrada": False,
             "semaforo_fac": [],
         }
     return grupo_vm(ot.numero_interno, ot.tareas)

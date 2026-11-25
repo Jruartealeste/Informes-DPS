@@ -685,6 +685,16 @@ button {
 .filters .filtros__panel select {
   width: 100%;
 }
+.filtros__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.filtros__check-n {
+  color: var(--muted);
+}
 .filtros__foot {
   display: flex;
   justify-content: flex-end;
