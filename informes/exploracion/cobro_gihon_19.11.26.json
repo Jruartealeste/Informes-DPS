@@ -1,0 +1,11 @@
+{
+  "fecha": "19/11/2026",
+  "cliente": "GIHON",
+  "facturas": ["00005A00001516"],
+  "retenciones": [
+    {"tipo": "112310-RET.IMP.GCIAS.DE CLIENTES", "anio": "2026", "numero": "0000004327", "fecha": "19/11/2026", "base": "690408,14", "importe": "12464,76"},
+    {"tipo": "112331-RETENCION IIBB PCIA.BS.AS.", "anio": "2026", "numero": "0000010744", "fecha": "19/11/2026", "base": "690408,14", "importe": "690,41"}
+  ],
+  "otros_valores": {"cuenta": "Galicia", "tipo_referencia": "Transferencia", "ref1": "0", "ref2": "0", "debe": "822238,68"},
+  "totales": {"referencias": "-835393,85", "retenciones": "13155,17", "otros": "822238,68"}
+}
