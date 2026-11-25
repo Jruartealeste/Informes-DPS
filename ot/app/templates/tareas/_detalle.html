@@ -90,7 +90,7 @@
               <div class="combo__menu">
                 <div class="combo__item" data-valor="">—</div>
                 {% for valor, label in estados %}
-                <div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>
+                {% if valor != "FACTURADO" %}<div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>{% endif %}
                 {% endfor %}
               </div>
             </div>
@@ -110,7 +110,7 @@
               </button>
               <div class="combo__menu">
                 {% for valor, label in facturaciones %}
-                <div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>
+                {% if valor != "FACTURADO" %}<div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>{% endif %}
                 {% endfor %}
               </div>
             </div>

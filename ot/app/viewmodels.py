@@ -28,6 +28,16 @@ def parsear_estado(enum_cls, valor: str, nombre: str, *, vacio_es_none: bool = F
         raise HTTPException(422, f"{nombre} inválido.")
 
 
+def parsear_facturacion_manual(valor: str, actual: EstadoFacturacion | None = None) -> EstadoFacturacion:
+    """Estado de facturación elegido a mano en la app. FACTURADO solo lo fija
+    el agente de IA (sync con Advertys): a mano se rechaza, salvo que la tarea
+    ya esté FACTURADO (para poder guardar otros campos sin cambiarlo)."""
+    estado = parsear_estado(EstadoFacturacion, valor, "Facturación")
+    if estado == EstadoFacturacion.FACTURADO and actual != EstadoFacturacion.FACTURADO:
+        raise HTTPException(403, "FACTURADO lo fija el agente de IA según Advertys; no se puede cambiar a mano.")
+    return estado
+
+
 def grupo_key(t: Tarea) -> str:
     if t.ot_interna_id and t.ot_interna:
         return t.ot_interna.numero_interno

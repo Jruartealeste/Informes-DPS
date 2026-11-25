@@ -7,7 +7,7 @@ from app.db import get_db
 from app.labels import ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
 from app.models import EstadoFacturacion, EstadoTarea, OtInterna, Tarea, TareaTipoTarea
 from app.templating import templates
-from app.viewmodels import parsear_estado
+from app.viewmodels import parsear_facturacion_manual
 
 router = APIRouter()
 
@@ -129,7 +129,7 @@ def actualizar_estado_facturacion(
     tareas = _tareas_facturables(db, tarea_id)
     if not tareas:
         raise HTTPException(404, "La tarea no está en la cola de facturación.")
-    tareas[0].estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
+    tareas[0].estado_facturacion = parsear_facturacion_manual(estado_facturacion, tareas[0].estado_facturacion)
     db.commit()
     grupos = _grupos_facturables(db)
     lista_html = templates.env.get_template("facturacion/_grupos.html").render(

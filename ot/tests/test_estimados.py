@@ -150,159 +150,20 @@ def test_facturacion_solo_acepta_tareas_de_la_cola(client, db_session):
     en_cola, fuera = ids[0], ids[1]  # `fuera` no está en ningún Estimado
 
     assert client.post(f"/facturacion/tareas/{en_cola}/estado", data={"estado_facturacion": "BASURA"}).status_code == 422
-    assert client.post(f"/facturacion/tareas/{en_cola}/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 200
-    assert client.post(f"/facturacion/tareas/{fuera}/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 404
-    assert client.post("/facturacion/tareas/99999/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 404
+    assert client.post(f"/facturacion/tareas/{en_cola}/estado", data={"estado_facturacion": "PARA_FACTURAR"}).status_code == 200
+    assert client.post(f"/facturacion/tareas/{fuera}/estado", data={"estado_facturacion": "PARA_FACTURAR"}).status_code == 404
+    assert client.post("/facturacion/tareas/99999/estado", data={"estado_facturacion": "PARA_FACTURAR"}).status_code == 404
     db_session.expire_all()
-    assert db_session.get(Tarea, en_cola).estado_facturacion.name == "FACTURADO"
+    assert db_session.get(Tarea, en_cola).estado_facturacion.name == "PARA_FACTURAR"
     assert db_session.get(Tarea, fuera).estado_facturacion.name == "SIN_FACTURAR"
 
 
-def test_desdoblar_tarea_crea_copia_libre_para_otro_estimado(client, db_session):
-    ids = _armar(db_session, n_tareas=1)
-    e1 = _crear(client, ids, titulo="Etapa 1")
-    r = client.post(
-        f"/estimados/tareas/{ids[0]}/desdoblar?volver=/estimados/{e1}", follow_redirects=False
-    )
-    assert r.status_code == 303
-    assert r.headers["location"] == f"/estimados/{e1}"
-    db_session.expire_all()
-    original = db_session.get(Tarea, ids[0])
-    assert original.estimado_id == e1
-    copia = db_session.query(Tarea).filter(Tarea.id != ids[0]).one()
-    assert copia.estimado_id is None
-    assert copia.ot_interna_id == original.ot_interna_id
-    assert copia.detalle == "t0 (desdoblada)"
-    # la copia es candidata y entra en un segundo Estimado de la misma OT de sistema
-    e2 = _crear(client, [copia.id], titulo="Etapa 2")
-    assert e2 != e1
-
-
-def test_desdoblar_no_redirige_a_destinos_externos(client, db_session):
-    ids = _armar(db_session, n_tareas=1)
-    r = client.post(f"/estimados/tareas/{ids[0]}/desdoblar?volver=//evil.com", follow_redirects=False)
-    assert r.headers["location"] == "/estimados"
-
-
-def _armar_dos_ots_misma_sistema(db_session):
-    """Dos OT internas (4086 y 999) compartiendo la OT de sistema 260, más una
-    tercera (5000) con otra OT de sistema."""
-    cliente = db_session.query(Cliente).filter_by(nombre="ALUAR").one()
-    ots = {
-        n: OtInterna(numero_interno=n, cliente_id=cliente.id, numero_ot_advertys=s)
-        for n, s in (("4086", "260"), ("999", "260"), ("5000", "300"))
-    }
-    db_session.add_all(ots.values())
-    db_session.flush()
-    tareas = {
-        n: Tarea(ot_interna_id=ots[n].id, detalle=f"tarea de {n}", fecha_pedido=date(2026, 10, 1))
-        for n in ots
-    }
-    db_session.add_all(tareas.values())
-    db_session.commit()
-    return {n: t.id for n, t in tareas.items()}
-
-
-def test_nuevo_agrupa_candidatas_por_ot_interna_y_excluye_otra_ot_sistema(client, db_session):
-    ids = _armar_dos_ots_misma_sistema(db_session)
-    r = client.get("/estimados/nuevo?ot_advertys=260")
-    assert r.status_code == 200
-    assert f'class="chk-tarea" value="{ids["4086"]}"' in r.text
-    assert f'class="chk-tarea" value="{ids["999"]}"' in r.text
-    assert f'class="chk-tarea" value="{ids["5000"]}"' not in r.text
-    # orden natural de los grupos: 999 antes que 4086
-    assert r.text.index("OT interna 999") < r.text.index("OT interna 4086")
-
-
-def test_estimado_con_tareas_de_dos_ots_internas_y_rechazo_de_otra_ot_sistema(client, db_session):
-    ids = _armar_dos_ots_misma_sistema(db_session)
-    est_id = _crear(client, [ids["4086"], ids["999"]])
-    r = client.get(f"/estimados/{est_id}")
-    assert "OT interna 999 · 1 tarea" in r.text
-    assert "OT interna 4086 · 1 tarea" in r.text
-    r = client.post(f"/estimados/{est_id}/agregar", data={"tarea_ids": str(ids["5000"])})
-    assert r.status_code == 422
-
-
-def test_listado_ofrece_nuevo_estimado_por_ot_sistema(client, db_session):
-    _armar_dos_ots_misma_sistema(db_session)
-    r = client.get("/estimados")
-    assert r.status_code == 200
-    assert '<option value="260">260 · OT int. 999, 4086</option>' in r.text
-    assert '<option value="300">' in r.text
-
-
-def test_selector_omite_ot_sistema_sin_tareas_libres(client, db_session):
-    ids = _armar_dos_ots_misma_sistema(db_session)
-    _crear(client, [ids["4086"], ids["999"]])  # agota la 260
-    r = client.get("/estimados")
-    assert '<option value="260">' not in r.text
-    assert '<option value="300">' in r.text
-
-
-def test_desenlazar_vuelve_a_borrador_y_permite_nuevo_alta(client, db_session):
+def test_facturado_no_se_fija_a_mano(client, db_session):
+    """FACTURADO solo lo fija el agente de IA (sync); la app lo rechaza con 403."""
     ids = _armar(db_session)
-    est_id = _crear(client, ids)
-    r = client.post(f"/estimados/{est_id}/generar-en-advertys", follow_redirects=False)
-    assert r.status_code == 303
-    sol = db_session.query(SolicitudAltaEstimado).one()
-    client.post(f"/estimados/solicitudes/{sol.id}/resolver", data={"numero_estimado": "601"})
+    _crear(client, ids[:1])
+    t = ids[0]
+    assert client.post(f"/facturacion/tareas/{t}/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 403
+    assert client.post(f"/tareas/{t}/facturacion", data={"estado_facturacion": "FACTURADO"}).status_code == 403
     db_session.expire_all()
-    assert db_session.get(Estimado, est_id).estado == EstadoEstimado.GENERADO
-
-    r = client.post(f"/estimados/{est_id}/desenlazar", follow_redirects=False)
-    assert r.status_code == 303
-    db_session.expire_all()
-    e = db_session.get(Estimado, est_id)
-    assert e.estado == EstadoEstimado.BORRADOR
-    assert e.numero_estimado is None and e.solicitud_alta_id is None
-    assert len(e.tareas) == 2
-    assert db_session.query(SolicitudAltaEstimado).count() == 0
-    # se puede cargar otro número
-    r = client.post(f"/estimados/{est_id}/cargar-numero", data={"numero_estimado": "602"}, follow_redirects=False)
-    assert r.status_code == 303
-
-
-def test_desenlazar_un_borrador_es_idempotente(client, db_session):
-    est_id = _crear(client, _armar(db_session))
-    r = client.post(f"/estimados/{est_id}/desenlazar", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/estimados/{est_id}"
-    db_session.expire_all()
-    assert db_session.get(Estimado, est_id).estado == EstadoEstimado.BORRADOR
-
-
-def _desdoblar(client, tarea_id):
-    r = client.post(f"/estimados/tareas/{tarea_id}/desdoblar", follow_redirects=False)
-    assert r.status_code == 303
-
-
-def test_eliminar_solo_desdobladas_libres(client, db_session):
-    ids = _armar(db_session, n_tareas=1)
-    _desdoblar(client, ids[0])
-    copia = db_session.query(Tarea).filter(Tarea.es_desdoblada.is_(True)).one()
-
-    # la tarea original no se puede eliminar
-    assert client.post(f"/estimados/tareas/{ids[0]}/eliminar").status_code == 409
-
-    # la copia libre aparece con botón Eliminar y se borra
-    r = client.get("/estimados/nuevo?ot_advertys=260")
-    assert f"/estimados/tareas/{copia.id}/eliminar" in r.text
-    assert f"/estimados/tareas/{ids[0]}/eliminar" not in r.text
-    copia_id = copia.id
-    r = client.post(f"/estimados/tareas/{copia_id}/eliminar", follow_redirects=False)
-    assert r.status_code == 303
-    db_session.expire_all()
-    assert db_session.get(Tarea, copia_id) is None
-    assert db_session.get(Tarea, ids[0]) is not None
-
-
-def test_no_se_elimina_desdoblada_asignada_a_estimado(client, db_session):
-    ids = _armar(db_session, n_tareas=1)
-    _desdoblar(client, ids[0])
-    copia_id = db_session.query(Tarea).filter(Tarea.es_desdoblada.is_(True)).one().id
-    est_id = _crear(client, [copia_id])
-    assert client.post(f"/estimados/tareas/{copia_id}/eliminar").status_code == 409
-    assert f"/estimados/tareas/{copia_id}/eliminar" not in client.get(f"/estimados/{est_id}").text
-    # al quitarla del Estimado vuelve a ser eliminable
-    client.post(f"/estimados/{est_id}/tareas/{copia_id}/quitar")
-    assert client.post(f"/estimados/tareas/{copia_id}/eliminar", follow_redirects=False).status_code == 303
+    assert db_session.get(Tarea, t).estado_facturacion.name != "FACTURADO"

@@ -441,11 +441,11 @@ def test_editar_con_version_vieja_da_409_y_no_pisa(client, db_session):
 
     # un cambio de facturación hecho por otra ruta también invalida la vista vieja
     nueva = re.search(r'name="version" value="(\w+)"', client.get(f"/tareas/{tarea_id}").text).group(1)
-    client.post(f"/tareas/{tarea_id}/facturacion", data={"estado_facturacion": "FACTURADO"})
+    client.post(f"/tareas/{tarea_id}/facturacion", data={"estado_facturacion": "FALTA_OK_CLIENTE"})
     r = client.patch(f"/tareas/{tarea_id}", data={**form, "version": nueva, "estado_facturacion": "PARA_FACTURAR"})
     assert r.status_code == 409
     db_session.expire_all()
-    assert db_session.get(Tarea, tarea_id).estado_facturacion == EstadoFacturacion.FACTURADO
+    assert db_session.get(Tarea, tarea_id).estado_facturacion == EstadoFacturacion.FALTA_OK_CLIENTE
 
 
 def test_anular_por_patch_o_estado_respeta_la_regla_de_anular(client, db_session):

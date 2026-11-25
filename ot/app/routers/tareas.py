@@ -28,6 +28,7 @@ from app.viewmodels import (
     estado_vencimiento,
     motivo_no_anulable,
     parsear_estado,
+    parsear_facturacion_manual,
     puede_anular,
     tarea_vm,
     unir_links,
@@ -550,7 +551,7 @@ def crear_tarea(
         link_drive=unir_links(link_drive),
         presupuestado={"si": True, "no": False}.get(presupuestado.lower()),
         estado_tarea=parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True),
-        estado_facturacion=parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación"),
+        estado_facturacion=parsear_facturacion_manual(estado_facturacion),
     )
     db.add(tarea)
     db.flush()
@@ -613,7 +614,7 @@ def editar_tarea(
     tarea.link_drive = unir_links(link_drive)
     tarea.presupuestado = {"si": True, "no": False}.get(presupuestado.lower())
     _asignar_estado_tarea(tarea, parsear_estado(EstadoTarea, estado_tarea, "Estado", vacio_es_none=True))
-    tarea.estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
+    tarea.estado_facturacion = parsear_facturacion_manual(estado_facturacion, tarea.estado_facturacion)
     _guardar_tipos_responsables(db, tarea, tipos_lista, responsables)
     db.commit()
 
@@ -654,7 +655,7 @@ def actualizar_facturacion(
     estado_facturacion: str = Form(...),
 ):
     tarea = _tarea_o_404(db, tarea_id)
-    tarea.estado_facturacion = parsear_estado(EstadoFacturacion, estado_facturacion, "Facturación")
+    tarea.estado_facturacion = parsear_facturacion_manual(estado_facturacion, tarea.estado_facturacion)
     db.commit()
 
     return _tabla_y_cerrar_drawer(db, request)

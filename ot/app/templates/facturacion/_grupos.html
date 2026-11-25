@@ -26,7 +26,7 @@
             hx-post="/facturacion/tareas/{{ t.id }}/estado" hx-trigger="change" hx-target="#lista-facturacion" hx-swap="outerHTML">
           <div class="combo__menu">
             {% for valor, label in opt_fac %}
-            <div class="combo__item {{ 'is-selected' if t.estado_facturacion == valor }}" role="option" data-valor="{{ valor }}">{{ label }}</div>
+            {% if valor != "FACTURADO" %}<div class="combo__item {{ 'is-selected' if t.estado_facturacion == valor }}" role="option" data-valor="{{ valor }}">{{ label }}</div>{% endif %}
             {% endfor %}
           </div>
         </div>
