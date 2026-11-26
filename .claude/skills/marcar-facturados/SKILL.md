@@ -36,7 +36,7 @@ Todo parado en `informes/` (`cd informes` si la sesión arrancó en la raíz).
 
 ## Notas
 
-- Nunca toca tareas anuladas, ya facturadas ni "no corresponde".
+- Nunca toca tareas anuladas, ya CERRADAS ni "no corresponde" (las FACTURADO a mano sí las cierra).
 - Si aparecen Estimados "NO ESTÁN en advertys.db", la ingesta quedó vieja:
   repetir el paso 1 antes de decidir nada.
 - `python`/`py` apuntan al alias de Microsoft Store: usar la ruta completa de
