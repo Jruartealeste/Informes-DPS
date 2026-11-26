@@ -25,6 +25,9 @@ class EstadoFacturacion(str, enum.Enum):
     FALTA_OK_CLIENTE = "FALTA_OK_CLIENTE"
     FACTURADO = "FACTURADO"
     NO_CORRESPONDE = "NO_CORRESPONDE"
+    # Solo lo fija el agente de IA (sync con Advertys) cuando el Estimado de la
+    # tarea ya está facturado en Advertys. A mano no se puede elegir ni sacar.
+    CERRADO = "CERRADO"
 
 
 class EstadoOtInterna(str, enum.Enum):

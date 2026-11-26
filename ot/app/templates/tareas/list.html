@@ -26,6 +26,7 @@
 <form id="filtros-form" class="filters"
       hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
       hx-trigger="change, keyup changed delay:300ms">
+  <input type="hidden" name="filtrado" value="1">
   <input type="hidden" id="input-agrupado" name="agrupado" value="{{ '1' if agrupado else '0' }}">
   <input type="hidden" id="input-revision" name="revision" value="{{ '1' if revision else '0' }}">
   <input type="hidden" id="input-vencidas" name="vencidas" value="{{ '1' if vencidas else '0' }}">
@@ -42,13 +43,10 @@
       <span class="filters__count" id="filtros-count" hidden></span>
     </button>
     <div class="filtros__panel" id="filtros-panel" role="group" aria-label="Filtros de tareas" hidden>
-      {{ msel("f_est", "Estado", "Todos los estados", "estados", opt_estado, f_est) }}
-      {{ msel("f_fac", "Facturación", "Toda la facturación", "estados", opt_fac, f_fac) }}
+      {{ msel("f_est", "Estado", "Todos los estados", "estados", opt_estado, f_est, por_defecto=f_est_default) }}
+      {{ msel("f_fac", "Facturación", "Toda la facturación", "estados", opt_fac, f_fac, por_defecto=f_fac_default) }}
       {{ msel("f_resp", "Responsable", "Todos los responsables", "responsables", opt_resp_pares, f_resp) }}
-      <label class="filtros__check">
-        <input type="checkbox" name="ver_cerradas" value="1" {{ "checked" if ver_cerradas }}>
-        Mostrar anuladas y facturadas <span class="filtros__check-n" id="n-cerradas">({{ n_cerradas }})</span>
-      </label>
+      <p class="filtros__nota">Por defecto no se ven las tareas anuladas, CERRADAS ni NO CORRESPONDE: tildalas para verlas.</p>
       <div class="filtros__foot">
         <a href="/tareas" class="filters__clear" id="filtros-reset">Limpiar filtros</a>
       </div>
@@ -102,8 +100,15 @@
   // Contador y link "Limpiar" se recalculan desde el DOM, no desde el
   // servidor: la tabla se actualiza por htmx sin re-renderizar este form.
   function actualizar() {
+    // Cuenta los desplegables cuya selección difiere de la de por defecto
+    // (data-def): con los filtros por defecto el contador queda en cero.
     var n = 0;
-    n = form.querySelectorAll("#filtros-panel .msel input:checked, #filtros-panel .filtros__check input:checked").length;
+    form.querySelectorAll("#filtros-panel .msel").forEach(function (m) {
+      var distinto = Array.prototype.some.call(m.querySelectorAll("input[type=checkbox]"), function (cb) {
+        return cb.checked !== cb.hasAttribute("data-def");
+      });
+      if (distinto) n++;
+    });
     var c = document.getElementById("filtros-count");
     c.textContent = n;
     c.hidden = n === 0;

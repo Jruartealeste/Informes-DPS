@@ -1,11 +1,11 @@
-# Marcar como FACTURADO las tareas de Estimados ya facturados en Advertys
+# Pasar a CERRADO las tareas de Estimados ya facturados en Advertys
 
 ## Objetivo
 
 Que el estado de facturación de las tareas de la app `ot/` refleje lo que
 realmente pasó en Advertys: toda tarea agrupada en un Estimado que Advertys
 ya tiene en estado **Facturado total**, **Facturado manual** o **Finalizado**
-pasa a `FACTURADO`. Criterio confirmado por Javier (2026-11-20).
+pasa a `CERRADO` (desde 2026-11-26; antes era `FACTURADO`, que ahora se elige a mano en la app). Criterio confirmado por Javier (2026-11-20).
 
 **No escribe en Advertys**: solo lee `estimados_costos` (ya ingestada en
 `advertys.db`) y le pide a `ot/` que actualice sus propias tareas. El export
@@ -13,7 +13,7 @@ de refresh sí navega Advertys, pero solo en lectura.
 
 ## Qué nunca toca
 
-Tareas anuladas, ya `FACTURADO` o `NO_CORRESPONDE`. Estimados en cualquier
+Tareas anuladas, ya `CERRADO` o `NO_CORRESPONDE` (las `FACTURADO` a mano sí se cierran). Estimados en cualquier
 otro estado (Provisorio, Definitivo, Ok cliente, Autorizado AFacturar,
 Rechazado, Anulado). El % `facturado/neto` se muestra solo como dato: no
 decide, porque el neto incluye conceptos que no se facturan (~90% típico).

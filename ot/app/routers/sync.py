@@ -312,18 +312,19 @@ def listar_estimados_con_sheet(db: Session = Depends(get_db)) -> list[dict]:
     ]
 
 
-# --- Marcar tareas como FACTURADO según Advertys (Informes/modules/sync_tareas_app/marcar_facturados.py) ---
+# --- Cerrar tareas según Advertys (Informes/modules/sync_tareas_app/marcar_facturados.py) ---
 # Informes lee de advertys.db qué Estimados ya se facturaron de verdad y pide
-# acá pasar a FACTURADO las tareas de esos Estimados. La decisión de qué es
-# "facturado" vive del lado de Informes (tiene los datos de Advertys); acá solo
-# se aplica, y nunca se pisan tareas anuladas, ya facturadas ni "no corresponde".
+# acá pasar a CERRADO las tareas de esos Estimados. CERRADO es el único estado
+# de facturación que solo fija el agente (FACTURADO se elige a mano). La
+# decisión vive del lado de Informes (tiene los datos de Advertys); acá solo se
+# aplica, y nunca se pisan tareas anuladas, ya cerradas ni "no corresponde".
 
 
 def _tarea_facturable(t) -> bool:
     from app.models import EstadoFacturacion, EstadoTarea
 
     return t.estado_tarea != EstadoTarea.ANULADA and t.estado_facturacion not in (
-        EstadoFacturacion.FACTURADO,
+        EstadoFacturacion.CERRADO,
         EstadoFacturacion.NO_CORRESPONDE,
     )
 
@@ -331,7 +332,7 @@ def _tarea_facturable(t) -> bool:
 @router.get("/estimados-a-facturar", dependencies=[Depends(_verificar_token)])
 def listar_estimados_a_facturar(db: Session = Depends(get_db)) -> list[dict]:
     """Estimados con número en Advertys que tienen tareas todavía no marcadas
-    como facturadas (candidatos a cruzar contra Advertys)."""
+    como cerradas (candidatos a cruzar contra Advertys)."""
     estimados = db.scalars(
         select(Estimado).where(Estimado.numero_estimado.is_not(None)).options(selectinload(Estimado.tareas))
     )
@@ -359,8 +360,9 @@ class EstimadosFacturadosIn(BaseModel):
 
 @router.post("/estimados-facturados", dependencies=[Depends(_verificar_token)])
 def marcar_estimados_facturados(body: EstimadosFacturadosIn, db: Session = Depends(get_db)) -> dict:
-    """Pasa a FACTURADO las tareas de los Estimados indicados. Idempotente:
-    saltea las ya facturadas, las "no corresponde" y las anuladas."""
+    """Pasa a CERRADO las tareas de los Estimados indicados (incluidas las que
+    estaban FACTURADO a mano). Idempotente: saltea las ya cerradas, las "no
+    corresponde" y las anuladas."""
     from app.models import EstadoFacturacion
 
     numeros = {n.strip() for n in body.numeros_estimado if n.strip()}
@@ -371,7 +373,7 @@ def marcar_estimados_facturados(body: EstimadosFacturadosIn, db: Session = Depen
     for e in estimados:
         for t in e.tareas:
             if _tarea_facturable(t):
-                t.estado_facturacion = EstadoFacturacion.FACTURADO
+                t.estado_facturacion = EstadoFacturacion.CERRADO
                 marcadas += 1
     db.add(SyncLog(origen="estimados_facturados", cantidad=marcadas, ok=True))
     db.commit()

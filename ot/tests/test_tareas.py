@@ -218,27 +218,38 @@ def test_se_puede_anular_tarea_finalizada_con_advertencia(client, db_session):
     assert db_session.get(Tarea, tarea_id).estado_tarea == EstadoTarea.ANULADA
 
 
-def test_anuladas_y_facturadas_ocultas_por_defecto(client, db_session):
+def test_filtros_por_defecto_ocultan_anuladas_cerradas_y_no_corresponde(client, db_session):
     _tarea_con_facturacion(db_session, "4270", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.EN_PROCESO)
-    _tarea_con_facturacion(db_session, "4271", EstadoFacturacion.FACTURADO)
+    _tarea_con_facturacion(db_session, "4271", EstadoFacturacion.CERRADO)
     _tarea_con_facturacion(db_session, "4272", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.ANULADA)
+    _tarea_con_facturacion(db_session, "4273", EstadoFacturacion.NO_CORRESPONDE)
+    _tarea_con_facturacion(db_session, "4274", EstadoFacturacion.FACTURADO)
+    _tarea_con_facturacion(db_session, "4275", EstadoFacturacion.SIN_FACTURAR, estado=None)
 
     r = client.get("/tareas/partial")
-    assert "Tarea 4270" in r.text and "Tarea 4271" not in r.text and "Tarea 4272" not in r.text
+    assert all(f"Tarea {n}" in r.text for n in ("4270", "4274", "4275"))
+    assert not any(f"Tarea {n}" in r.text for n in ("4271", "4272", "4273"))
 
-    # Con el check vuelven las dos.
-    r = client.get("/tareas/partial?ver_cerradas=1")
-    assert all(f"Tarea {n}" in r.text for n in ("4270", "4271", "4272"))
+    # Los filtros por defecto se ven tildados en los desplegables.
+    html = client.get("/tareas").text
+    assert re.search(r'name="f_fac" value="SIN_FACTURAR"[^>]*checked', html)
+    assert not re.search(r'name="f_fac" value="CERRADO"[^>]*checked', html)
+    assert not re.search(r'name="f_fac" value="NO_CORRESPONDE"[^>]*checked', html)
+    assert not re.search(r'name="f_est" value="ANULADA"[^>]*checked', html)
 
-    # Pidiéndolas en el filtro de su columna también aparecen, sin el check.
-    r = client.get("/tareas/partial?f_fac=FACTURADO")
+    # Desde el form (filtrado=1) sin nada tildado = se ve todo.
+    r = client.get("/tareas/partial?filtrado=1")
+    assert all(f"Tarea {n}" in r.text for n in ("4270", "4271", "4272", "4273", "4274", "4275"))
+
+    # Pidiéndolas en el filtro de su columna aparecen.
+    r = client.get("/tareas/partial?filtrado=1&f_fac=CERRADO")
     assert "Tarea 4271" in r.text and "Tarea 4270" not in r.text
     r = client.get("/tareas/partial?f_est=ANULADA")
     assert "Tarea 4272" in r.text and "Tarea 4270" not in r.text
 
 
 def test_ot_interna_cerrada_se_marca_en_el_listado(client, db_session):
-    _tarea_con_facturacion(db_session, "4280", EstadoFacturacion.FACTURADO)
+    _tarea_con_facturacion(db_session, "4280", EstadoFacturacion.CERRADO)
     _tarea_con_facturacion(db_session, "4281", EstadoFacturacion.SIN_FACTURAR, estado=EstadoTarea.EN_PROCESO)
     html = client.get("/ordenes-trabajo").text
     assert re.search(r'data-o-n="4280"[^>]*data-cerrada="1"', html)

@@ -1,5 +1,5 @@
 """
-Pasa a FACTURADO, en la app `ot/`, las tareas cuyo Estimado ya se facturo de
+Pasa a CERRADO, en la app `ot/`, las tareas cuyo Estimado ya se facturo de
 verdad en Advertys.
 
 No escribe en Advertys (solo lee `estimados_costos` de advertys.db, ya
@@ -7,7 +7,7 @@ ingestada) y habla con `ot/` igual que push.py (OT_SYNC_URL / OT_SYNC_TOKEN).
 
 Criterio de "facturado de verdad" (por Estimado, columna `estado` del export
 + `total_facturado`):
-  - estado "Facturado total", "Facturado manual" o "Finalizado" -> FACTURADO
+  - estado "Facturado total", "Facturado manual" o "Finalizado" -> CERRADO
     (decision de Javier 2026-11-20; en Advertys un Estimado solo se
     finaliza facturado y con O.C. cruzadas)
   - cualquier otro (Provisorio, Autorizado AFacturar, Ok cliente, Anulado...)
@@ -88,7 +88,7 @@ def main() -> None:
             sin_cambio.append((c, a))
 
     n_tareas = sum(len(c["tareas_pendientes"]) for c, _ in a_marcar)
-    print(f"== A MARCAR FACTURADO ({len(a_marcar)} estimados, {n_tareas} tareas) ==")
+    print(f"== A CERRAR ({len(a_marcar)} estimados, {n_tareas} tareas) ==")
     for c, a in a_marcar:
         print(_linea(c, a))
     print(f"\n== TODAVIA NO FACTURADOS en Advertys ({len(sin_cambio)}) ==")

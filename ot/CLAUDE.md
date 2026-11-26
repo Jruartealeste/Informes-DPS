@@ -131,7 +131,7 @@ Enums (normalizan los valores reales del Sheet, typos incluidos):
   el typo real "PENDIETE OK" además de "PENDIENTE OK"), FINALIZADO,
   APROBADO.
 - `estado_facturacion`: SIN_FACTURAR (default), PARA_FACTURAR,
-  FALTA_OK_CLIENTE, FACTURADO, NO_CORRESPONDE.
+  FALTA_OK_CLIENTE, FACTURADO, NO_CORRESPONDE, CERRADO (solo agente de IA, ver "Estado CERRADO y filtros por defecto").
 - `estado_ot_interna`: ABIERTA, CERRADA (agregado 2026-07-31 — una OT
   interna puede durar meses con tareas abriéndose y cerrándose adentro).
 - `rol_usuario`: MIEMBRO, APROBADOR_FACTURACION (modelado ya, sin uso hasta
@@ -1301,14 +1301,27 @@ Tests: `tests/test_estimados.py`.
   `templating.py` en cada request), `routers/vencimientos.py`,
   `clientes.activar_cliente` acepta `?next=` (solo rutas locales).
 
-## Anuladas y facturadas ocultas por defecto (2026-11-25)
+## Estado CERRADO y filtros por defecto (2026-11-26)
 
-- **Tareas** (`/tareas`): las tareas `ANULADA` o con facturación `FACTURADO` no
-  se listan salvo que se pida con el check "Mostrar anuladas y facturadas
-  (N)" del panel de Filtros (`ver_cerradas=1`) o eligiendo ese valor a mano en
-  Estado / Facturación (`routers/tareas.py::es_cerrada`). Los contadores de
-  revisión/vencidas siguen contando todas.
-- **OT internas** (`/ordenes-trabajo`): una OT con todas sus tareas anuladas o
-  facturadas (`cerrada` en `viewmodels.grupo_vm`) se oculta por defecto; vuelve
-  con el mismo check o con la opción "Todo facturado" de Facturación. Filtro
-  client-side, como el resto de ese listado.
+Reemplaza a "Anuladas y facturadas ocultas por defecto" (2026-11-25).
+
+- **CERRADO** (`EstadoFacturacion.CERRADO`, migración `c4a9e2f7b1d8`): solo lo
+  fija el agente de IA (`/api/sync/estimados-facturados`, skill
+  `marcar-facturados`) cuando el Estimado de la tarea ya está facturado en
+  Advertys. A mano no se puede poner ni sacar (`viewmodels.parsear_facturacion_manual`
+  responde 403); los menús no lo ofrecen y una tarea CERRADO muestra el chip
+  fijo, sin menú. Una tarea CERRADO no se anula.
+- **FACTURADO** vuelve a elegirse a mano (el 2026-11-25 se había restringido al
+  agente). El agente pasa a CERRADO también las que estén FACTURADO.
+- **Tareas** (`/tareas`): filtros por defecto = Estado todo menos `ANULADA`
+  (incluye la opción "SIN ESTADO" para tareas sin estado) y Facturación todo
+  menos `CERRADO` y `NO_CORRESPONDE` (`labels.FACTURACION_OCULTA_DEFAULT`,
+  `routers/tareas.py::F_EST_DEFAULT/F_FAC_DEFAULT`). Van **tildados** en los
+  desplegables para que se vea qué está filtrado. El form manda siempre
+  `filtrado=1`: sin él (primera carga, "Limpiar filtros") aplican los
+  defaults; con él, un desplegable vacío = sin filtro. El contador del botón
+  Filtros cuenta desplegables distintos del default (`data-def` en `_msel.html`).
+- **OT internas** (`/ordenes-trabajo`): una OT con todas sus tareas anuladas,
+  CERRADO o NO CORRESPONDE (`cerrada` en `viewmodels.grupo_vm`) se oculta por
+  defecto; vuelve con el check "Mostrar anuladas y cerradas" o con "Todo
+  facturado" en Facturación. Filtro client-side, como el resto de ese listado.

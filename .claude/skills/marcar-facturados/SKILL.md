@@ -1,12 +1,15 @@
 ---
 name: marcar-facturados
-description: Use when Javier pide pasar a FACTURADO, en la app ot/, las tareas cuyos Estimados ya están facturados en Advertys (Facturado total, Facturado manual o Finalizado). Ej. "marcá las tareas facturadas", "actualizá el estado de facturación de la app", "¿qué tareas ya se facturaron en Advertys?". Refresca estimados_costos, muestra qué se marcaría y solo con OK explícito aplica. No escribe en Advertys.
+description: Use when Javier pide pasar a CERRADO (o "marcar facturadas"), en la app ot/, las tareas cuyos Estimados ya están facturados en Advertys (Facturado total, Facturado manual o Finalizado). Ej. "marcá las tareas facturadas", "actualizá el estado de facturación de la app", "¿qué tareas ya se facturaron en Advertys?". Refresca estimados_costos, muestra qué se marcaría y solo con OK explícito aplica. No escribe en Advertys.
 ---
 
 ## Qué hace
 
 Cruza los Estimados de la app `ot/` (producción) con `estimados_costos` de
-Advertys y pasa a `FACTURADO` las tareas de los Estimados facturados.
+Advertys y pasa a `CERRADO` las tareas de los Estimados facturados.
+CERRADO es el único estado de facturación que solo fija este agente (en la
+app no se puede elegir ni sacar a mano); `FACTURADO` sí se elige a mano, y
+el agente igual lo pasa a CERRADO cuando el Estimado ya está facturado.
 Fuente de verdad completa:
 [workflows/marcar_facturados.md](../../../informes/workflows/marcar_facturados.md)
 — si algo acá y el workflow difieren, gana el workflow (releerlo).

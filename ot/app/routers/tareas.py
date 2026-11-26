@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app import cache
 from app.cliente_ctx import cliente_activo
 from app.db import get_db
-from app.labels import ESTADO_LABELS, FACTURACION_LABELS, TIPO_TAREA_LABELS
+from app.labels import ESTADO_LABELS, FACTURACION_LABELS, FACTURACION_OCULTA_DEFAULT, TIPO_TAREA_LABELS
 from app.models import (
     TITULO_OT_MAX,
     Cliente,
@@ -55,11 +55,15 @@ def _cargar_tareas(db: Session, cliente_id: int) -> list[Tarea]:
     return list(db.scalars(stmt).unique())
 
 
-def es_cerrada(t: Tarea, f_est: list[str] = (), f_fac: list[str] = ()) -> bool:
-    """Anulada o facturada, salvo que el filtro de esa columna la pida explícito."""
-    if t.estado_tarea == EstadoTarea.ANULADA and EstadoTarea.ANULADA.name not in f_est:
-        return True
-    return t.estado_facturacion == EstadoFacturacion.FACTURADO and EstadoFacturacion.FACTURADO.name not in f_fac
+# Tarea sin estado cargado: opción propia en el filtro de Estado, para que el
+# filtro por defecto (todo menos ANULADA) no la esconda.
+SIN_ESTADO = "SIN_ESTADO"
+
+# Filtros por defecto (primera carga o "Limpiar filtros"): se ve todo menos las
+# anuladas y las CERRADO / NO CORRESPONDE. Van tildados en los desplegables,
+# así se ve qué está filtrado (antes se ocultaban sin que el filtro lo dijera).
+F_EST_DEFAULT = [SIN_ESTADO] + [e.name for e in EstadoTarea if e != EstadoTarea.ANULADA]
+F_FAC_DEFAULT = [f.name for f in EstadoFacturacion if f not in FACTURACION_OCULTA_DEFAULT]
 
 
 def _filtrar(
@@ -70,7 +74,6 @@ def _filtrar(
     f_resp: list[str],
     revision: bool,
     vencidas: bool = False,
-    ver_cerradas: bool = False,
 ) -> list[Tarea]:
     ql = q.strip().lower()
 
@@ -89,13 +92,8 @@ def _filtrar(
             ).lower()
             if ql not in haystack:
                 return False
-        # Por defecto no se ven las anuladas ni las facturadas (ruido): vuelven
-        # con el check "Mostrar anuladas y facturadas" o eligiéndolas a mano en
-        # los filtros de Estado / Facturación.
-        if not ver_cerradas and es_cerrada(t, f_est, f_fac):
-            return False
         # Cada filtro admite varias opciones: pasa si coincide con cualquiera.
-        if f_est and (t.estado_tarea is None or t.estado_tarea.name not in f_est):
+        if f_est and (t.estado_tarea.name if t.estado_tarea else SIN_ESTADO) not in f_est:
             return False
         if f_fac and t.estado_facturacion.name not in f_fac:
             return False
@@ -179,7 +177,12 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
     f_resp = [v for v in qp.getlist("f_resp") if v]
     revision = qp.get("revision") == "1"
     vencidas = qp.get("vencidas") == "1"
-    ver_cerradas = qp.get("ver_cerradas") == "1"
+    # El form manda filtrado=1 siempre: sin él (primera carga, "Limpiar
+    # filtros") Estado/Facturación no pedidos van con el filtro por defecto;
+    # con él, vacíos = sin filtro (se ve todo).
+    if qp.get("filtrado") != "1":
+        f_est = f_est or list(F_EST_DEFAULT)
+        f_fac = f_fac or list(F_FAC_DEFAULT)
     agrupado = qp.get("agrupado", "0") == "1"
 
     cliente = cliente_activo(request, db)
@@ -190,7 +193,7 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
         orden = ""
     # Vista agrupada: los grupos siguen el orden de las tareas, así que quedan
     # por la más nueva de cada OT (ordenar por columna solo aplica a la plana).
-    filtradas = _ordenar(_filtrar(todas, q, f_est, f_fac, f_resp, revision, vencidas, ver_cerradas), "" if agrupado else orden, dir_)
+    filtradas = _ordenar(_filtrar(todas, q, f_est, f_fac, f_resp, revision, vencidas), "" if agrupado else orden, dir_)
     n_vencidas, n_por_vencer = _contador_vencidas(todas)
 
     grupos_todos = construir_grupos(todas)
@@ -206,7 +209,7 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
         "agrupado": agrupado,
         "orden": orden,
         "dir": dir_,
-        "opt_estado": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea],
+        "opt_estado": [(e.name, ESTADO_LABELS[e]) for e in EstadoTarea] + [(SIN_ESTADO, "SIN ESTADO")],
         "opt_fac": [(f.name, FACTURACION_LABELS[f]) for f in EstadoFacturacion],
         "opt_resp": _opciones_responsables(todas),
         "opt_resp_pares": [(n, n) for n in _opciones_responsables(todas)],
@@ -214,9 +217,12 @@ def _contexto_tabla(db: Session, request: Request) -> dict:
         "vencidas": vencidas,
         "n_vencidas": n_vencidas,
         "n_por_vencer": n_por_vencer,
-        "ver_cerradas": ver_cerradas,
-        "n_cerradas": sum(1 for t in todas if es_cerrada(t)),
-        "hay_filtros": bool(q or f_est or f_fac or f_resp or revision or vencidas or ver_cerradas),
+        "f_est_default": F_EST_DEFAULT,
+        "f_fac_default": F_FAC_DEFAULT,
+        "hay_filtros": bool(
+            q or sorted(f_est) != sorted(F_EST_DEFAULT) or sorted(f_fac) != sorted(F_FAC_DEFAULT)
+            or f_resp or revision or vencidas
+        ),
         "grupos": grupos_filtrados,
         "filas": [tarea_vm(t) for t in filtradas],
         "resumen_filtro": f"{len(filtradas)} de {len(todas)} tareas · {len(grupos_filtrados)} OT",

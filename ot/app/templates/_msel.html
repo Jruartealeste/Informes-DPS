@@ -2,8 +2,9 @@
    checkbox con el mismo `name`, así que un <form> (htmx incluido) manda solo
    las tildadas: ?f_est=A&f_est=B. Sin nada tildado = sin filtro. El botón
    muestra el resumen; base.html lo mantiene al día en el cliente.
-   opciones: lista de (valor, etiqueta). #}
-{% macro msel(name, titulo, todos, plural, opciones, seleccionadas=[], id="") %}
+   opciones: lista de (valor, etiqueta). por_defecto: valores que el filtro
+   trae tildados de entrada (data-def), para que el JS sepa si se cambió. #}
+{% macro msel(name, titulo, todos, plural, opciones, seleccionadas=[], id="", por_defecto=[]) %}
     <div class="filtros__campo">
       <span class="filtros__label">{{ titulo }}</span>
       <div class="msel" data-todos="{{ todos }}" data-plural="{{ plural }}"{% if id %} id="{{ id }}"{% endif %}>
@@ -17,7 +18,7 @@
         <div class="msel__menu" role="group" aria-label="{{ titulo }}" hidden>
           {% for valor, etiqueta in opciones %}
           <label class="msel__opt">
-            <input type="checkbox" name="{{ name }}" value="{{ valor }}" data-etiqueta="{{ etiqueta }}"{{ " checked" if valor in seleccionadas }}>
+            <input type="checkbox" name="{{ name }}" value="{{ valor }}" data-etiqueta="{{ etiqueta }}"{{ " data-def" if valor in por_defecto }}{{ " checked" if valor in seleccionadas }}>
             <span>{{ etiqueta }}</span>
           </label>
           {% endfor %}

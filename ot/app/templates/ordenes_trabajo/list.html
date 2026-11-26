@@ -45,7 +45,7 @@
       {{ msel("f_fac", "Facturación", "Toda la facturación", "opciones", opt_fac, [], "filtro-fac") }}
       <label class="filtros__check">
         <input type="checkbox" id="filtro-cerradas">
-        Mostrar anuladas y facturadas <span class="filtros__check-n">({{ ots | selectattr('cerrada') | list | length }})</span>
+        Mostrar anuladas y cerradas <span class="filtros__check-n">({{ ots | selectattr('cerrada') | list | length }})</span>
       </label>
       <div class="filtros__foot">
         <button type="button" class="filters__clear" id="filtros-reset">Limpiar filtros</button>
@@ -328,7 +328,7 @@
         if (v === 'completa') return total > 0 && fact === total;
         return (' ' + d.facs).indexOf(' ' + v + ' ') !== -1;
       });
-      // OT con todas las tareas anuladas/facturadas: ocultas salvo que se pidan
+      // OT con todas las tareas anuladas/cerradas/no corresponde: ocultas salvo que se pidan
       // con el check o eligiendo "Todo facturado" en Facturación.
       var pasaCerrada = !d.cerrada || fCerradas.checked || vFac.indexOf('completa') !== -1;
       if (!pasaEstado || !pasaDps || !pasaFac || !pasaCerrada) ok = false;

@@ -7,7 +7,7 @@
   {% if oob %}hx-swap-oob="true"{% endif %}
   aria-label="{{ _lbl }}" title="{{ _lbl }}"
   hx-get="/tareas/partial" hx-target="#tabla-tareas" hx-swap="outerHTML"
-  hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='ver_cerradas'], #filtros-form [name='f_resp']"
+  hx-include="#filtros-form [name='q'], #filtros-form [name='f_est'], #filtros-form [name='f_fac'], #filtros-form [name='filtrado'], #filtros-form [name='f_resp']"
   hx-vals='{"agrupado": "{{ agrupado_next }}", "revision": "{{ 1 if revision else 0 }}"}'>
   {{ icono("lista" if agrupado else "agrupar") }}<span class="solo-escritorio">{{ _lbl }}</span>
 </button>

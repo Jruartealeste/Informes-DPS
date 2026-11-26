@@ -158,12 +158,21 @@ def test_facturacion_solo_acepta_tareas_de_la_cola(client, db_session):
     assert db_session.get(Tarea, fuera).estado_facturacion.name == "SIN_FACTURAR"
 
 
-def test_facturado_no_se_fija_a_mano(client, db_session):
-    """FACTURADO solo lo fija el agente de IA (sync); la app lo rechaza con 403."""
+def test_cerrado_no_se_fija_ni_se_saca_a_mano(client, db_session):
+    """CERRADO solo lo fija el agente de IA (sync): a mano se rechaza con 403,
+    tanto ponerlo como sacarlo. FACTURADO sí se elige a mano."""
     ids = _armar(db_session)
     _crear(client, ids[:1])
     t = ids[0]
-    assert client.post(f"/facturacion/tareas/{t}/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 403
-    assert client.post(f"/tareas/{t}/facturacion", data={"estado_facturacion": "FACTURADO"}).status_code == 403
+    assert client.post(f"/facturacion/tareas/{t}/estado", data={"estado_facturacion": "CERRADO"}).status_code == 403
+    assert client.post(f"/tareas/{t}/facturacion", data={"estado_facturacion": "CERRADO"}).status_code == 403
+    assert client.post(f"/tareas/{t}/facturacion", data={"estado_facturacion": "FACTURADO"}).status_code == 200
     db_session.expire_all()
-    assert db_session.get(Tarea, t).estado_facturacion.name != "FACTURADO"
+    tarea = db_session.get(Tarea, t)
+    assert tarea.estado_facturacion.name == "FACTURADO"
+    tarea.estado_facturacion = tarea.estado_facturacion.__class__.CERRADO
+    db_session.commit()
+    assert client.post(f"/tareas/{t}/facturacion", data={"estado_facturacion": "PARA_FACTURAR"}).status_code == 403
+    assert client.post(f"/facturacion/tareas/{t}/estado", data={"estado_facturacion": "FACTURADO"}).status_code == 403
+    db_session.expire_all()
+    assert db_session.get(Tarea, t).estado_facturacion.name == "CERRADO"

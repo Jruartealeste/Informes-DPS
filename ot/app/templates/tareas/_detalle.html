@@ -90,7 +90,7 @@
               <div class="combo__menu">
                 <div class="combo__item" data-valor="">—</div>
                 {% for valor, label in estados %}
-                {% if valor != "FACTURADO" %}<div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>{% endif %}
+                <div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>
                 {% endfor %}
               </div>
             </div>
@@ -100,6 +100,11 @@
             {% set facturacion_actual = det.estado_facturacion if det else facturaciones[0][0] %}
             {% set ns_fac = namespace(label="") %}
             {% for valor, label in facturaciones %}{% if valor == facturacion_actual %}{% set ns_fac.label = label %}{% endif %}{% endfor %}
+            {% if facturacion_actual == "CERRADO" %}
+            <input type="hidden" name="estado_facturacion" value="CERRADO">
+            <div><span class="chip-fac chip-fac--fijo" data-valor="CERRADO">{{ ns_fac.label }}</span></div>
+            <div class="field-hint">Cerrada por el agente de IA: el Estimado ya está facturado en Advertys.</div>
+            {% else %}
             <div class="combo combo--select">
               <button type="button" class="combo__display">{{ ns_fac.label }}</button>
               <input type="hidden" class="combo__hidden" name="estado_facturacion" value="{{ facturacion_actual }}">
@@ -110,10 +115,11 @@
               </button>
               <div class="combo__menu">
                 {% for valor, label in facturaciones %}
-                {% if valor != "FACTURADO" %}<div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>{% endif %}
+                {% if valor != "CERRADO" %}<div class="combo__item" data-valor="{{ valor }}">{{ label }}</div>{% endif %}
                 {% endfor %}
               </div>
             </div>
+            {% endif %}
           </div>
         </div>
         {% elif det %}

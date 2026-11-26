@@ -692,6 +692,11 @@ button {
   font-size: 13px;
   cursor: pointer;
 }
+.filtros__nota {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
 .filtros__check-n {
   color: var(--muted);
 }
@@ -1242,6 +1247,12 @@ a.cell-drive:focus-visible {
 }
 .chip-fac[data-valor="FACTURADO"] {
   background-color: var(--ok-soft);
+  color: var(--ok-text);
+  border-color: var(--ok);
+}
+/* CERRADO: lo fija el agente de IA (Estimado facturado en Advertys). */
+.chip-fac[data-valor="CERRADO"] {
+  background-color: transparent;
   color: var(--ok-text);
   border-color: var(--ok);
 }
@@ -2034,6 +2045,7 @@ select.chip-fac {
 .semaforo__dot[data-valor="FALTA_OK_CLIENTE"] { background: var(--warn); }
 .semaforo__dot[data-valor="FACTURADO"] { background: var(--ok); }
 .semaforo__dot[data-valor="NO_CORRESPONDE"] { background: var(--ghost); }
+.semaforo__dot[data-valor="CERRADO"] { background: var(--ok-text); }
 .semaforo-leyenda {
   display: flex;
   flex-wrap: wrap;

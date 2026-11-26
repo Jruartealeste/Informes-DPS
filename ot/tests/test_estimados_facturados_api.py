@@ -1,5 +1,5 @@
 """API para Informes/modules/sync_tareas_app/marcar_facturados.py: pasa a
-FACTURADO las tareas de Estimados ya facturados en Advertys."""
+CERRADO las tareas de Estimados ya facturados en Advertys."""
 
 from app.config import settings
 from app.models import EstadoFacturacion, EstadoTarea, Estimado, Tarea
@@ -32,18 +32,20 @@ def test_lista_estimados_con_tareas_sin_facturar(client, client_anonimo, db_sess
     assert item["numero_estimado"] == "590" and len(item["tareas_pendientes"]) == 2
 
 
-def test_marca_facturado_e_ignora_anuladas_y_no_corresponde(client, client_anonimo, db_session):
+def test_cierra_e_ignora_anuladas_y_no_corresponde(client, client_anonimo, db_session):
     est_id = _estimado_con_numero(client, db_session)
     tareas = db_session.get(Estimado, est_id).tareas
     tareas[0].estado_tarea = EstadoTarea.ANULADA
+    # FACTURADO a mano no frena al agente: igual la pasa a CERRADO.
+    tareas[1].estado_facturacion = EstadoFacturacion.FACTURADO
     db_session.commit()
     r = client_anonimo.post(MARCAR, json={"numeros_estimado": ["590", "999"]}, headers=_h())
     assert r.status_code == 200
     assert r.json()["tareas_marcadas"] == 1 and r.json()["estimados_no_encontrados"] == ["999"]
     db_session.expire_all()
     estados = {t.id: t.estado_facturacion for t in db_session.query(Tarea)}
-    assert estados[tareas[1].id] == EstadoFacturacion.FACTURADO
-    assert estados[tareas[0].id] != EstadoFacturacion.FACTURADO
+    assert estados[tareas[1].id] == EstadoFacturacion.CERRADO
+    assert estados[tareas[0].id] != EstadoFacturacion.CERRADO
     # idempotente: ya no hay nada pendiente
     assert client_anonimo.get(LISTA, headers=_h()).json() == []
     assert client_anonimo.post(MARCAR, json={"numeros_estimado": ["590"]}, headers=_h()).json()["tareas_marcadas"] == 0

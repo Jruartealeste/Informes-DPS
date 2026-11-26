@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
-from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS, TIPO_TAREA_LABELS
+from app.labels import ESTADO_LABELS, ESTADOS_FACTURADOS, FACTURACION_LABELS, FACTURACION_OCULTA_DEFAULT, TIPO_TAREA_LABELS
 from app.models import (
     Estimado,
     EstadoFacturacion,
@@ -29,12 +29,16 @@ def parsear_estado(enum_cls, valor: str, nombre: str, *, vacio_es_none: bool = F
 
 
 def parsear_facturacion_manual(valor: str, actual: EstadoFacturacion | None = None) -> EstadoFacturacion:
-    """Estado de facturación elegido a mano en la app. FACTURADO solo lo fija
-    el agente de IA (sync con Advertys): a mano se rechaza, salvo que la tarea
-    ya esté FACTURADO (para poder guardar otros campos sin cambiarlo)."""
+    """Estado de facturación elegido a mano en la app. CERRADO solo lo fija el
+    agente de IA (sync con Advertys, cuando el Estimado ya está facturado): a
+    mano no se puede poner ni sacar. Guardar sin cambiarlo (CERRADO -> CERRADO)
+    sí, para poder editar otros campos de la tarea."""
     estado = parsear_estado(EstadoFacturacion, valor, "Facturación")
-    if estado == EstadoFacturacion.FACTURADO and actual != EstadoFacturacion.FACTURADO:
-        raise HTTPException(403, "FACTURADO lo fija el agente de IA según Advertys; no se puede cambiar a mano.")
+    cerrado = EstadoFacturacion.CERRADO
+    if estado == cerrado and actual != cerrado:
+        raise HTTPException(403, "CERRADO lo fija el agente de IA según Advertys; no se puede elegir a mano.")
+    if actual == cerrado and estado != cerrado:
+        raise HTTPException(403, "La tarea está CERRADA por el agente de IA (Estimado facturado en Advertys); no se puede cambiar a mano.")
     return estado
 
 
@@ -50,6 +54,8 @@ def motivo_no_anulable(t: Tarea) -> str | None:
     las finalizadas sí, con advertencia (ver advertencia_anular)."""
     if t.estado_tarea == EstadoTarea.ANULADA:
         return "Ya anulada"
+    if t.estado_facturacion == EstadoFacturacion.CERRADO:
+        return "Cerrada (facturada en Advertys): no se puede anular"
     if t.estado_facturacion == EstadoFacturacion.FACTURADO:
         return "Facturada: no se puede anular"
     if t.estado_facturacion == EstadoFacturacion.PARA_FACTURAR:
@@ -226,11 +232,11 @@ def grupo_vm(key: str, tareas_orm: list[Tarea]) -> dict:
         "facturadas": facturadas,
         "pct": round((facturadas / total) * 100) if total else 0,
         "progreso": f"{facturadas}/{total}",
-        # Cerrada: todas sus tareas están anuladas o facturadas — el listado de
-        # OT internas la oculta por defecto.
+        # Cerrada: todas sus tareas están anuladas, CERRADAS por el agente o
+        # "no corresponde" — el listado de OT internas la oculta por defecto.
         "cerrada": total > 0
         and all(
-            t.estado_tarea == EstadoTarea.ANULADA or t.estado_facturacion == EstadoFacturacion.FACTURADO
+            t.estado_tarea == EstadoTarea.ANULADA or t.estado_facturacion in FACTURACION_OCULTA_DEFAULT
             for t in tareas_orm
         ),
         # Semáforo del listado de OT internas: qué estados de facturación

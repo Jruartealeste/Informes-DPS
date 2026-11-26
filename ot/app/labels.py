@@ -16,9 +16,13 @@ FACTURACION_LABELS: dict[EstadoFacturacion, str] = {
     EstadoFacturacion.FALTA_OK_CLIENTE: "FALTA OK CLIENTE",
     EstadoFacturacion.FACTURADO: "FACTURADO",
     EstadoFacturacion.NO_CORRESPONDE: "NO CORRESPONDE",
+    EstadoFacturacion.CERRADO: "CERRADO",
 }
 
-ESTADOS_FACTURADOS = {EstadoFacturacion.FACTURADO, EstadoFacturacion.NO_CORRESPONDE}
+ESTADOS_FACTURADOS = {EstadoFacturacion.FACTURADO, EstadoFacturacion.NO_CORRESPONDE, EstadoFacturacion.CERRADO}
+# Lo que el listado de Tareas oculta por defecto (el filtro de Facturación
+# arranca con todo tildado menos esto) — ver ot/CLAUDE.md.
+FACTURACION_OCULTA_DEFAULT = {EstadoFacturacion.CERRADO, EstadoFacturacion.NO_CORRESPONDE}
 ESTADOS_TAREA_CERRADA = {EstadoTarea.FINALIZADO, EstadoTarea.APROBADO}
 
 # Combos fijos del formulario "Nueva OT" de Advertys, relevados el
