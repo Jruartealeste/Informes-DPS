@@ -90,6 +90,8 @@ def test_ajuste_usd_entra_al_resultado():
                           "tc_cargado": 1500.0, "tc_bna": 1400.0, "ajuste": 1000.0}], "sin_cotizacion": []}
     con = compute.calcular(_balance_sintetico(), inputs, 2026, ajustes)
     assert _fila(con, "ajuste-usd")["valores"][0] == 1000.0
+    assert _fila(con, "ajuste-usd")["label"] == "Diferencia de cotización compras USD"
+    assert [it["proveedor"] for it in con["compras_usd"]] == ["X"] and base["compras_usd"] == []
     assert _fila(con, "resultado")["valores"][0] == _fila(base, "resultado")["valores"][0] + 1000.0
     # sin ajustes no cambia nada ni aparece la fila
     assert not any(f["id"] == "ajuste-usd" for f in base["filas"])
@@ -107,6 +109,20 @@ def test_staff_devengado_por_persona():
     # compatibilidad con el formato viejo (lista ya devengada)
     v, ps = compute.staff_freelance_devengado({"staff_freelance": [-1.0] * 12})
     assert v[0] == -1.0 and ps == []
+
+
+def test_staff_sin_facturar():
+    #          ene..ago        sep  oct  nov dic
+    al_dia = [5] * 8 + [5, 5, 0, 0]
+    falta_oct = [5] * 8 + [5, 0, 0, 0]
+    se_fue = [5] * 7 + [0, 0, 0, 0, 0]
+    inputs = {"anio": 2026, "staff_freelance_facturado": {"A": al_dia, "B": falta_oct, "C": se_fue}}
+    alertas = compute.staff_sin_facturar(inputs, 2026, 11)
+    assert [a["nombre"] for a in alertas] == ["B"]
+    assert alertas[0]["mes_falta"] == 10 and alertas[0]["mes_ultima"] == 9
+    # otro anio, o enero/febrero (sin datos del anio anterior): no alerta
+    assert compute.staff_sin_facturar(inputs, 2025, 11) == []
+    assert compute.staff_sin_facturar(inputs, 2026, 2) == []
 
 
 def test_contra_planilla_si_hay_export():
@@ -128,6 +144,7 @@ if __name__ == "__main__":
     test_calculo_sintetico()
     test_ajuste_usd()
     test_staff_devengado_por_persona()
+    test_staff_sin_facturar()
     test_ajuste_usd_entra_al_resultado()
     test_contra_planilla_si_hay_export()
     print("OK: tests de estado_resultados")

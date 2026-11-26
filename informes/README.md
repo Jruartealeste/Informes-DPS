@@ -833,6 +833,12 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   de corregir en la planilla hay que re-sincronizar `inputs.json` (pedírselo
   a Claude: lee la pestaña con el conector de Google Sheets — el pipeline no
   tiene credenciales propias de Google). El aguinaldo NO se prorratea.
+- **Alerta de staff sin facturar** (Javier, 2026-11-26): el informe avisa en
+  ámbar a quien facturó en el mes m−2 y no en el m−1 (m = mes en curso, por
+  mes de factura). Ej.: en noviembre, factura en septiembre y no en octubre.
+  Con 2+ meses sin facturar no alerta (se asume que dejó la agencia). Solo
+  año en curso y desde marzo; lee `inputs.json`, así que sin re-sincronizar
+  la planilla puede dar falsos avisos (`compute.staff_sin_facturar`).
 - **Los sueldos en relación de dependencia salen del F931** (Javier,
   2026-11-25); en `inputs.json` están copiados a mano. `inputs.json` está en `.gitignore` (montos de sueldos, el repo tiene remoto en GitHub): en un clon nuevo copiar `inputs.example.json` y completarlo; si falta, el informe sale con RRHH/retiro en 0 y avisa.
 - **Cuentas sin mapear:** todo código 4xx/5xx que `config.py` no clasifica

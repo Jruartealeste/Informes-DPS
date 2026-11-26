@@ -111,6 +111,33 @@ def staff_freelance_devengado(inputs: dict):
     return total, personas
 
 
+MESES_NOMBRE = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+                "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def staff_sin_facturar(inputs: dict, anio: int, mes_actual: int) -> list[dict]:
+    """Staff freelance que facturo en el mes m-2 pero NO en el m-1 (m = mes en
+    curso, por mes de FACTURA, no devengado). Ej.: en noviembre, factura en
+    septiembre y no en octubre -> alerta. Si ya lleva 2+ meses sin facturar se
+    asume que dejo de trabajar con la agencia y no se alerta (criterio de
+    Javier, 2026-11-26).
+
+    Solo aplica al anio en curso y desde marzo (enero/febrero necesitarian el
+    diciembre del anio anterior, que inputs.json no trae). Ojo: lee la copia de
+    la planilla en inputs.json, asi que si no se re-sincronizo despues de que
+    llegaron las facturas, la alerta puede ser falsa."""
+    fact = inputs.get("staff_freelance_facturado") or {}
+    if inputs.get("anio") != anio or mes_actual < 3:
+        return []
+    ult, ante = mes_actual - 1, mes_actual - 2  # 1-based
+    out = []
+    for nombre, montos in fact.items():
+        if abs(montos[ult - 1]) <= 0.5 and montos[ante - 1] > 0.5:
+            out.append({"nombre": nombre, "mes_falta": ult, "mes_ultima": ante,
+                        "importe_ultima": float(montos[ante - 1])})
+    return out
+
+
 def calcular(df: pd.DataFrame, inputs: dict, anio: int, ajustes_usd: dict | None = None) -> dict:
     """`ajustes_usd`: salida de ajuste_usd.calcular_ajustes() (opcional). Si viene,
     se suma una linea 'Ajuste cotizacion compras USD' a los costos indirectos."""
@@ -235,12 +262,13 @@ def calcular(df: pd.DataFrame, inputs: dict, anio: int, ajustes_usd: dict | None
         v = np.zeros(12)
         v[it["mes"] - 1] = it["ajuste"]
         ajuste_total = ajuste_total + v
-        fila(f"usd-{n}",
-             f"{it['proveedor']} {it['referencia']} · USD {it['usd']:,.2f} · cargado {it['tc_cargado']:,.0f} → BNA {it['tc_bna']:,.0f}",
-             "det", v, detalle=True)
+        usd_txt = f"{it['usd']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".").removesuffix(",00")
+        fila(f"usd-{n}", f"{it['proveedor']} (USD {usd_txt})", "det", v, detalle=True)
     if items_usd:
-        fila("ajuste-usd", "Ajuste cotización compras USD (BNA comprador a fecha de factura)", "grp", ajuste_total,
-             nota="Positivo = el costo real es menor que el cargado en el libro. Solo compras con moneda USD.")
+        fila("ajuste-usd", "Diferencia de cotización compras USD", "grp", ajuste_total,
+             nota="No es el costo de la compra (ese ya está en el libro): es la diferencia entre el dólar "
+                  "cargado en Advertys y el oficial BNA comprador del día de la factura. "
+                  "Positivo = el costo real fue menor. Detalle por compra debajo de la tabla.")
     fila("retiro", "Retiro socio (estimado)", "grp", retiro,
          nota="Número estimado para que el resultado sea más realista; no sale del libro.")
     indirectos = rrhh + fijos_total + retiro + ajuste_total
@@ -292,6 +320,7 @@ def calcular(df: pd.DataFrame, inputs: dict, anio: int, ajustes_usd: dict | None
         "meses_incompletos": [int(m) for m in inputs.get("meses_incompletos", [])],
         "filas": filas,
         "avisos": avisos,
+        "compras_usd": sorted(items_usd, key=lambda it: it.get("fecha", "")),
         "otros_ingresos": otros_ing_nombres,
         "tot": {
             "ingresos": float(ingresos.sum()),

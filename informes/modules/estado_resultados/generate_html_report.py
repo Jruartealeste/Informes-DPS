@@ -67,6 +67,18 @@ table.eerr .nota { display: block; font-size: 10.5px; font-weight: 400; color: v
 .eerr-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 .eerr-aviso { border-left: 3px solid #d03b3b; background: rgba(208,59,59,0.08); padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; font-size: 12.5px; }
 .eerr-nota { color: var(--text-secondary); font-size: 12px; margin-top: 8px; }
+.eerr-usd { margin-top: 22px; }
+.eerr-usd h3 { font-size: 13px; font-weight: 600; margin: 0 0 2px; }
+.eerr-usd p { color: var(--text-secondary); font-size: 12px; margin: 0 0 8px; }
+.eerr-usd table { border-collapse: collapse; font-size: 12px; width: 100%; max-width: 980px; }
+.eerr-usd th, .eerr-usd td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.eerr-usd th { font-weight: 600; color: var(--text-secondary); font-size: 11.5px; }
+.eerr-usd th:nth-child(-n+3), .eerr-usd td:nth-child(-n+3) { text-align: left; }
+.eerr-usd tr.tot td { font-weight: 600; border-bottom: none; }
+.eerr-usd .neg { color: #d03b3b; }
+.eerr-alerta-staff {border-left: 3px solid #d98a00; background: rgba(217,138,0,0.10); padding: 9px 12px; border-radius: 6px; margin-bottom: 10px; font-size: 12.5px; }
+.eerr-alerta-staff ul { margin: 4px 0 2px; padding-left: 18px; }
+.eerr-alerta-staff .sub { color: var(--text-secondary); font-size: 11.5px; }
 @media print { table.eerr th, table.eerr td:first-child { position: static; } .eerr-toolbar { display: none; } }
 </style>
 """
@@ -94,6 +106,37 @@ def _fmt(v, pct=False) -> str:
     if abs(v) < 0.5:  # evita "-0"
         return "0"
     return f"{v:,.0f}".replace(",", ".")
+
+
+def _tabla_usd(items: list) -> str:
+    """Detalle de la fila 'Diferencia de cotizacion compras USD': una fila por compra."""
+    if not items:
+        return ""
+    def ars(v):
+        return ("-" if v < -0.5 else "") + "$ " + f"{abs(v):,.0f}".replace(",", ".")
+    def usd(v):
+        return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    filas = []
+    for it in items:
+        libro, bna = it["usd"] * it["tc_cargado"], it["usd"] * it["tc_bna"]
+        f = it["fecha"]
+        filas.append(
+            f'<tr><td>{f[8:10]}/{f[5:7]}/{f[:4]}</td><td>{escape(it["proveedor"])}</td><td>{escape(it["referencia"])}</td>'
+            f'<td>{usd(it["usd"])}</td><td>{ars(it["tc_cargado"])}</td><td>{ars(it["tc_bna"])}</td>'
+            f'<td>{ars(libro)}</td><td>{ars(bna)}</td>'
+            f'<td class="{"neg" if it["ajuste"] < -0.5 else ""}">{ars(it["ajuste"])}</td></tr>'
+        )
+    total = sum(it["ajuste"] for it in items)
+    filas.append(f'<tr class="tot"><td colspan="8">Total diferencia</td>'
+                 f'<td class="{"neg" if total < -0.5 else ""}">{ars(total)}</td></tr>')
+    return (
+        '<div class="eerr-usd"><h3>Diferencia de cotización compras USD: detalle</h3>'
+        '<p>Cada compra en dólares ya está en el libro con el dólar cargado en Advertys. '
+        'Esta fila la recalcula con el dólar oficial BNA comprador del día de la factura y suma solo la diferencia.</p>'
+        '<table><thead><tr><th>Fecha</th><th>Proveedor</th><th>Factura</th><th>USD</th>'
+        '<th>Dólar cargado</th><th>Dólar BNA</th><th>Costo en libro</th><th>Costo a BNA</th><th>Diferencia</th>'
+        '</tr></thead><tbody>' + "".join(filas) + '</tbody></table></div>'
+    )
 
 
 def _tabla(res: dict, hoy: date) -> str:
@@ -232,6 +275,19 @@ def main(anio: int = config.ANIO_DEFAULT):
     )
 
     avisos = "".join(f'<div class="eerr-aviso">{escape(a)}</div>' for a in res["avisos"])
+    sin_fact = compute.staff_sin_facturar(inputs, anio, hoy.month) if anio == hoy.year else []
+    if sin_fact:
+        mes_falta = compute.MESES_NOMBRE[sin_fact[0]["mes_falta"] - 1]
+        mes_ult = compute.MESES_NOMBRE[sin_fact[0]["mes_ultima"] - 1]
+        items = "".join(f'<li><b>{escape(a["nombre"])}</b>: última factura en {mes_ult} por {m(a["importe_ultima"])}</li>'
+                        for a in sin_fact)
+        avisos = (
+            f'<div class="eerr-alerta-staff">Staff sin factura de {mes_falta}: '
+            f'{len(sin_fact)} {"persona facturó" if len(sin_fact) == 1 else "personas facturaron"} en {mes_ult} y todavía no en {mes_falta}.'
+            f'<ul>{items}</ul>'
+            '<div class="sub">Pedí la factura o, si ya llegó, re-sincronizá la planilla. '
+            'Quien lleva dos meses o más sin facturar no aparece acá: se asume que dejó de trabajar con la agencia.</div></div>'
+        ) + avisos
     notas = (
         '<p class="eerr-nota">Fuente: Balance Mensual de Advertys (Consultas &gt; Contabilidad), ingresos y costos por cuenta. '
         'RRHH y Retiro socio salen de <code>modules/estado_resultados/inputs.json</code> (no están en Advertys). '
@@ -249,7 +305,7 @@ def main(anio: int = config.ANIO_DEFAULT):
     secciones = "".join([
         CSS,
         hr.section(f"Resumen {anio}", resumen, wide=True),
-        hr.section(f"Estado de Resultados {anio}", avisos + toolbar + _tabla(res, hoy) + notas + JS, wide=True),
+        hr.section(f"Estado de Resultados {anio}", avisos + toolbar + _tabla(res, hoy) + notas + _tabla_usd(res.get("compras_usd", [])) + JS, wide=True),
     ])
     html = hr.page_shell(f"Estado de Resultados {anio}", "ALESTE ADS S.A. - Advertys", secciones)
     with open(config.REPORT_HTML_OUTPUT_PATH, "w", encoding="utf-8") as f:
@@ -258,6 +314,9 @@ def main(anio: int = config.ANIO_DEFAULT):
     print(f"  Ingresos {m(t['ingresos'])} | MG bruto {m(t['mg_bruto'])} | Resultado {m(t['resultado'])} | sin dif. pass-through {m(t['resultado_sin_dif'])}")
     for a in res["avisos"]:
         print(f"  AVISO: {a}")
+    for a in sin_fact:
+        print(f"  ALERTA STAFF: {a['nombre']} facturó en {compute.MESES_NOMBRE[a['mes_ultima'] - 1]} "
+              f"y no en {compute.MESES_NOMBRE[a['mes_falta'] - 1]}")
 
 
 if __name__ == "__main__":
