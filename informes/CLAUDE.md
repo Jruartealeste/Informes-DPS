@@ -39,6 +39,10 @@ workflow correspondiente:
   Advertys corriendo `modules/ordenes_trabajo/crear_ot.py`, con
   confirmación explícita de Javier en cada corrida — skill
   `crear-ot-advertys`.
+- `workflows/crear_factura_manual.md` — crear una Factura Producción Manual
+  en Borrador en Advertys (`modules/facturas/crear_factura_manual.py`, modo
+  prueba por defecto y `--guardar` solo con OK de Javier; nunca autoriza ni
+  pide CAE) — skill `crear-factura-manual-produccion`.
 - `workflows/marcar_facturados.md` — pasar a FACTURADO en la app `ot/` las
   tareas de Estimados ya facturados en Advertys (`marcar_facturados.py`,
   dry-run por defecto, `--aplicar` solo con OK de Javier) — skill
