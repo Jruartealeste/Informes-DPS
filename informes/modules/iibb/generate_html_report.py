@@ -67,7 +67,7 @@ MESES_VENTANA = 6
 
 
 def _fmt_money(v: float) -> str:
-    return f"$ {v:,.0f}".replace(",", ".")
+    return "$ " + f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def cargar_datos():

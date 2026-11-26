@@ -20,7 +20,8 @@ al final chequea que no haya quedado ninguna factura con deducible sin su
 detalle de OC/OP.
 
 Pasos:
-    1. facturas            (modules/facturas)
+    1. facturas            (modules/facturas) + Notas de Credito de ventas
+       (export_nc/ingest_nc por segmento -- agregado 2026-11-26)
     2. ordenes_compra      (modules/ordenes_compra)      -- resuelve Proveedor/Monto OC (Produccion)
     3. ordenes_publicidad  (modules/ordenes_publicidad)   -- resuelve Proveedor/Monto OP (Medios)
     4. iibb                (modules/iibb -- export propio + ingest)
@@ -43,7 +44,7 @@ import subprocess
 import sys
 
 import db
-from tools.actualizar_todo import exportar_e_ingerir
+from tools.actualizar_todo import NC_VENTAS_SEGMENTOS, exportar_e_ingerir, exportar_e_ingerir_nc_ventas
 
 MODULOS_PREVIOS = ["facturas", "ordenes_compra", "ordenes_publicidad"]
 
@@ -74,6 +75,15 @@ def main():
     for modulo in MODULOS_PREVIOS:
         exito, detalle = exportar_e_ingerir(modulo)
         (ok if exito else errores)[modulo] = detalle
+
+    # Notas de Credito de ventas: viven en vistas propias y el export de
+    # Facturas no las trae (ver modules/facturas/export_nc.py). Sin este
+    # paso, _marcar_estado_nc() del informe no ve las NC nuevas y las
+    # facturas que anulan quedan sumando en la base imponible (caso real
+    # 2026-11-26: las NC se habian bajado por ultima vez el 30/10).
+    for segmento in NC_VENTAS_SEGMENTOS:
+        exito, detalle = exportar_e_ingerir_nc_ventas(segmento)
+        (ok if exito else errores)[f"facturas (NC {segmento})"] = detalle
 
     exito, detalle = exportar_e_ingerir("iibb")
     (ok if exito else errores)["iibb"] = detalle
