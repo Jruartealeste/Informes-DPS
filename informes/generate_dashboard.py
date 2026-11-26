@@ -23,19 +23,27 @@ from modules.iibb import config as iibb_config
 from modules.ordenes_trabajo import config as ot_config
 from modules.pendientes import generate_html_report as pendientes_report
 
-# (id, label, archivo_html) -- el archivo sale de config.py de cada modulo
-# para no repetir el nombre a mano y quedar desincronizado si cambia.
+# (id, label, archivo_html, grupo) -- el archivo sale de config.py de cada
+# modulo para no repetir el nombre a mano y quedar desincronizado si cambia.
 # El basename alcanza porque dashboard.html vive en la misma carpeta salida/.
+# `grupo` arma las secciones del sidebar, en el orden en que aparecen aca;
+# modulo nuevo: sumarlo junto a los de su grupo y darle icono en
+# html_report.NAV_ICONS.
+G_OT = "Seguimiento de OT"
+G_COMPRAS = "Compras y proveedores"
+G_FACT = "Facturación"
+G_RES = "Resultados"
+
 MODULOS = [
-    ("pendientes", "Pendientes", os.path.basename(pendientes_report.REPORT_HTML_OUTPUT_PATH)),
-    ("estimados_pendientes", "Estimados Pendientes", os.path.basename(estimados_pendientes_report.REPORT_HTML_OUTPUT_PATH)),
-    ("ordenes_trabajo", "Ordenes de Trabajo", os.path.basename(ot_config.REPORT_HTML_OUTPUT_PATH)),
-    ("compras", "Compras", os.path.basename(compras_config.REPORT_HTML_OUTPUT_PATH)),
-    ("facturas", "Facturas", os.path.basename(facturas_config.REPORT_HTML_OUTPUT_PATH)),
-    ("iibb", "IIBB (recupero OC/OP)", os.path.basename(iibb_config.REPORT_HTML_OUTPUT_PATH)),
-    ("cobranza_proveedores", "Cobranza x Proveedores", os.path.basename(cobranza_proveedores_config.REPORT_HTML_OUTPUT_PATH)),
-    ("facturacion_aluar", "Facturación ALUAR", os.path.basename(facturacion_aluar_config.REPORT_HTML_OUTPUT_PATH)),
-    ("estado_resultados", "Estado de Resultados", os.path.basename(estado_resultados_config.REPORT_HTML_OUTPUT_PATH)),
+    ("pendientes", "Pendientes", os.path.basename(pendientes_report.REPORT_HTML_OUTPUT_PATH), G_OT),
+    ("estimados_pendientes", "Estimados pendientes", os.path.basename(estimados_pendientes_report.REPORT_HTML_OUTPUT_PATH), G_OT),
+    ("ordenes_trabajo", "Órdenes de trabajo", os.path.basename(ot_config.REPORT_HTML_OUTPUT_PATH), G_OT),
+    ("compras", "Compras", os.path.basename(compras_config.REPORT_HTML_OUTPUT_PATH), G_COMPRAS),
+    ("cobranza_proveedores", "Cobranza x proveedores", os.path.basename(cobranza_proveedores_config.REPORT_HTML_OUTPUT_PATH), G_COMPRAS),
+    ("iibb", "IIBB (recupero OC/OP)", os.path.basename(iibb_config.REPORT_HTML_OUTPUT_PATH), G_COMPRAS),
+    ("facturas", "Facturas", os.path.basename(facturas_config.REPORT_HTML_OUTPUT_PATH), G_FACT),
+    ("facturacion_aluar", "Facturación ALUAR", os.path.basename(facturacion_aluar_config.REPORT_HTML_OUTPUT_PATH), G_FACT),
+    ("estado_resultados", "Estado de resultados", os.path.basename(estado_resultados_config.REPORT_HTML_OUTPUT_PATH), G_RES),
 ]
 
 

@@ -404,37 +404,66 @@ footer.report-footer {
 .shell-sidebar.collapsed .sidebar-toggle { justify-content: center; padding: 8px 0; }
 .shell-sidebar.collapsed .sidebar-toggle .icon { transform: rotate(180deg); }
 .shell-sidebar.collapsed .sidebar-toggle-label { display: none; }
-.shell-nav { display: flex; flex-direction: column; gap: 2px; }
+.shell-nav { display: flex; flex-direction: column; gap: 18px; }
+.shell-nav-group { display: flex; flex-direction: column; gap: 2px; }
+.shell-nav-heading {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0 10px 6px;
+  white-space: nowrap;
+}
 .shell-nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 9px;
   border: none;
-  border-right: 2px solid transparent;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
-.shell-nav-item:hover { background: var(--page-plane); }
-.shell-nav-item.active {
-  background: var(--brand-tint);
-  border-right-color: var(--brand);
-  color: var(--brand);
-  font-weight: 600;
+.shell-nav-item:hover { background: var(--page-plane); color: var(--text-primary); }
+.shell-nav-item:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.shell-nav-item .nav-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--page-plane);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
 }
-.shell-nav-item .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85; }
-.shell-nav-item .nav-icon svg { display: block; width: 100%; height: 100%; }
-.shell-nav-item.active .nav-icon { opacity: 1; }
+.shell-nav-item .nav-icon svg { display: block; width: 17px; height: 17px; }
+.shell-nav-item:hover .nav-icon { color: var(--text-primary); }
+.shell-nav-item.active { color: var(--text-primary); font-weight: 600; background: var(--brand-tint); }
+.shell-nav-item.active .nav-icon {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
 .shell-nav-item .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.shell-sidebar.collapsed .shell-nav-item { justify-content: center; padding: 9px 0; gap: 0; }
+.shell-sidebar.collapsed .shell-nav { gap: 10px; }
+.shell-sidebar.collapsed .shell-nav-heading {
+  font-size: 0;
+  padding: 0;
+  margin: 0 14px 8px;
+  border-top: 1px solid var(--border);
+}
+.shell-sidebar.collapsed .shell-nav-group:first-child .shell-nav-heading { display: none; }
+.shell-sidebar.collapsed .shell-nav-item { justify-content: center; padding: 4px 0; gap: 0; background: transparent; }
 .shell-sidebar.collapsed .nav-label { display: none; }
+.shell-heading { display: flex; flex-direction: column; gap: 1px; }
+.shell-crumb { font-size: 11.5px; color: var(--text-muted); }
+.shell-crumb:empty { display: none; }
 .shell-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .shell-topbar {
   display: flex;
@@ -484,15 +513,11 @@ footer.report-footer {
       <span class="icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span class="sidebar-toggle-label">Contraer</span>
     </button>
-    <div class="shell-nav"><button type="button" class="shell-nav-item" data-id="pendientes" data-src="informe_pendientes.html" data-label="Pendientes" title="Pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Pendientes</span></button><button type="button" class="shell-nav-item" data-id="estimados_pendientes" data-src="informe_estimados_pendientes.html" data-label="Estimados Pendientes" title="Estimados Pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Estimados Pendientes</span></button><button type="button" class="shell-nav-item" data-id="ordenes_trabajo" data-src="informe_dinamico.html" data-label="Ordenes de Trabajo" title="Ordenes de Trabajo"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="4" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 11.5h7M8.5 15h7M8.5 18.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Ordenes de Trabajo</span></button><button type="button" class="shell-nav-item" data-id="compras" data-src="informe_compras.html" data-label="Compras" title="Compras"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 8h10l-1 12a2 2 0 01-2 2H10a2 2 0 01-2-2L7 8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 8V6a3 3 0 016 0v2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Compras</span></button><button type="button" class="shell-nav-item" data-id="facturas" data-src="informe_facturas.html" data-label="Facturas" title="Facturas"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3v4a1 1 0 001 1h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12.5h6M9 15.5h6M9 18.5h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Facturas</span></button><button type="button" class="shell-nav-item" data-id="iibb" data-src="informe_iibb.html" data-label="IIBB (recupero OC/OP)" title="IIBB (recupero OC/OP)"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">IIBB (recupero OC/OP)</span></button><button type="button" class="shell-nav-item" data-id="cobranza_proveedores" data-src="informe_cobranza_proveedores.html" data-label="Cobranza x Proveedores" title="Cobranza x Proveedores"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Cobranza x Proveedores</span></button><button type="button" class="shell-nav-item" data-id="facturacion_aluar" data-src="informe_facturacion_aluar.html" data-label="Facturación ALUAR" title="Facturación ALUAR"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span><span class="nav-label">Facturación ALUAR</span></button><button type="button" class="shell-nav-item" data-id="estado_resultados" data-src="informe_estado_resultados.html" data-label="Estado de Resultados" title="Estado de Resultados"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 20h16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 20v-6M12 20V8M17 20v-9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9l5-4 4 3 5-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Estado de Resultados</span></button></div>
+    <div class="shell-nav"><div class="shell-nav-group"><div class="shell-nav-heading">Seguimiento de OT</div><button type="button" class="shell-nav-item" data-id="pendientes" data-src="informe_pendientes.html" data-label="Pendientes" data-group="Seguimiento de OT" title="Pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Pendientes</span></button><button type="button" class="shell-nav-item" data-id="estimados_pendientes" data-src="informe_estimados_pendientes.html" data-label="Estimados pendientes" data-group="Seguimiento de OT" title="Estimados pendientes"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="8" y="6" width="8" height="3.5" rx="0.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h.01" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"/></svg></span><span class="nav-label">Estimados pendientes</span></button><button type="button" class="shell-nav-item" data-id="ordenes_trabajo" data-src="informe_dinamico.html" data-label="Órdenes de trabajo" data-group="Seguimiento de OT" title="Órdenes de trabajo"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="4" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 11.5h7M8.5 15h7M8.5 18.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Órdenes de trabajo</span></button></div><div class="shell-nav-group"><div class="shell-nav-heading">Compras y proveedores</div><button type="button" class="shell-nav-item" data-id="compras" data-src="informe_compras.html" data-label="Compras" data-group="Compras y proveedores" title="Compras"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 4h2.2l2.1 11.2a1.5 1.5 0 001.5 1.3h8.4a1.5 1.5 0 001.5-1.2L20 8H6.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="20" r="1.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16.5" cy="20" r="1.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Compras</span></button><button type="button" class="shell-nav-item" data-id="cobranza_proveedores" data-src="informe_cobranza_proveedores.html" data-label="Cobranza x proveedores" data-group="Compras y proveedores" title="Cobranza x proveedores"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 8h13l-3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 16H7l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Cobranza x proveedores</span></button><button type="button" class="shell-nav-item" data-id="iibb" data-src="informe_iibb.html" data-label="IIBB (recupero OC/OP)" data-group="Compras y proveedores" title="IIBB (recupero OC/OP)"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3.5 12.6V5a1.5 1.5 0 011.5-1.5h7.6a1.5 1.5 0 011 .4l7.4 7.4a1.5 1.5 0 010 2.1l-7.6 7.6a1.5 1.5 0 01-2.1 0L3.9 13.6a1.5 1.5 0 01-.4-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.5 15.5l5-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="11" r="0.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="15" r="0.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">IIBB (recupero OC/OP)</span></button></div><div class="shell-nav-group"><div class="shell-nav-heading">Facturación</div><button type="button" class="shell-nav-item" data-id="facturas" data-src="informe_facturas.html" data-label="Facturas" data-group="Facturación" title="Facturas"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3v4a1 1 0 001 1h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12.5h6M9 15.5h6M9 18.5h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Facturas</span></button><button type="button" class="shell-nav-item" data-id="facturacion_aluar" data-src="informe_facturacion_aluar.html" data-label="Facturación ALUAR" data-group="Facturación" title="Facturación ALUAR"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 21V11l5 3V11l5 3V5h4l1 0v16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21h18M17 5V3.5M14 5V3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 17.5h1.5M10.5 17.5H12M14.5 17.5H16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Facturación ALUAR</span></button></div><div class="shell-nav-group"><div class="shell-nav-heading">Resultados</div><button type="button" class="shell-nav-item" data-id="estado_resultados" data-src="informe_estado_resultados.html" data-label="Estado de resultados" data-group="Resultados" title="Estado de resultados"><span class="nav-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 20h16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 20v-6M12 20V8M17 20v-9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9l5-4 4 3 5-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nav-label">Estado de resultados</span></button></div></div>
   </nav>
   <div class="shell-main">
     <div class="shell-topbar no-print">
-      <h1 id="shell-title">Dashboard</h1>
-      <div class="header-actions">
-        <button type="button" class="theme-toggle no-print" data-theme-toggle title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro"><span class="icon icon-sun"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="icon icon-moon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
-        <button type="button" class="print-btn" id="shell-print">Imprimir / Guardar PDF</button>
-      </div>
+      <div class="shell-heading"><span class="shell-crumb" id="shell-crumb"></span><h1 id="shell-title">Dashboard</h1></div>
     </div>
     <div class="shell-frame-wrap">
       <iframe id="shell-frame" title="Informe"></iframe>
@@ -538,6 +563,8 @@ footer.report-footer {
     items.forEach(function (it) { it.classList.toggle('active', it === item); });
     frame.src = item.dataset.src;
     if (titleEl) titleEl.textContent = item.dataset.label;
+    var crumbEl = document.getElementById('shell-crumb');
+    if (crumbEl) crumbEl.textContent = item.dataset.group || '';
     try { localStorage.setItem(STORAGE_KEY, id); } catch (e) {}
   }
 
@@ -552,20 +579,6 @@ footer.report-footer {
     : (items[0] && items[0].dataset.id);
   if (initial) activate(initial);
 
-  var printBtn = document.getElementById('shell-print');
-  if (printBtn) printBtn.addEventListener('click', function () {
-    // iframes de otro archivo local (file://) a veces bloquean el acceso a
-    // contentWindow segun el navegador -- si tira SecurityError, se cae a
-    // imprimir el shell (mejor eso que un boton roto).
-    try {
-      if (frame && frame.contentWindow) {
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-        return;
-      }
-    } catch (e) {}
-    window.print();
-  });
 })();
 
 (function () {

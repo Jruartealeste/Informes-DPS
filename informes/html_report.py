@@ -2636,37 +2636,66 @@ SHELL_CSS = """
 .shell-sidebar.collapsed .sidebar-toggle { justify-content: center; padding: 8px 0; }
 .shell-sidebar.collapsed .sidebar-toggle .icon { transform: rotate(180deg); }
 .shell-sidebar.collapsed .sidebar-toggle-label { display: none; }
-.shell-nav { display: flex; flex-direction: column; gap: 2px; }
+.shell-nav { display: flex; flex-direction: column; gap: 18px; }
+.shell-nav-group { display: flex; flex-direction: column; gap: 2px; }
+.shell-nav-heading {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0 10px 6px;
+  white-space: nowrap;
+}
 .shell-nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 9px;
   border: none;
-  border-right: 2px solid transparent;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
-.shell-nav-item:hover { background: var(--page-plane); }
-.shell-nav-item.active {
-  background: var(--brand-tint);
-  border-right-color: var(--brand);
-  color: var(--brand);
-  font-weight: 600;
+.shell-nav-item:hover { background: var(--page-plane); color: var(--text-primary); }
+.shell-nav-item:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.shell-nav-item .nav-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--page-plane);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
 }
-.shell-nav-item .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85; }
-.shell-nav-item .nav-icon svg { display: block; width: 100%; height: 100%; }
-.shell-nav-item.active .nav-icon { opacity: 1; }
+.shell-nav-item .nav-icon svg { display: block; width: 17px; height: 17px; }
+.shell-nav-item:hover .nav-icon { color: var(--text-primary); }
+.shell-nav-item.active { color: var(--text-primary); font-weight: 600; background: var(--brand-tint); }
+.shell-nav-item.active .nav-icon {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
 .shell-nav-item .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.shell-sidebar.collapsed .shell-nav-item { justify-content: center; padding: 9px 0; gap: 0; }
+.shell-sidebar.collapsed .shell-nav { gap: 10px; }
+.shell-sidebar.collapsed .shell-nav-heading {
+  font-size: 0;
+  padding: 0;
+  margin: 0 14px 8px;
+  border-top: 1px solid var(--border);
+}
+.shell-sidebar.collapsed .shell-nav-group:first-child .shell-nav-heading { display: none; }
+.shell-sidebar.collapsed .shell-nav-item { justify-content: center; padding: 4px 0; gap: 0; background: transparent; }
 .shell-sidebar.collapsed .nav-label { display: none; }
+.shell-heading { display: flex; flex-direction: column; gap: 1px; }
+.shell-crumb { font-size: 11.5px; color: var(--text-muted); }
+.shell-crumb:empty { display: none; }
 .shell-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .shell-topbar {
   display: flex;
@@ -2726,6 +2755,8 @@ SHELL_JS = """
     items.forEach(function (it) { it.classList.toggle('active', it === item); });
     frame.src = item.dataset.src;
     if (titleEl) titleEl.textContent = item.dataset.label;
+    var crumbEl = document.getElementById('shell-crumb');
+    if (crumbEl) crumbEl.textContent = item.dataset.group || '';
     try { localStorage.setItem(STORAGE_KEY, id); } catch (e) {}
   }
 
@@ -2740,20 +2771,6 @@ SHELL_JS = """
     : (items[0] && items[0].dataset.id);
   if (initial) activate(initial);
 
-  var printBtn = document.getElementById('shell-print');
-  if (printBtn) printBtn.addEventListener('click', function () {
-    // iframes de otro archivo local (file://) a veces bloquean el acceso a
-    // contentWindow segun el navegador -- si tira SecurityError, se cae a
-    // imprimir el shell (mejor eso que un boton roto).
-    try {
-      if (frame && frame.contentWindow) {
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-        return;
-      }
-    } catch (e) {}
-    window.print();
-  });
 })();
 """
 
@@ -2763,30 +2780,58 @@ _ICON_STROKE = 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-line
 # Un icono de linea por modulo (id -> SVG interno, sin el wrapper <svg>) para
 # poder diferenciar cada pestana cuando el sidebar esta contraido y solo
 # queda el icono visible (el label de texto se oculta, ver .nav-label).
-# Modulo nuevo que no esta en este mapa cae a NAV_ICON_DEFAULT (circulo) en
+# Modulo nuevo que no esta en este mapa cae a NAV_ICON_DEFAULT (punto) en
 # vez de romper -- pero conviene sumarle su propio icono aca al darlo de alta.
+_S = _ICON_STROKE
 NAV_ICONS = {
-    "pendientes": f'<circle cx="12" cy="12" r="8.5" {_ICON_STROKE}/><path d="M12 7.5V12l3 2" {_ICON_STROKE}/>',
+    # reloj: lo que esta abierto esperando cierre
+    "pendientes": f'<circle cx="12" cy="12" r="8.5" {_S}/><path d="M12 7.5V12l3 2" {_S}/>',
+    # calculadora: estimado de costo
+    "estimados_pendientes": (
+        f'<rect x="5" y="3" width="14" height="18" rx="2" {_S}/>'
+        f'<rect x="8" y="6" width="8" height="3.5" rx="0.6" {_S}/>'
+        f'<path d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h.01" {_S} stroke-width="2.4"/>'
+    ),
+    # portapapeles con lista: la OT
     "ordenes_trabajo": (
-        f'<rect x="5" y="4" width="14" height="17" rx="2" {_ICON_STROKE}/>'
-        f'<path d="M9 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" {_ICON_STROKE}/>'
-        f'<path d="M8.5 11.5h7M8.5 15h7M8.5 18.5h4" {_ICON_STROKE}/>'
+        f'<rect x="5" y="4" width="14" height="17" rx="2" {_S}/>'
+        f'<path d="M9 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" {_S}/>'
+        f'<path d="M8.5 11.5h7M8.5 15h7M8.5 18.5h4" {_S}/>'
     ),
+    # changuito: ordenes de compra
     "compras": (
-        f'<path d="M7 8h10l-1 12a2 2 0 01-2 2H10a2 2 0 01-2-2L7 8z" {_ICON_STROKE}/>'
-        f'<path d="M9 8V6a3 3 0 016 0v2" {_ICON_STROKE}/>'
+        f'<path d="M3 4h2.2l2.1 11.2a1.5 1.5 0 001.5 1.3h8.4a1.5 1.5 0 001.5-1.2L20 8H6.2" {_S}/>'
+        f'<circle cx="9.5" cy="20" r="1.3" {_S}/><circle cx="16.5" cy="20" r="1.3" {_S}/>'
     ),
+    # flechas de ida y vuelta: lo cobrado al cliente contra lo pagado al proveedor
+    "cobranza_proveedores": (
+        f'<path d="M4 8h13l-3.5-3.5" {_S}/>'
+        f'<path d="M20 16H7l3.5 3.5" {_S}/>'
+    ),
+    # etiqueta con %: impuesto / retencion
+    "iibb": (
+        f'<path d="M3.5 12.6V5a1.5 1.5 0 011.5-1.5h7.6a1.5 1.5 0 011 .4l7.4 7.4a1.5 1.5 0 010 2.1l-7.6 7.6a1.5 1.5 0 01-2.1 0L3.9 13.6a1.5 1.5 0 01-.4-1z" {_S}/>'
+        f'<path d="M9.5 15.5l5-5" {_S}/><circle cx="10" cy="11" r="0.9" {_S}/><circle cx="14" cy="15" r="0.9" {_S}/>'
+    ),
+    # comprobante con esquina doblada: factura
     "facturas": (
-        f'<path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" {_ICON_STROKE}/>'
-        f'<path d="M14 3v4a1 1 0 001 1h4" {_ICON_STROKE}/>'
-        f'<path d="M9 12.5h6M9 15.5h6M9 18.5h3" {_ICON_STROKE}/>'
+        f'<path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" {_S}/>'
+        f'<path d="M14 3v4a1 1 0 001 1h4" {_S}/>'
+        f'<path d="M9 12.5h6M9 15.5h6M9 18.5h3" {_S}/>'
+    ),
+    # planta industrial: cliente ALUAR
+    "facturacion_aluar": (
+        f'<path d="M3 21V11l5 3V11l5 3V5h4l1 0v16" {_S}/>'
+        f'<path d="M3 21h18M17 5V3.5M14 5V3.5" {_S}/>'
+        f'<path d="M6.5 17.5h1.5M10.5 17.5H12M14.5 17.5H16" {_S}/>'
+    ),
+    # barras con tendencia: resultado del periodo
+    "estado_resultados": (
+        f'<path d="M4 20h16" {_S}/>'
+        f'<path d="M7 20v-6M12 20V8M17 20v-9" {_S}/>'
+        f'<path d="M5 9l5-4 4 3 5-5" {_S}/>'
     ),
 }
-NAV_ICONS["estado_resultados"] = (
-    f'<path d="M4 20h16" {_ICON_STROKE}/>'
-    f'<path d="M7 20v-6M12 20V8M17 20v-9" {_ICON_STROKE}/>'
-    f'<path d="M5 9l5-4 4 3 5-5" {_ICON_STROKE}/>'
-)
 NAV_ICON_DEFAULT = f'<circle cx="12" cy="12" r="4" fill="currentColor"/>'
 
 _CHEVRON_ICON = f'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 18l-6-6 6-6" {_ICON_STROKE}/></svg>'
@@ -2798,14 +2843,31 @@ def _nav_icon_svg(id_: str) -> str:
 
 
 def dashboard_shell(modules: list) -> str:
-    """`modules`: lista de (id, label, archivo_html). Arma el shell con
-    sidebar de navegacion + iframe que carga el informe del modulo activo."""
+    """`modules`: lista de (id, label, archivo_html[, grupo]). Arma el shell
+    con sidebar de navegacion (seccionado por grupo, en el orden en que
+    aparece cada grupo por primera vez) + iframe que carga el informe del
+    modulo activo."""
+    grupos: dict = {}
+    for m in modules:
+        id_, label, archivo = m[0], m[1], m[2]
+        grupo = m[3] if len(m) > 3 else ""
+        grupos.setdefault(grupo, []).append((id_, label, archivo))
+
+    def _item(id_, label, archivo, grupo):
+        return (
+            f'<button type="button" class="shell-nav-item" data-id="{escape(id_)}" '
+            f'data-src="{escape(archivo)}" data-label="{escape(label)}" '
+            f'data-group="{escape(grupo)}" title="{escape(label)}">'
+            f'<span class="nav-icon">{_nav_icon_svg(id_)}</span>'
+            f'<span class="nav-label">{escape(label)}</span></button>'
+        )
+
     nav_items = "".join(
-        f'<button type="button" class="shell-nav-item" data-id="{escape(id_)}" '
-        f'data-src="{escape(archivo)}" data-label="{escape(label)}" title="{escape(label)}">'
-        f'<span class="nav-icon">{_nav_icon_svg(id_)}</span>'
-        f'<span class="nav-label">{escape(label)}</span></button>'
-        for id_, label, archivo in modules
+        f'<div class="shell-nav-group">'
+        + (f'<div class="shell-nav-heading">{escape(grupo)}</div>' if grupo else "")
+        + "".join(_item(i, l, a, grupo) for i, l, a in items)
+        + '</div>'
+        for grupo, items in grupos.items()
     )
     return f"""<!doctype html>
 <html lang="es">
@@ -2834,11 +2896,7 @@ def dashboard_shell(modules: list) -> str:
   </nav>
   <div class="shell-main">
     <div class="shell-topbar no-print">
-      <h1 id="shell-title">Dashboard</h1>
-      <div class="header-actions">
-        {THEME_TOGGLE_BTN}
-        <button type="button" class="print-btn" id="shell-print">Imprimir / Guardar PDF</button>
-      </div>
+      <div class="shell-heading"><span class="shell-crumb" id="shell-crumb"></span><h1 id="shell-title">Dashboard</h1></div>
     </div>
     <div class="shell-frame-wrap">
       <iframe id="shell-frame" title="Informe"></iframe>
