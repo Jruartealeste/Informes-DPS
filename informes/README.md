@@ -795,10 +795,13 @@ Próximo módulo: a definir (avisale a Claude Code cuál seguís usando más).
   sueldo del anterior, criterio devengado) — no es un bug;
   `inputs.json › meses_incompletos` marca los meses que todavía esperan
   facturas. (2) Retiro socio es un número estimado, queda dentro del
-  RESULTADO rotulado "(estimado)". (3) Medios se ve en dos vistas: bruto
-  (con pass-through OP) y neto (servicio + markup + bonificaciones), con la
-  diferencia de pass-through acumulada aparte y un "RESULTADO sin
-  diferencia pass-through" conservador.
+  RESULTADO rotulado "(estimado)". (3) Medios: arriba va bruto
+  (con pass-through OP); al pie, la sección "Medios: cuánto le queda a la
+  agencia" se lee facturado − pagado a los medios = margen, abierto en
+  comisión/markup/bonificaciones (neto) + "diferencia todavía sin costo
+  cargado" (pass-through; Total = acumulado del año), y un "RESULTADO sin
+  esa diferencia" conservador. Reordenada el 2026-11-26 (antes "bruto vs
+  neto", con fila de acumulado aparte, confundía).
 - **Gotcha: `common.normalizar_numero` devuelve `None` para los importes
   negativos del export de Balance Mensual** (`-$ 2.783.414,80` → `- 2783414.80`
   no parsea por el espacio). En este informe eso borraba todos los

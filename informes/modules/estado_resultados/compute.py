@@ -286,16 +286,22 @@ def calcular(df: pd.DataFrame, inputs: dict, anio: int, ajustes_usd: dict | None
     medios_neto = _suma(cuentas, neto_cods)
     pass_fact = _suma(cuentas, pass_cods)
     dif_pass = pass_fact + costo_med
-    fila("h-medios", "VISTA MEDIOS: BRUTO vs NETO", "sec", np.zeros(12), total=None)
-    fila("m-neto", "Ingresos Medios NETOS (agencia + markup + bonificaciones)", "grp", medios_neto)
-    fila("m-pass", "Facturado pass-through (venta OP)", "grp", pass_fact)
-    fila("m-costo", "Costo de medios (OP + sin OP + ajustes)", "grp", costo_med)
-    fila("m-dif", "Diferencia pass-through (facturado − costo)", "sub", dif_pass,
-         nota="Desfase entre lo facturado al cliente y lo cargado del medio; tiende a 0 acumulado.")
-    fila("m-dif-acum", "Diferencia pass-through ACUMULADA", "grp", np.cumsum(dif_pass), total=float(dif_pass.sum()))
-    fila("m-mg", "MG bruto Medios (neto + diferencia)", "sub", medios_neto + dif_pass)
-    fila("m-resultado", "RESULTADO sin diferencia pass-through", "tot", resultado - dif_pass,
-         nota="Resultado conservador: saca la diferencia de pass-through, que todavía puede revertirse.")
+    # Se lee de arriba hacia abajo: facturado - pagado = margen, y el margen se
+    # abre en lo que gana la agencia (neto) + lo facturado que todavia no tiene
+    # el costo del medio cargado (dif_pass; deberia tender a 0). Reordenado
+    # 2026-11-26 porque la version "bruto vs neto" confundia.
+    fila("h-medios", "MEDIOS: CUÁNTO LE QUEDA A LA AGENCIA", "sec", np.zeros(12), total=None)
+    fila("m-bruto", "Facturado a clientes por medios", "grp", medios_neto + pass_fact)
+    fila("m-costo", "Pagado a los medios", "grp", costo_med,
+         nota="Órdenes de publicidad, compras de medios sin OP y ajustes.")
+    fila("m-mg", "Margen de medios", "sub", medios_neto + dif_pass)
+    fila("m-neto", "Comisión, markup y bonificaciones", "parte", medios_neto,
+         nota="Lo que gana la agencia con medios.")
+    fila("m-dif", "Diferencia todavía sin costo cargado", "parte", dif_pass,
+         nota="Facturado al cliente cuyo costo del medio todavía no está cargado (o al revés). "
+              "Debería tender a 0; la columna Total es el acumulado del año.")
+    fila("m-resultado", "RESULTADO sin esa diferencia", "tot", resultado - dif_pass,
+         nota="Resultado conservador: saca la diferencia, que todavía puede revertirse.")
 
     # ---------------- CONTROLES ----------------
     staff_libro = _suma(cuentas, excluidas_staff)

@@ -67,6 +67,10 @@ def test_calculo_sintetico():
     assert _fila(r, "m-resultado")["valores"][0] == 1300.0 - 380.0 - 200.0
     # MG medios (neto + dif) == ingresos medios + costo medios
     assert _fila(r, "m-mg")["valores"][0] == (5000.0 + 500.0) - 4800.0
+    assert _fila(r, "m-bruto")["valores"][0] == 5500.0 and _fila(r, "m-costo")["valores"][0] == -4800.0
+    # margen = comision + diferencia
+    assert _fila(r, "m-mg")["valores"][0] == _fila(r, "m-neto")["valores"][0] + _fila(r, "m-dif")["valores"][0]
+    assert not any(f["id"] == "m-dif-acum" for f in r["filas"])
 
 
 def test_ajuste_usd():

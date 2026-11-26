@@ -36,6 +36,8 @@ table.eerr tr.sec td:first-child { background: var(--page-plane); }
 table.eerr tr.det td { color: var(--text-secondary); font-size: 11.5px; }
 table.eerr tr.det td:first-child { padding-left: 28px; }
 table.eerr tr.grp td:first-child { padding-left: 16px; }
+table.eerr tr.parte td { color: var(--text-secondary); }
+table.eerr tr.parte td:first-child { padding-left: 32px; }
 table.eerr tr.sub td { font-weight: 600; }
 table.eerr tr.tot td { font-weight: 700; border-top: 1px solid var(--baseline); background: var(--brand-tint); }
 /* La primera columna es sticky: su fondo tiene que ser opaco en todas las filas,
@@ -268,8 +270,8 @@ def main(anio: int = config.ANIO_DEFAULT):
         + kpi("Ingresos", m(t["ingresos"]), sub=f"{n_meses} meses con datos")
         + kpi("Margen bruto", m(t["mg_bruto"]), pct(t["mg_bruto"], t["ingresos"]), "sobre ingresos")
         + kpi("Resultado", m(t["resultado"]), pct(t["resultado"], t["ingresos"]), "incluye retiro estimado", clave=True)
-        + kpi("Sin diferencia pass-through", m(t["resultado_sin_dif"]),
-              sub=f"saca {m(t['dif_pass'])} de Medios sin costo cargado")
+        + kpi("Resultado sin diferencia de medios", m(t["resultado_sin_dif"]),
+              sub=f"saca {m(t['dif_pass'])} facturados sin costo del medio cargado")
         + '</div><div class="eerr-grafico"><div class="g-label">Resultado por mes</div>'
         + _grafico_resultado(res) + '</div></div>'
     )
@@ -295,7 +297,7 @@ def main(anio: int = config.ANIO_DEFAULT):
         'los meses en cursiva tienen facturas pendientes de llegar. '
         'En el detalle por cuenta, las celdas en amarillo del staff son facturas corregidas a mano en la planilla. '
         '<b>Retiro socio</b> es un número estimado. '
-        '<b>Medios</b> se muestra bruto (con pass-through de OP) y neto en la última sección. '
+        'La última sección muestra cuánto le queda a la agencia de <b>Medios</b>: lo facturado menos lo pagado a los medios, abierto en comisión y en lo facturado que todavía no tiene el costo del medio cargado. '
         + ('El mes con * está en curso. ' if res["anio"] == hoy.year and res["meses_datos"] and max(res["meses_datos"]) == hoy.month else '')
         + '</p>'
     )
@@ -311,7 +313,7 @@ def main(anio: int = config.ANIO_DEFAULT):
     with open(config.REPORT_HTML_OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"OK: informe generado en {config.REPORT_HTML_OUTPUT_PATH}")
-    print(f"  Ingresos {m(t['ingresos'])} | MG bruto {m(t['mg_bruto'])} | Resultado {m(t['resultado'])} | sin dif. pass-through {m(t['resultado_sin_dif'])}")
+    print(f"  Ingresos {m(t['ingresos'])} | MG bruto {m(t['mg_bruto'])} | Resultado {m(t['resultado'])} | sin diferencia de medios {m(t['resultado_sin_dif'])}")
     for a in res["avisos"]:
         print(f"  AVISO: {a}")
     for a in sin_fact:
