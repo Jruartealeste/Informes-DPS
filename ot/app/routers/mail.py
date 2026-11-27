@@ -1,4 +1,6 @@
+import logging
 import re
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -13,6 +15,14 @@ from app.templating import templates
 from app.viewmodels import tarea_vm
 
 router = APIRouter()
+log = logging.getLogger(__name__)
+
+# Argentina, UTC-3 fijo (sin horario de verano) — mismo criterio que auth_routes
+_AR = timezone(timedelta(hours=-3))
+_FORMATO_PROGRAMADO = "%Y-%m-%dT%H:%M"  # lo que manda <input type="datetime-local">
+# tope de mails por pasada del despachador: cada uno es un request a Gmail y
+# corre dentro de /auth/mantener (no tiene que tardar demasiado)
+DESPACHO_MAX_POR_PASADA = 10
 
 
 ASUNTO_DETALLE_MAX = 50
@@ -102,6 +112,20 @@ def _destinatarios(db: Session, ids_sel: set[int]) -> tuple[list[str], str]:
     return con_mail, "; ".join(partes) if partes else "(sin destinatarios elegidos)"
 
 
+def _ahora_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _parsear_programado(valor: str) -> datetime | None:
+    """'AAAA-MM-DDTHH:MM' en hora de Argentina -> datetime UTC (None si no
+    se entiende)."""
+    try:
+        local = datetime.strptime(valor.strip(), _FORMATO_PROGRAMADO)
+    except ValueError:
+        return None
+    return local.replace(tzinfo=_AR).astimezone(timezone.utc)
+
+
 def _sheet_ctx(
     db: Session,
     usuario: Usuario,
@@ -111,6 +135,7 @@ def _sheet_ctx(
     seleccionados: set[int] | None = None,
     error: str | None = None,
     misma_cadena: bool | None = None,
+    programado_para: str = "",
 ) -> dict:
     tarea = cargar_tarea_con_relaciones(db, tarea_id)
     det = tarea_vm(tarea)
@@ -155,6 +180,8 @@ def _sheet_ctx(
         "error": error,
         "remitente": usuario.email,
         "gmail_conectado": bool(usuario.gmail_refresh_token_enc),
+        "programado_para": programado_para,
+        "programado_min": datetime.now(_AR).strftime(_FORMATO_PROGRAMADO),
     }
 
 
@@ -173,6 +200,7 @@ def enviar_mail_tarea(
     destinatario_ids: list[str] = Form([]),
     accion: str = Form("enviar"),
     misma_cadena: str = Form(""),
+    programado_para: str = Form(""),
     archivos: list[UploadFile] = File([]),
 ):
     usuario = _usuario(request, db)
@@ -198,6 +226,37 @@ def enviar_mail_tarea(
             tarea_id=tarea_id, destinatarios=etiqueta, asunto=asunto, cuerpo=cuerpo, estado=EstadoMail.BORRADOR
         )
         db.add(registro)
+        db.commit()
+        drawer_html = templates.env.get_template("tareas/_detalle.html").render(contexto_detalle(db, tarea_id))
+        return HTMLResponse(f'<div id="drawer-root" hx-swap-oob="true">{drawer_html}</div>')
+
+    def _composer_con_error(error: str):
+        ctx = _sheet_ctx(
+            db, usuario, tarea_id, asunto=asunto, cuerpo=cuerpo, seleccionados=ids_sel,
+            misma_cadena=en_cadena, programado_para=programado_para, error=error,
+        )
+        return templates.TemplateResponse(request, "tareas/_mail_sheet.html", ctx)
+
+    if accion == "programar":
+        cuando = _parsear_programado(programado_para)
+        if not usuario.gmail_refresh_token_enc:
+            return _composer_con_error("Para programar un envío, primero conectá tu Gmail.")
+        if not mails:
+            return _composer_con_error("Elegí al menos un destinatario con mail cargado para programar el envío.")
+        if cuando is None:
+            return _composer_con_error("Elegí la fecha y hora de envío.")
+        if cuando <= _ahora_utc():
+            return _composer_con_error("La fecha y hora de envío ya pasó: elegí una futura.")
+        if adjuntos:
+            return _composer_con_error(
+                "Los archivos adjuntos no se pueden programar (la app no los guarda). "
+                "Sacalos o mandalos como link de Drive."
+            )
+        db.add(TareaMail(
+            tarea_id=tarea_id, destinatarios=", ".join(mails), asunto=asunto, cuerpo=cuerpo,
+            estado=EstadoMail.PROGRAMADO, remitente=usuario.email,
+            programado_para=cuando, misma_cadena=en_cadena,
+        ))
         db.commit()
         drawer_html = templates.env.get_template("tareas/_detalle.html").render(contexto_detalle(db, tarea_id))
         return HTMLResponse(f'<div id="drawer-root" hx-swap-oob="true">{drawer_html}</div>')
@@ -274,6 +333,89 @@ def eliminar_borrador(tarea_id: int, mail_id: int, request: Request, db: Session
     db.commit()
     drawer_html = templates.env.get_template("tareas/_detalle.html").render(contexto_detalle(db, tarea_id))
     return HTMLResponse(f'<div id="drawer-root" hx-swap-oob="true">{drawer_html}</div>')
+
+
+@router.post("/tareas/{tarea_id}/mail/{mail_id}/cancelar-programado")
+def cancelar_programado(tarea_id: int, mail_id: int, request: Request, db: Session = Depends(get_db)):
+    """Saca un mail PROGRAMADO de la cola y lo deja como BORRADOR: el texto
+    no se pierde y el composer lo retoma para editarlo o reprogramarlo. Si
+    ya salió (o falló) entre que se abrió el drawer y se tocó el botón, 409."""
+    _usuario(request, db)
+    registro = db.get(TareaMail, mail_id)
+    if registro is None or registro.tarea_id != tarea_id:
+        return HTMLResponse("Mail no encontrado", status_code=404)
+    if registro.estado != EstadoMail.PROGRAMADO:
+        return HTMLResponse("Ese mail ya no está programado", status_code=409)
+    registro.estado = EstadoMail.BORRADOR
+    registro.programado_para = None
+    registro.enviado_en = _ahora_utc()  # que el composer lo tome como el borrador más reciente
+    db.commit()
+    drawer_html = templates.env.get_template("tareas/_detalle.html").render(contexto_detalle(db, tarea_id))
+    return HTMLResponse(f'<div id="drawer-root" hx-swap-oob="true">{drawer_html}</div>')
+
+
+def _despachar_uno(db: Session, registro: TareaMail) -> None:
+    """Manda un mail PROGRAMADO desde la cuenta que lo programó y deja el
+    resultado (ENVIADO o ERROR) en el mismo registro. La cadena se resuelve
+    ahora, no al programar: puede haber salido otro mail de la tarea entre
+    medio y la respuesta tiene que colgar del último."""
+    usuario = (
+        db.query(Usuario).filter(Usuario.email == registro.remitente).one_or_none()
+        if registro.remitente else None
+    )
+    registro.enviado_en = _ahora_utc()
+    if usuario is None or not usuario.activo:
+        registro.estado = EstadoMail.ERROR
+        registro.error_detalle = "No salió: el usuario que lo programó ya no está activo en la app."
+        return
+    anterior = _mail_de_cadena(registro.tarea) if registro.misma_cadena else None
+    asunto = _asunto_en_cadena(anterior) if anterior else registro.asunto
+    mails = [m.strip() for m in registro.destinatarios.split(",") if m.strip()]
+    try:
+        enviado = enviar_mail(
+            usuario, mails, asunto, registro.cuerpo,
+            en_cadena=_ancla_cadena(anterior, usuario) if anterior else None,
+        )
+    except (GmailNoConectado, GmailNoConfigurado, GmailError) as e:
+        if isinstance(e, GmailTokenRevocado):
+            gmail_client.desconectar(usuario)
+        registro.estado = EstadoMail.ERROR
+        registro.error_detalle = f"No salió el envío programado: {e}"
+        return
+    registro.asunto = asunto
+    registro.gmail_message_id = enviado.gmail_message_id
+    registro.gmail_thread_id = enviado.gmail_thread_id
+    registro.rfc_message_id = enviado.rfc_message_id
+    registro.estado = EstadoMail.ENVIADO
+
+
+def despachar_programados(db: Session, ahora: datetime | None = None) -> int:
+    """Manda los mails PROGRAMADO cuya hora ya llegó (los más viejos primero,
+    hasta DESPACHO_MAX_POR_PASADA). Lo llama /auth/mantener en cada ping del
+    cron externo. FOR UPDATE SKIP LOCKED: si dos pings se pisan, cada mail lo
+    toma uno solo (sqlite lo ignora). Commit por mail, para que un error a
+    mitad no reenvíe los que ya salieron. Devuelve cuántos procesó."""
+    ahora = ahora or _ahora_utc()
+    procesados = 0
+    for _ in range(DESPACHO_MAX_POR_PASADA):
+        registro = (
+            db.query(TareaMail)
+            .filter(TareaMail.estado == EstadoMail.PROGRAMADO, TareaMail.programado_para <= ahora)
+            .order_by(TareaMail.programado_para)
+            .with_for_update(skip_locked=True)
+            .first()
+        )
+        if registro is None:
+            break
+        try:
+            _despachar_uno(db, registro)
+        except Exception as e:  # nunca dejarlo PROGRAMADO: se reintentaría en cada ping
+            log.exception("falló el despacho del mail programado %s", registro.id)
+            registro.estado = EstadoMail.ERROR
+            registro.error_detalle = f"No salió el envío programado: {e}"
+        db.commit()
+        procesados += 1
+    return procesados
 
 
 def _drive_json(fn, *args):

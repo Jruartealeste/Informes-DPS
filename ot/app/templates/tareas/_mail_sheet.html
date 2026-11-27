@@ -124,6 +124,12 @@
           </div>
           <div class="field-hint">Hasta 4 MB en total se mandan adjuntos (no se guardan en la app, tampoco en borradores). Si pesan más, se suben a tu Drive (carpeta «OT - Adjuntos») y se agrega el link al mail, visible para cualquiera que lo tenga.</div>
         </div>
+
+        <div class="field">
+          <div class="field__label">Programar envío <span style="color:var(--faint);font-weight:400">(opcional)</span></div>
+          <input type="datetime-local" name="programado_para" value="{{ programado_para }}" min="{{ programado_min }}" step="60">
+          <div class="field-hint">Elegí fecha y hora y tocá «Programar». Sale desde tu cuenta, de lunes a viernes entre las 8 y las 19 (si elegís otro momento, sale al arrancar el siguiente día hábil), con hasta unos minutos de demora. Sin archivos adjuntos: usá links de Drive. Se puede cancelar desde la sección Mails de la tarea.</div>
+        </div>
       </div>
       <script>
       (function () {
@@ -165,7 +171,7 @@
           var form = input.form;
           // mientras sube solo se bloquea "Guardar borrador"; "Enviar mail" queda
           // disponible y manda el mail apenas termina la subida
-          var borrador = Array.from(botones).filter(function (b) { return b.value === 'borrador'; });
+          var borrador = Array.from(botones).filter(function (b) { return b.value === 'borrador' || b.value === 'programar'; });
           borrador.forEach(function (b) { b.disabled = true; });
           form._subiendo = true;
           window._subidasEnCurso = (window._subidasEnCurso || 0) + 1;
@@ -241,7 +247,7 @@
             var form = ev.target;
             if (!form || !form._subiendo) return;
             var btn = ev.submitter;
-            if (btn && btn.value === 'borrador') return;
+            if (btn && (btn.value === 'borrador' || btn.value === 'programar')) return;
             ev.preventDefault();
             ev.stopImmediatePropagation();
             form._enviarAlTerminar = true;
@@ -257,7 +263,10 @@
 
       <div class="drawer__footer">
         <button type="submit" name="accion" value="enviar" class="btn btn--primary"
+                onclick="var f=this.form.programado_para; if (f && f.value && !confirm('Cargaste una fecha de envío. ¿Mandarlo ahora igual? (para que salga en esa fecha, tocá «Programar»)')) event.preventDefault();"
                 {% if not gmail_conectado %}disabled title="Conectá tu Gmail primero"{% endif %}>Enviar mail</button>
+        <button type="submit" name="accion" value="programar" class="btn"
+                {% if not gmail_conectado %}disabled title="Conectá tu Gmail primero"{% endif %}>Programar</button>
         <button type="submit" name="accion" value="borrador" class="btn">Guardar borrador</button>
         <button type="button" class="btn" onclick="cerrarSheet2(event)">Cancelar</button>
       </div>

@@ -86,7 +86,16 @@ def mail_vm(m) -> dict:
         "estado": m.estado.name,
         "error_detalle": m.error_detalle,
         "enviado_en_label": m.enviado_en.strftime("%d/%m %H:%M"),
+        "programado_label": _hora_ar_label(m.programado_para) if m.programado_para else None,
     }
+
+
+def _hora_ar_label(dt: datetime) -> str:
+    """'dd/mm HH:MM' en hora de Argentina. Postgres devuelve aware; sqlite
+    (tests/QA) devuelve naive, y lo guardado es siempre UTC."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_AR).strftime("%d/%m %H:%M")
 
 
 def responsables_con_mail(t: Tarea) -> list[dict]:

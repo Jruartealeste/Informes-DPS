@@ -54,6 +54,9 @@ class EstadoMail(str, enum.Enum):
     BORRADOR = "BORRADOR"
     ENVIADO = "ENVIADO"
     ERROR = "ERROR"
+    # envío diferido: lo manda despachar_programados() (app/routers/mail.py)
+    # cuando llega programado_para, desde la cuenta de `remitente`
+    PROGRAMADO = "PROGRAMADO"
 
 
 class RolUsuario(str, enum.Enum):
@@ -393,6 +396,10 @@ class TareaMail(Base):
     # cuenta desde la que salió (el usuario logueado). El threadId de Gmail
     # es de la casilla del remitente: solo sirve para encadenar desde la misma.
     remitente: Mapped[str | None] = mapped_column(String(200))
+    # solo PROGRAMADO: cuándo mandarlo (UTC) y si va colgado del último mail
+    # enviado de la tarea (la cadena se resuelve al despachar, no al programar)
+    programado_para: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    misma_cadena: Mapped[bool] = mapped_column(default=False, server_default="false")
     enviado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tarea: Mapped["Tarea"] = relationship(back_populates="mails")

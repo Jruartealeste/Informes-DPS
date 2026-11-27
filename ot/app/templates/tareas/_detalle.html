@@ -167,16 +167,17 @@
           <div class="field__label">Mails</div>
           <div class="mail-historial">
             {% for m in det.mails %}
-            <details class="mail-historial__item{{ ' is-error' if m.estado == 'ERROR' }}{{ ' is-borrador' if m.estado == 'BORRADOR' }}">
+            <details class="mail-historial__item{{ ' is-error' if m.estado == 'ERROR' }}{{ ' is-borrador' if m.estado == 'BORRADOR' }}{{ ' is-programado' if m.estado == 'PROGRAMADO' }}">
               <summary>
-                <span>{{ m.enviado_en_label }} · {{ m.asunto }}</span>
+                <span>{{ m.programado_label if m.estado == "PROGRAMADO" else m.enviado_en_label }} · {{ m.asunto }}</span>
                 <span class="mail-historial__estado">
-                  {% if m.estado == "ENVIADO" %}Enviado{% elif m.estado == "BORRADOR" %}Borrador{% else %}Error{% endif %}
+                  {% if m.estado == "ENVIADO" %}Enviado{% elif m.estado == "BORRADOR" %}Borrador{% elif m.estado == "PROGRAMADO" %}Programado{% else %}Error{% endif %}
                 </span>
               </summary>
               <div class="mail-historial__cuerpo">
                 {% if m.remitente %}<div class="field-hint">De: {{ m.remitente }}</div>{% endif %}
                 <div class="field-hint">Para: {{ m.destinatarios }}</div>
+                {% if m.estado == "PROGRAMADO" %}<div class="field-hint">Sale el {{ m.programado_label }} (hora de Argentina), en el primer horario hábil desde ese momento.</div>{% endif %}
                 {% if m.error_detalle %}<div class="field-hint">{{ m.error_detalle }}</div>{% endif %}
                 <pre>{{ m.cuerpo }}</pre>
                 {% if m.estado == "BORRADOR" %}
@@ -185,6 +186,13 @@
                         hx-target="#sheet-2-root" hx-swap="innerHTML"
                         hx-confirm="¿Eliminar este borrador? No se puede deshacer.">
                   Eliminar borrador
+                </button>
+                {% elif m.estado == "PROGRAMADO" %}
+                <button type="button" class="btn"
+                        hx-post="/tareas/{{ det.id }}/mail/{{ m.id }}/cancelar-programado"
+                        hx-target="#sheet-2-root" hx-swap="innerHTML"
+                        hx-confirm="¿Cancelar el envío programado? El mail queda como borrador para editarlo o reprogramarlo.">
+                  Cancelar envío
                 </button>
                 {% endif %}
               </div>

@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -82,7 +83,33 @@ def mantener(db: Session = Depends(get_db)):
     if not en_horario_laboral(_ahora()):
         return Response(status_code=204, headers={"Cache-Control": "no-store", "X-Mantener": "fuera-de-horario"})
     _consultar_base_con_limite(db)
+    _despachar_mails_con_limite(db)
     return Response(status_code=204, headers={"Cache-Control": "no-store", "X-Mantener": "ok"})
+
+
+# El mismo ping del cron externo despacha los mails programados (ver
+# "Mails programados" en CLAUDE.md): así no hace falta otro cron, y salen
+# solo en horario laboral, cuando la base ya está despierta. Limitado a una
+# pasada por minuto por instancia: el endpoint es público y no tiene que
+# servir para martillar la base.
+_ULTIMO_DESPACHO = 0.0
+_DESPACHO_CADA_S = 60
+
+
+def _despachar_mails_con_limite(db: Session) -> None:
+    global _ULTIMO_DESPACHO
+    ahora = time.monotonic()
+    if ahora - _ULTIMO_DESPACHO < _DESPACHO_CADA_S:
+        return
+    _ULTIMO_DESPACHO = ahora
+    from app.routers.mail import despachar_programados  # import diferido: evita ciclo de imports
+
+    try:
+        despachar_programados(db)
+    except Exception:
+        # el ping tiene que seguir respondiendo 204 aunque falle el despacho
+        logging.getLogger(__name__).exception("falló el despacho de mails programados")
+        db.rollback()
 
 
 @router.get("/login/google")

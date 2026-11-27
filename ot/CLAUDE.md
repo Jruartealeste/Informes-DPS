@@ -1325,3 +1325,30 @@ Reemplaza a "Anuladas y facturadas ocultas por defecto" (2026-11-25).
   CERRADO o NO CORRESPONDE (`cerrada` en `viewmodels.grupo_vm`) se oculta por
   defecto; vuelve con el check "Mostrar anuladas y cerradas" o con "Todo
   facturado" en Facturación. Filtro client-side, como el resto de ese listado.
+
+## Mails programados (2026-11-27)
+
+Pedido de Javier: programar el envío de un mail de tarea para una fecha y hora.
+- **Composer:** campo "Programar envío" (`datetime-local`, hora de Argentina) +
+  botón **Programar** (`accion=programar` en `POST /tareas/{id}/mail`). Exige
+  Gmail conectado, al menos un destinatario con mail y fecha futura. **Sin
+  adjuntos de archivo** (la app no los guarda; los >4 MB que ya se subieron a
+  Drive van como link en el cuerpo y sí sirven). Si hay fecha cargada y se toca
+  "Enviar mail", pide confirmación.
+- **Modelo:** `EstadoMail.PROGRAMADO` + `tarea_mails.programado_para` (UTC) y
+  `misma_cadena` (migración `e5b9c3a7d1f2`). Se guardan los mails de los
+  destinatarios y `remitente` = quien programó; sale desde su Gmail.
+- **Despacho:** `mail.despachar_programados` lo llama **`/auth/mantener`** (el
+  ping de cron-job.org cada 4 min, L-V 8-19): no hay cron nuevo. Una pasada por
+  minuto por instancia, hasta 10 mails, `FOR UPDATE SKIP LOCKED` y commit por
+  mail. Consecuencia buscada: **solo sale en horario laboral** (lo programado
+  para la noche o el finde sale en el primer ping hábil) y con hasta ~4 min de
+  demora. La cadena ("misma cadena") se resuelve al despachar, contra el último
+  ENVIADO de la tarea. Errores (Gmail, usuario inactivo) quedan en `ERROR` con
+  detalle, nunca se reintentan solos.
+- **Drawer:** el mail aparece "Programado" con la fecha de salida; **Cancelar
+  envío** (`POST /tareas/{id}/mail/{mail_id}/cancelar-programado`) lo pasa a
+  BORRADOR, así el composer lo retoma para editar o reprogramar.
+- **Deploy con migración:** migrar prod (`alembic upgrade head` con el
+  `DATABASE_URL` de `.env.prod`) antes del push.
+- Tests: `tests/test_mail_programado.py`.
